@@ -12,6 +12,7 @@
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
       - `ZombieFemale.js`: 女性僵尸敌人逻辑 (HP 35, Speed 1.1, Damage 8)。
+      - `ZombieBrute.js`: 健壮僵尸敌人逻辑 (HP 120, Speed 0.7, Damage 18, 击退抗性 0.3x)。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
@@ -96,3 +97,8 @@
 - 玩家和敌人通过 `getMovementHitboxAt(x, y)` 提供统一的“移动碰撞体”（脚底占地）。
 - `WorldSystem.resolveEntityMovement()` 负责统一处理移动、贴墙滑动、卡住检测与自动脱困。
 - 门关闭时会先做阻挡预检，避免将玩家或敌人夹进门框。
+- 自适应墙体 (`wall`) 采用**多段碰撞体**（`getHitboxes()`），不再等价为单个矩形包围盒。
+- 墙体判定语义拆分为三类：
+  - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。
+  - `hurtboxes` (`getHurtboxes()`): 用于子弹/激光命中检测。
+  - `occlusion hitboxes` (`getOcclusionHitboxes()`): 用于渲染遮挡排序，不直接复用碰撞底边。

@@ -1,5 +1,6 @@
 import { Assets } from '../graphics/Assets.js';
 import { TILE_SIZE, COLORS } from '../utils/Constants.js';
+import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
     constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem }) {
@@ -135,24 +136,24 @@ export class Renderer {
 
         this.breakableObjects.forEach(obj => {
             if (!obj.isBroken) {
-                // Sort by hitbox bottom if available, otherwise use visual height
-                // This handles "3D" objects like walls where the visual bottom (32) 
-                // is lower than the physical footprint (22)
                 let sortY = obj.y + obj.height;
-                
-                if (obj.getHitboxes) {
-                    // Support multiple hitboxes (e.g. Open Door Frames)
-                    // Use the lowest point (Max Y) of any hitbox for sorting
-                    const hitboxes = obj.getHitboxes();
+
+                const occlusionHitboxes = obj.getOcclusionHitboxes
+                    ? obj.getOcclusionHitboxes()
+                    : (obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()]);
+
+                if (occlusionHitboxes && occlusionHitboxes.length > 0) {
                     let maxY = -Infinity;
-                    hitboxes.forEach(hb => {
-                        // hb is in world coordinates
-                        const bottom = hb.y + hb.height;
+                    occlusionHitboxes.forEach(hb => {
+                        const h = hb.height ?? hb.h ?? 0;
+                        const bottom = hb.y + h;
                         if (bottom > maxY) maxY = bottom;
                     });
                     if (maxY !== -Infinity) {
                         sortY = maxY;
                     }
+                } else if (Number.isFinite(obj.occlusionSortY)) {
+                    sortY = obj.y + obj.occlusionSortY;
                 } else if (obj.hitbox) {
                     sortY = obj.y + obj.hitbox.offsetY + obj.hitbox.height;
                 }
@@ -499,8 +500,12 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
         this.breakableObjects.forEach(obj => {
             if (!obj.isBroken) {
-                const hb = obj.getHitbox();
-                ctx.strokeRect(hb.x, hb.y, hb.width, hb.height);
+                const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+                hitboxes.forEach(hb => {
+                    const w = hb.width ?? hb.w;
+                    const h = hb.height ?? hb.h;
+                    ctx.strokeRect(hb.x, hb.y, w, h);
+                });
             }
         });
 
@@ -568,8 +573,14 @@ export class Renderer {
         ctx.strokeStyle = 'rgba(0, 255, 255, 0.85)';
         this.breakableObjects.forEach(obj => {
             if (obj.isBroken) return;
-            const hb = obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox();
-            ctx.strokeRect(hb.x, hb.y, hb.width, hb.height);
+            const hurtboxes = obj.getHurtboxes
+                ? obj.getHurtboxes()
+                : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+            hurtboxes.forEach(hb => {
+                const w = hb.width ?? hb.w;
+                const h = hb.height ?? hb.h;
+                ctx.strokeRect(hb.x, hb.y, w, h);
+            });
         });
     }
 
@@ -621,7 +632,7 @@ export class Renderer {
 
         // 1. Walls
         this.walls.forEach(w => {
-            const dist = this.rayRectIntersect(start, dir, {x: w.x, y: w.y, width: w.w, height: w.h});
+            const dist = CollisionUtils.rayRectIntersect(start, dir, {x: w.x, y: w.y, width: w.w, height: w.h}, minDist);
             if (dist !== null && dist < minDist) minDist = dist;
         });
 
@@ -629,15 +640,17 @@ export class Renderer {
         this.vehicles.forEach(v => {
             if (v.isDead) return;
             const rect = { x: v.x - v.width/2, y: v.y - v.height/2, width: v.width, height: v.height };
-            const dist = this.rayRectIntersect(start, dir, rect);
+            const dist = CollisionUtils.rayRectIntersect(start, dir, rect, minDist);
             if (dist !== null && dist < minDist) minDist = dist;
         });
 
         // 3. Breakable objects
         this.breakableObjects.forEach(obj => {
             if (obj.isBroken) return;
-            const box = obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox();
-            const dist = this.rayRectIntersect(start, dir, box);
+            const boxes = obj.getHurtboxes
+                ? obj.getHurtboxes()
+                : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+            const dist = CollisionUtils.rayIntersectsRects(start, dir, boxes, minDist);
             if (dist !== null && dist < minDist) minDist = dist;
         });
 
@@ -648,7 +661,7 @@ export class Renderer {
             const rect = e.getBulletHurtbox
                 ? e.getBulletHurtbox()
                 : { x: e.x - e.width/2, y: e.y - e.height, width: e.width, height: e.height };
-            const dist = this.rayRectIntersect(start, dir, rect);
+            const dist = CollisionUtils.rayRectIntersect(start, dir, rect, hitEnemyDist);
             if (dist !== null && dist < hitEnemyDist) {
                 hitEnemyDist = dist;
                 hitEnemy = e;
@@ -678,37 +691,5 @@ export class Renderer {
         ctx.fill();
 
         ctx.restore();
-    }
-    
-    // Helper: Ray vs Rect Intersection (Returns distance or null)
-    rayRectIntersect(origin, dir, rect) {
-        // Slab method
-        let tMin = 0;
-        let tMax = Infinity;
-        
-        // X slab
-        if (Math.abs(dir.x) < 1e-6) {
-            // Parallel to X axis
-            if (origin.x < rect.x || origin.x > rect.x + rect.width) return null;
-        } else {
-            const t1 = (rect.x - origin.x) / dir.x;
-            const t2 = (rect.x + rect.width - origin.x) / dir.x;
-            tMin = Math.max(tMin, Math.min(t1, t2));
-            tMax = Math.min(tMax, Math.max(t1, t2));
-        }
-        
-        // Y slab
-        if (Math.abs(dir.y) < 1e-6) {
-             if (origin.y < rect.y || origin.y > rect.y + rect.height) return null;
-        } else {
-            const t1 = (rect.y - origin.y) / dir.y;
-            const t2 = (rect.y + rect.height - origin.y) / dir.y;
-            tMin = Math.max(tMin, Math.min(t1, t2));
-            tMax = Math.min(tMax, Math.max(t1, t2));
-        }
-        
-        if (tMax < tMin || tMax < 0) return null;
-        
-        return tMin > 0 ? tMin : 0; 
     }
 }

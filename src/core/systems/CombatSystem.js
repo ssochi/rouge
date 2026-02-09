@@ -227,11 +227,11 @@ export class CombatSystem {
             if (!hit) {
                 for (const obj of this.breakableObjects) {
                     if (obj.isBroken) continue;
-                    // Use getHurtbox() for bullets if available, else getHitbox()
-                    const box = obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox();
+                    const hurtboxes = obj.getHurtboxes
+                        ? obj.getHurtboxes()
+                        : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
                     
-                    // Raycast check
-                    if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
+                    if (CollisionUtils.lineIntersectsRects(p1, p2, hurtboxes)) {
                          hit = true;
                          if (b.type !== 'rocket' && b.type !== 'grenade') {
                              obj.takeDamage(b.damage);

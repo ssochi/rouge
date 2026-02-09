@@ -52,6 +52,13 @@ export class BreakableObject {
         };
     }
 
+    getHurtboxes() {
+        if (this.def && this.def.getHurtboxes) {
+            return this.def.getHurtboxes(this);
+        }
+        return [this.getHurtbox()];
+    }
+
     update(player) {
         if (this.hitFlashTimer > 0) this.hitFlashTimer--;
         this.showHint = false;
@@ -123,6 +130,13 @@ export class BreakableObject {
         return [this.getHitbox()];
     }
 
+    getOcclusionHitboxes() {
+        if (this.def && this.def.getOcclusionHitboxes) {
+            return this.def.getOcclusionHitboxes(this);
+        }
+        return this.getHitboxes();
+    }
+
     interact() {
         if (this.def && this.def.interact) {
             return this.def.interact(this);
@@ -147,6 +161,10 @@ export class BreakableObject {
         if (this.shadow) {
             if (this.shadow.type === 'rect') {
                 ctx.fillRect(this.shadow.x, this.shadow.y, this.shadow.w, this.shadow.h);
+            } else if (this.shadow.type === 'multiRect' && Array.isArray(this.shadow.rects)) {
+                this.shadow.rects.forEach(r => {
+                    ctx.fillRect(r.x, r.y, r.w, r.h);
+                });
             } else {
                 ctx.ellipse(16, this.shadow.y, this.shadow.rx, this.shadow.ry, 0, 0, Math.PI * 2);
                 ctx.fill();

@@ -1,6 +1,7 @@
 import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../../utils/Constants.js';
 import { Zombie } from '../entities/Zombie.js';
 import { ZombieFemale } from '../entities/ZombieFemale.js';
+import { ZombieBrute } from '../entities/ZombieBrute.js';
 import { Hunter } from '../entities/Hunter.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
@@ -349,6 +350,11 @@ export class WorldSystem {
             this.spawnEnemy('zombie_female');
         }
 
+        // Spawn Zombie Brutes
+        for (let i = 0; i < 8; i++) {
+            this.spawnEnemy('zombie_brute');
+        }
+
         // Spawn Hunters
         for (let i = 0; i < 10; i++) {
             this.spawnEnemy('hunter');
@@ -400,6 +406,8 @@ export class WorldSystem {
             this.enemies.push(new Hunter(ex, ey));
         } else if (type === 'zombie_female') {
             this.enemies.push(new ZombieFemale(ex, ey));
+        } else if (type === 'zombie_brute') {
+            this.enemies.push(new ZombieBrute(ex, ey));
         } else {
             this.enemies.push(new Zombie(ex, ey));
         }

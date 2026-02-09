@@ -322,27 +322,39 @@ export class Vehicle {
         
         for (const obj of breakableObjects) {
             if (obj.isBroken) continue;
-            
-            const hb = obj.getHitbox ? obj.getHitbox() : {
-                x: obj.x,
-                y: obj.y,
-                width: obj.width,
-                height: obj.height
-            };
-            
-            if (this._obbIntersectsAabb(x, y, hw, hh, this.angle, hb.x, hb.y, hb.width, hb.height)) {
+
+            const hitboxes = obj.getHitboxes
+                ? obj.getHitboxes()
+                : [obj.getHitbox ? obj.getHitbox() : {
+                    x: obj.x,
+                    y: obj.y,
+                    width: obj.width,
+                    height: obj.height
+                }];
+
+            let collidedHitbox = null;
+            for (const hb of hitboxes) {
+                const hbWidth = hb.width ?? hb.w;
+                const hbHeight = hb.height ?? hb.h;
+                if (this._obbIntersectsAabb(x, y, hw, hh, this.angle, hb.x, hb.y, hbWidth, hbHeight)) {
+                    collidedHitbox = { x: hb.x, y: hb.y, width: hbWidth, height: hbHeight };
+                    break;
+                }
+            }
+
+            if (collidedHitbox) {
                 if (Math.abs(this.speed) > 3) {
                     obj.takeDamage(100);
                     if (obj.isBroken) {
                         this.speed *= 0.8;
                         if (combatSystem && combatSystem.spawnDebris) {
-                            combatSystem.spawnDebris(hb.x + hb.width / 2, hb.y + hb.height / 2, obj.type);
+                            combatSystem.spawnDebris(collidedHitbox.x + collidedHitbox.width / 2, collidedHitbox.y + collidedHitbox.height / 2, obj.type);
                         }
                         if (particles) {
                             for (let i = 0; i < 5; i++) {
                                 particles.push({
-                                    x: hb.x + hb.width / 2,
-                                    y: hb.y + hb.height / 2,
+                                    x: collidedHitbox.x + collidedHitbox.width / 2,
+                                    y: collidedHitbox.y + collidedHitbox.height / 2,
                                     vx: (Math.random() - 0.5) * 4,
                                     vy: (Math.random() - 0.5) * 4,
                                     life: 30,
