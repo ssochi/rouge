@@ -35,6 +35,10 @@ import { SHOTGUN_SPRITE } from '../assets/weapons/ShotgunGenerator.js';
 import { SNIPER_SPRITE } from '../assets/weapons/SniperGenerator.js';
 import { CROSSBOW_SPRITE, CROSSBOW_FIRED_SPRITE } from '../assets/weapons/CrossbowGenerator.js';
 import { GRENADE_LAUNCHER_SPRITE } from '../assets/weapons/GrenadeLauncherGenerator.js';
+import { LASER_GUN_SPRITE } from '../assets/weapons/LaserGunGenerator.js';
+import { FLAMETHROWER_SPRITE } from '../assets/weapons/FlamethrowerGenerator.js';
+import { BLACK_HOLE_GUN_SPRITE } from '../assets/weapons/BlackHoleGunGenerator.js';
+import { TELEPORT_GUN_SPRITE } from '../assets/weapons/TeleportGunGenerator.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
@@ -180,6 +184,10 @@ export const Assets = {
     crossbow: CROSSBOW_SPRITE,
     crossbow_fired: CROSSBOW_FIRED_SPRITE,
     grenade_launcher: GRENADE_LAUNCHER_SPRITE,
+    laser_gun: LASER_GUN_SPRITE,
+    flamethrower: FLAMETHROWER_SPRITE,
+    black_hole_gun: BLACK_HOLE_GUN_SPRITE,
+    teleport_gun: TELEPORT_GUN_SPRITE,
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

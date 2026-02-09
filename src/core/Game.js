@@ -34,6 +34,7 @@ export class Game {
         this.droppedItems = [];
         this.breakableObjects = [];
         this.vehicles = [];
+        this.blackHoles = [];
         // Portals are managed by WorldSystem but need to be passed to Renderer via Game reference or directly
 
         this.navGrid = new NavigationGrid(MAP_WIDTH, MAP_HEIGHT, TILE_SIZE);
@@ -100,7 +101,8 @@ export class Game {
             camera: this.camera,
             handSystem: this.handSystem,
             player: this.player,
-            vehicles: this.vehicles
+            vehicles: this.vehicles,
+            blackHoles: this.blackHoles
         });
 
         this.inventorySystem = new InventorySystem();
@@ -148,7 +150,8 @@ export class Game {
             droppedItems: this.droppedItems,
             bullets: this.bullets,
             worldSystem: this.worldSystem, // Pass WorldSystem to access portals
-            buildSystem: this.buildSystem
+            buildSystem: this.buildSystem,
+            blackHoles: this.blackHoles
         });
 
         // Initial Inventory
@@ -160,6 +163,10 @@ export class Game {
         this.inventorySystem.add('weapon:sniper', 1);
         this.inventorySystem.add('weapon:crossbow', 1);
         this.inventorySystem.add('weapon:grenade_launcher', 1);
+        this.inventorySystem.add('weapon:laser_gun', 1);
+        this.inventorySystem.add('weapon:flamethrower', 1);
+        this.inventorySystem.add('weapon:black_hole_gun', 1);
+        this.inventorySystem.add('weapon:teleport_gun', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -294,6 +301,8 @@ export class Game {
         this.playerSystem.updatePlayerAimAndAction();
 
         this.combatSystem.updateBullets();
+        this.combatSystem.updateBlackHoles();
+        this.combatSystem.updateBurnEffects();
         this.breakableObjects.forEach(obj => obj.update(this.player));
         this.combatSystem.updateParticles();
         this.worldSystem.updateEnemies();

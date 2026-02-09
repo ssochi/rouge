@@ -234,9 +234,120 @@ export const WEAPONS = {
         knockback: 8,
         // Fake 3D Parabola params
         initialZ: 12,
-        vzInitial: 3, 
+        vzInitial: 3,
         gravityZ: 0.15,
         magazineSize: 1,
+        maxReserve: 15,
+        reloadTime: 2000
+    },
+    laser_gun: {
+        name: "Laser Gun",
+        type: WeaponType.RIFLE,
+        sprite: "laser_gun",
+        // Pivot @ Grip (10, 6). Canvas 28x12.
+        drawOffset: { x: -10, y: -6 },
+        muzzleOffset: { x: 18, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 600,
+        damage: 15,
+        bulletSpeed: 0,
+        bulletLife: 0,
+        bulletType: 'laser_beam',
+        bulletColor: '#00e5ff',
+        bulletSize: 0,
+        laserMaxRange: 600,
+        beamDuration: 10,
+        magazineSize: 8,
+        maxReserve: 40,
+        reloadTime: 2500
+    },
+    flamethrower: {
+        name: "Flamethrower",
+        type: WeaponType.RIFLE,
+        sprite: "flamethrower",
+        // Pivot @ Grip (10, 7). Canvas 30x14.
+        drawOffset: { x: -10, y: -7 },
+        muzzleOffset: { x: 19, y: -2 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 7, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 50,
+        damage: 3,
+        bulletSpeed: 6,
+        bulletLife: 30,
+        bulletColor: '#f39c12',
+        bulletSize: 8,
+        bulletType: 'flame',
+        spread: 25,
+        burnDamage: 2,
+        burnDuration: 180,
+        burnTickInterval: 20,
+        magazineSize: 100,
+        maxReserve: 200,
+        reloadTime: 3000
+    },
+    black_hole_gun: {
+        name: "Black Hole Gun",
+        type: WeaponType.RIFLE,
+        sprite: "black_hole_gun",
+        // Pivot @ Grip (7, 7). Canvas 26x14.
+        drawOffset: { x: -7, y: -7 },
+        muzzleOffset: { x: 18, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 3000,
+        damage: 5,
+        bulletSpeed: 4,
+        bulletLife: 100,
+        bulletColor: '#9b59b6',
+        bulletSize: 5,
+        bulletType: 'black_hole_projectile',
+        blackHoleDuration: 180,
+        blackHoleRadius: 100,
+        blackHoleDamageRadius: 40,
+        blackHoleDamage: 5,
+        blackHoleTickInterval: 15,
+        blackHolePullForce: 2,
+        magazineSize: 3,
+        maxReserve: 9,
+        reloadTime: 3500
+    },
+    teleport_gun: {
+        name: "Teleport Gun",
+        type: WeaponType.PISTOL,
+        sprite: "teleport_gun",
+        // Pivot @ Grip (6, 7). Canvas 22x14.
+        drawOffset: { x: -6, y: -7 },
+        muzzleOffset: { x: 15, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 }
+        },
+        orbitRadius: 16,
+        shellEject: false,
+        fireRate: 1000,
+        damage: 30,
+        bulletSpeed: 10,
+        bulletLife: 60,
+        bulletColor: '#3498db',
+        bulletSize: 4,
+        bulletType: 'teleport',
+        magazineSize: 3,
         maxReserve: 15,
         reloadTime: 2000
     }

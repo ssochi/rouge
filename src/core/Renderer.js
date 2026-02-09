@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -21,6 +21,7 @@ export class Renderer {
         this.worldSystem = worldSystem; // To access portals
         this.vehicles = vehicles || []; // Add vehicles
         this.buildSystem = buildSystem;
+        this.blackHoles = blackHoles || [];
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes
         this.pPressed = false;
     }
@@ -317,6 +318,52 @@ export class Renderer {
             }
         });
         
+        // Black holes (drawn on ground, before entities)
+        this.blackHoles.forEach(bh => {
+            renderList.push({
+                y: bh.y,
+                draw: () => {
+                    const progress = bh.life / bh.maxLife;
+                    this.ctx.save();
+                    this.ctx.translate(bh.x, bh.y);
+
+                    // Outer pull ring
+                    this.ctx.globalAlpha = 0.15 * progress;
+                    this.ctx.fillStyle = '#9b59b6';
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, bh.radius * progress, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    // Swirling arcs (4 arms)
+                    this.ctx.globalAlpha = 0.6 * progress;
+                    for (let j = 0; j < 4; j++) {
+                        const armAngle = bh.angle + (Math.PI / 2) * j;
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, bh.damageRadius * 0.7, armAngle, armAngle + 1.2);
+                        this.ctx.strokeStyle = '#4a0e6e';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.stroke();
+                    }
+
+                    // Inner dark core
+                    this.ctx.globalAlpha = 0.9;
+                    this.ctx.fillStyle = '#0a0a0a';
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    // Purple ring
+                    this.ctx.strokeStyle = '#9b59b6';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                    this.ctx.stroke();
+
+                    this.ctx.restore();
+                }
+            });
+        });
+
         this.particles.forEach(p => {
              renderList.push({
                  y: p.y,
@@ -341,7 +388,15 @@ export class Renderer {
                          if (sprite) {
                              this.ctx.drawImage(sprite, p.x - sprite.width/2, p.y - sprite.height/2);
                          }
-                     } else if (p.type === 'shell' || p.type === 'debris') {
+                     } else if (p.type === 'black_hole_orbit') {
+                        this.ctx.save();
+                        this.ctx.globalAlpha = Math.max(0, (p.alpha || 0.8) * (p.life / 30));
+                        this.ctx.fillStyle = p.color;
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    } else if (p.type === 'shell' || p.type === 'debris') {
                         this.ctx.save();
                         if (p.z > 0) {
                             this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -416,6 +471,47 @@ export class Renderer {
                 this.ctx.strokeStyle = '#3b4d23';
                 this.ctx.lineWidth = 1.5;
                 this.ctx.stroke();
+            } else if (b.type === 'flame') {
+                this.ctx.save();
+                const lifeRatio = b.life / (b.maxLife || 30);
+                this.ctx.globalAlpha = Math.max(0.2, lifeRatio);
+                let color = '#f1c40f';
+                if (lifeRatio < 0.5) color = '#e67e22';
+                if (lifeRatio < 0.25) color = '#e74c3c';
+                this.drawPixelCircle(this.ctx, b.x, b.y, b.size, color, 4);
+                this.ctx.restore();
+            } else if (b.type === 'black_hole_projectile') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.fillStyle = '#1a1a2e';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#9b59b6';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
+                this.ctx.restore();
+            } else if (b.type === 'teleport') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                // Outer glow
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#5dade2';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 2, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Core
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = b.color;
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                // White center
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.4, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();
@@ -425,6 +521,35 @@ export class Renderer {
                 this.ctx.lineWidth = 2;
                 this.ctx.stroke();
             }
+        });
+
+        // Draw laser beam particles (on top of everything)
+        this.particles.forEach(p => {
+            if (p.type !== 'laser_beam') return;
+            const progress = p.life / p.maxLife;
+            const alpha = progress;
+            const width = 2 + progress * 3;
+            this.ctx.save();
+            // Outer glow
+            this.ctx.globalAlpha = alpha * 0.3;
+            this.ctx.strokeStyle = p.color;
+            this.ctx.lineWidth = width * 3;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p.x1, p.y1);
+            this.ctx.lineTo(p.x2, p.y2);
+            this.ctx.stroke();
+            // Core beam
+            this.ctx.globalAlpha = alpha;
+            this.ctx.lineWidth = width;
+            this.ctx.stroke();
+            // Impact flash
+            if (progress > 0.5) {
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(p.x2, p.y2, 4 * progress, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            this.ctx.restore();
         });
 
         // Draw Blueprint
