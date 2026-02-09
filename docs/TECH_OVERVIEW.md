@@ -10,7 +10,8 @@
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
-      - `Zombie.js`: 敌人逻辑。
+      - `Zombie.js`: 男性僵尸敌人逻辑。
+      - `ZombieFemale.js`: 女性僵尸敌人逻辑 (HP 35, Speed 1.1, Damage 8)。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
@@ -18,11 +19,12 @@
       - `Portal.js`: 传送门逻辑与粒子渲染。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test)、地图生成、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑。
       - `CombatSystem.js`: 射击、子弹、粒子与爆炸效果更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
+      - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、家具摆放、布局校验、布局编译）。
     - `Renderer.js`: 负责场景绘制与 UI 刷新。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
@@ -69,6 +71,21 @@
 - **Build Mode**: 选中可放置物体时进入建造模式，`BuildSystem` 处理网格吸附与放置判定。
 - **掉落物**: `DroppedWeapon` 类负责管理地面上的武器，包含简单的悬浮动画。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取与武器交换逻辑。
+
+### Build 场景房间生成
+- `construction` 地图通过 `generation/ConstructionLayoutGenerator.js` 进行流程化生成，而非手写固定布局。
+- 生成流水线：
+  - `BuildingFootprintPlanner`: 规划多栋建筑外框（避免重叠/越界）。
+  - `RoomPartitioner`: BSP 切分房间并生成内部墙分割线。
+  - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
+  - `RoomSemanticAssigner`: 分配房间语义（客厅/卧室/书房/储物等）。
+  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。
+  - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
+  - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
+- `WorldSystem.initConstructionMap()` 负责：
+  - 建立地图边界墙。
+  - 调用生成器并实例化对象。
+  - 生成失败时使用 fallback 布局，保证场景可进入。
 
 ### 规范
 - **素材分离**: 所有美术资源定义必须在 `src/assets` 中。

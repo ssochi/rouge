@@ -1,5 +1,6 @@
 import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../../utils/Constants.js';
 import { Zombie } from '../entities/Zombie.js';
+import { ZombieFemale } from '../entities/ZombieFemale.js';
 import { Hunter } from '../entities/Hunter.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
@@ -9,6 +10,7 @@ import { Portal } from '../entities/Portal.js';
 import { Vehicle } from '../entities/Vehicle.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { Assets } from '../../graphics/Assets.js';
+import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
@@ -145,82 +147,27 @@ export class WorldSystem {
         this.walls.push({x: 0, y: (MAP_HEIGHT - 1) * TILE_SIZE, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
         this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
         this.walls.push({x: (MAP_WIDTH - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-        
-        this.player.x = 200;
-        this.player.y = 300;
 
-        // --- Large House Build ---
-        const houseX = 400;
-        const houseY = 200;
-        const houseW = 14; // tiles
-        const houseH = 10; // tiles
-        
-        // Outer Walls (Rectangle)
-        // Top
-        for(let i=0; i<houseW; i++) this.breakableObjects.push(new BreakableObject(houseX + i*32, houseY, 'wall'));
-        // Bottom
-        for(let i=0; i<houseW; i++) {
-            if (i === 7) {
-                // Entrance Door
-                this.breakableObjects.push(new BreakableObject(houseX + i*32, houseY + (houseH-1)*32, 'door_h'));
+        const layout = generateConstructionLayout({
+            mapWidth: MAP_WIDTH,
+            mapHeight: MAP_HEIGHT
+        });
+
+        if (layout.ok) {
+            layout.breakables.forEach(def => {
+                this.breakableObjects.push(new BreakableObject(def.x, def.y, def.type));
+            });
+
+            if (layout.spawn) {
+                this.player.x = layout.spawn.x;
+                this.player.y = layout.spawn.y;
             } else {
-                this.breakableObjects.push(new BreakableObject(houseX + i*32, houseY + (houseH-1)*32, 'wall'));
+                this.player.x = 200;
+                this.player.y = 300;
             }
+        } else {
+            this.initConstructionFallbackLayout();
         }
-        // Left
-        for(let i=1; i<houseH-1; i++) this.breakableObjects.push(new BreakableObject(houseX, houseY + i*32, 'wall'));
-        // Right
-        for(let i=1; i<houseH-1; i++) this.breakableObjects.push(new BreakableObject(houseX + (houseW-1)*32, houseY + i*32, 'wall'));
-        
-        // Internal Walls (Dividing Rooms)
-        // Vertical Divider at x=6 (Living Room Left / Bedroom Right)
-        for(let i=1; i<houseH-1; i++) {
-            if (i === 4) {
-                 // Vertical Door connecting Living Room to Bedroom
-                 this.breakableObjects.push(new BreakableObject(houseX + 6*32, houseY + i*32, 'door_v'));
-            } else if (i !== 5) { // Leave i=5 as gap? Or just door at i=4 is enough. Let's close gap i=5 with wall
-                this.breakableObjects.push(new BreakableObject(houseX + 6*32, houseY + i*32, 'wall'));
-            }
-        }
-        
-        // Horizontal Divider in Right Section (Bedroom Top / Bathroom Bottom?)
-        // At y=5
-        for(let i=7; i<houseW-1; i++) {
-             if (i === 9) {
-                 // Horizontal Door connecting Bedroom to Bathroom
-                 this.breakableObjects.push(new BreakableObject(houseX + i*32, houseY + 5*32, 'door_h'));
-             } else {
-                 this.breakableObjects.push(new BreakableObject(houseX + i*32, houseY + 5*32, 'wall'));
-             }
-        }
-
-        // --- Furniture ---
-        
-        // 1. Living Room (Left Side: 0-5 x 0-9)
-        // Sofa area
-        this.breakableObjects.push(new BreakableObject(houseX + 1*32, houseY + 2*32, 'sofa')); // Facing down? Sofa sprite is horizontal
-        // TV Stand opposite sofa
-        this.breakableObjects.push(new BreakableObject(houseX + 1*32, houseY + 5*32, 'tv_stand')); 
-        // Table in middle
-        this.breakableObjects.push(new BreakableObject(houseX + 3*32, houseY + 3*32, 'table'));
-        // Bookshelves along walls
-        this.breakableObjects.push(new BreakableObject(houseX + 1*32, houseY + 1*32, 'bookshelf'));
-        this.breakableObjects.push(new BreakableObject(houseX + 2*32, houseY + 1*32, 'bookshelf'));
-        
-        // 2. Master Bedroom (Top Right: 7-13 x 0-4)
-        // Bed (Horizontal or Vertical)
-        this.breakableObjects.push(new BreakableObject(houseX + 11*32, houseY + 1*32, 'bed'));
-        // Nightstand
-        this.breakableObjects.push(new BreakableObject(houseX + 10*32, houseY + 1*32, 'nightstand'));
-        // Wardrobe
-        this.breakableObjects.push(new BreakableObject(houseX + 12*32, houseY + 3*32, 'wardrobe'));
-        
-        // 3. Storage/Study (Bottom Right: 7-13 x 6-9)
-        // More shelves
-        this.breakableObjects.push(new BreakableObject(houseX + 8*32, houseY + 7*32, 'bookshelf'));
-        this.breakableObjects.push(new BreakableObject(houseX + 9*32, houseY + 7*32, 'bookshelf'));
-        // Desk (Table)
-        this.breakableObjects.push(new BreakableObject(houseX + 11*32, houseY + 7*32, 'table'));
 
         // Return Portal
         this.portals.push(new Portal(
@@ -230,6 +177,36 @@ export class WorldSystem {
             'HUB', 
             '#9b59b6'
         ));
+    }
+
+    initConstructionFallbackLayout() {
+        const houseTileX = 12;
+        const houseTileY = 10;
+        const houseW = 12;
+        const houseH = 8;
+
+        for (let x = 0; x < houseW; x++) {
+            this.breakableObjects.push(new BreakableObject((houseTileX + x) * TILE_SIZE, houseTileY * TILE_SIZE, 'wall'));
+            const isDoor = x === Math.floor(houseW / 2);
+            const bottomType = isDoor ? 'door_h' : 'wall';
+            this.breakableObjects.push(new BreakableObject((houseTileX + x) * TILE_SIZE, (houseTileY + houseH - 1) * TILE_SIZE, bottomType));
+        }
+
+        for (let y = 1; y < houseH - 1; y++) {
+            this.breakableObjects.push(new BreakableObject(houseTileX * TILE_SIZE, (houseTileY + y) * TILE_SIZE, 'wall'));
+            this.breakableObjects.push(new BreakableObject((houseTileX + houseW - 1) * TILE_SIZE, (houseTileY + y) * TILE_SIZE, 'wall'));
+        }
+
+        const baseX = houseTileX * TILE_SIZE;
+        const baseY = houseTileY * TILE_SIZE;
+        this.breakableObjects.push(new BreakableObject(baseX + 2 * TILE_SIZE, baseY + 2 * TILE_SIZE, 'sofa'));
+        this.breakableObjects.push(new BreakableObject(baseX + 6 * TILE_SIZE, baseY + 2 * TILE_SIZE, 'tv_stand'));
+        this.breakableObjects.push(new BreakableObject(baseX + 8 * TILE_SIZE, baseY + 4 * TILE_SIZE, 'bed'));
+        this.breakableObjects.push(new BreakableObject(baseX + 9 * TILE_SIZE, baseY + 4 * TILE_SIZE, 'nightstand'));
+        this.breakableObjects.push(new BreakableObject(baseX + 5 * TILE_SIZE, baseY + 5 * TILE_SIZE, 'table'));
+
+        this.player.x = (houseTileX + Math.floor(houseW / 2)) * TILE_SIZE + TILE_SIZE / 2;
+        this.player.y = (houseTileY + houseH) * TILE_SIZE + TILE_SIZE / 2;
     }
 
     initTestMap() {
@@ -366,7 +343,12 @@ export class WorldSystem {
         for (let i = 0; i < 40; i++) {
             this.spawnEnemy('zombie');
         }
-        
+
+        // Spawn Female Zombies
+        for (let i = 0; i < 30; i++) {
+            this.spawnEnemy('zombie_female');
+        }
+
         // Spawn Hunters
         for (let i = 0; i < 10; i++) {
             this.spawnEnemy('hunter');
@@ -413,9 +395,11 @@ export class WorldSystem {
     spawnEnemy(type = 'zombie') {
         const ex = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2) * TILE_SIZE;
         const ey = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2) * TILE_SIZE;
-        
+
         if (type === 'hunter') {
             this.enemies.push(new Hunter(ex, ey));
+        } else if (type === 'zombie_female') {
+            this.enemies.push(new ZombieFemale(ex, ey));
         } else {
             this.enemies.push(new Zombie(ex, ey));
         }

@@ -39,6 +39,8 @@ import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
 import { HUNTER_RUN } from '../assets/characters/enemies/hunter/HunterRun.js';
 import { HUNTER_AVATAR } from '../assets/characters/enemies/hunter/HunterSprite.js';
+import { ZOMBIE_FEMALE_IDLE_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleIdle.js';
+import { ZOMBIE_FEMALE_RUN_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleRun.js';
 
 import { createSuvSprite } from '../assets/vehicles/SuvSprite.js';
 import { createTruckSprite } from '../assets/vehicles/TruckSprite.js';
@@ -99,6 +101,10 @@ export const Assets = {
     zombie: {
         idle: ZOMBIE_IDLE_FRAMES,
         run: ZOMBIE_RUN_FRAMES
+    },
+    zombieFemale: {
+        idle: ZOMBIE_FEMALE_IDLE_FRAMES,
+        run: ZOMBIE_FEMALE_RUN_FRAMES
     },
     objects: {
         box: boxSprite,
