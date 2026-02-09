@@ -29,6 +29,10 @@ import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
 import { createFloorSprites } from '../assets/floors/FloorSprites.js';
+import { createTreeSprite } from '../assets/objects/nature/TreeSprite.js';
+import { createTreeSmallSprite } from '../assets/objects/nature/TreeSmallSprite.js';
+import { createBushSprite } from '../assets/objects/nature/BushSprite.js';
+import { createGrassTuftSprite } from '../assets/objects/nature/GrassTuftSprite.js';
 import { PixelDraw } from '../utils/PixelDraw.js';
 import { SMG_SPRITE } from '../assets/weapons/SmgGenerator.js';
 import { SHOTGUN_SPRITE } from '../assets/weapons/ShotgunGenerator.js';
@@ -71,6 +75,10 @@ const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
 const floorSprites = createFloorSprites();
+const treeSprite = createTreeSprite();
+const treeSmallSprite = createTreeSmallSprite();
+const bushSprite = createBushSprite();
+const grassTuftSprite = createGrassTuftSprite();
 
 const hammerSprite = (() => {
     const canvas = document.createElement('canvas');
@@ -156,9 +164,17 @@ export const Assets = {
         bookshelf: bookshelfSprite,
         bookshelf_flash: PixelDraw.createSilhouette(bookshelfSprite),
         tv_stand: tvStandSprite,
-        tv_stand_flash: Array.isArray(tvStandSprite) 
-            ? tvStandSprite.map(s => PixelDraw.createSilhouette(s)) 
-            : PixelDraw.createSilhouette(tvStandSprite)
+        tv_stand_flash: Array.isArray(tvStandSprite)
+            ? tvStandSprite.map(s => PixelDraw.createSilhouette(s))
+            : PixelDraw.createSilhouette(tvStandSprite),
+        tree: treeSprite,
+        tree_flash: PixelDraw.createSilhouette(treeSprite),
+        tree_small: treeSmallSprite,
+        tree_small_flash: PixelDraw.createSilhouette(treeSmallSprite),
+        bush: bushSprite,
+        bush_flash: PixelDraw.createSilhouette(bushSprite),
+        grass_tuft: grassTuftSprite,
+        grass_tuft_flash: PixelDraw.createSilhouette(grassTuftSprite)
     },
     floors: floorSprites,
     // Floor tile icons for inventory (first variant of each type)

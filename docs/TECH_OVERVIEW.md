@@ -8,6 +8,7 @@
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
     - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板）。
+    - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
@@ -87,6 +88,7 @@
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
+  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛），尊重建筑缓冲区和保留区域，保证最小间距。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。
@@ -98,7 +100,7 @@
 - 4 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)，NONE(0) 使用棋盘格 fallback。
 - 数据存储：`WorldSystem.floorMap`（Uint8Array 100×100）+ `WorldSystem.floorCanvas`（预渲染离屏 Canvas）。
 - 渲染：Renderer 对有 `floorCanvas` 的地图做单次 `drawImage` 裁剪，无 `floorCanvas` 时保留棋盘格。
-- 类型边界使用 4px 噪声梯度抖动带（两侧共 8px）实现有机过渡。
+- 类型边界目前无过渡效果，直接拼接。
 - 外围墙体子格按内外分裂：内侧 WOOD、外侧 CONCRETE，确保墙两侧地面不同。
 - 详见 `docs/feature/FLOOR_TILE_SYSTEM.md`。
 
