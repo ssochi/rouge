@@ -121,7 +121,21 @@ export const DEFAULT_GENERATION_CONFIG = Object.freeze({
         bushChance: 0.10,
         grassChance: 0.12,
         buildingBuffer: 4,
-        minSpacing: 1
+        minSpacing: 1,
+        clutterEnabled: true,
+        clutterChanceNearBuilding: 0.025,
+        clutterNearBuildingMinDist: 4,
+        clutterNearBuildingMaxDist: 8,
+        clutterMaxSearchDist: 14,
+        clutterSearchExpandStep: 2,
+        clutterMinSpacing: 2,
+        clutterMinCount: 6,
+        clutterTypes: ['box', 'barrel', 'vase'],
+        clutterWeights: {
+            box: 0.4,
+            barrel: 0.35,
+            vase: 0.25
+        }
     },
     reservedRects: [
         // Keep the construction-map return portal neighborhood clear.

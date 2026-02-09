@@ -46,6 +46,10 @@ export class Hunter extends Enemy {
             if (dist < this.shootRange) {
                 // Combat State
                 this.state = 'combat';
+                const muzzle = this.handSystem.getMuzzleWorldPosition();
+                const canShoot = !combatSystem || !combatSystem.canShootFrom
+                    ? true
+                    : combatSystem.canShootFrom(this, muzzle, player);
                 
                 // Behavior: 
                 // 1. If too close, back off
@@ -55,6 +59,9 @@ export class Hunter extends Enemy {
                 if (dist < this.minRange) {
                     // Back off
                     this.moveAwayFrom(player, walls, wallQuery, getNavDirection, moveResolver);
+                } else if (!canShoot) {
+                    // Reposition when line of fire is blocked (e.g. muzzle clipping walls)
+                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
                 } else {
                     // Stand ground and shoot
                     // Maybe small random movement to not be a sitting duck
@@ -62,8 +69,8 @@ export class Hunter extends Enemy {
                 }
                 
                 // Shoot Logic
-                if (this.attackCooldown <= 0) {
-                    this.shoot(combatSystem);
+                if (this.attackCooldown <= 0 && canShoot) {
+                    this.shoot(combatSystem, player);
                 }
                 
             } else {
@@ -136,12 +143,17 @@ export class Hunter extends Enemy {
         }
     }
 
-    shoot(combatSystem) {
+    shoot(combatSystem, target = null) {
         if (!combatSystem) return;
-        
+
+        const preMuzzle = this.handSystem.getMuzzleWorldPosition();
+        if (combatSystem.canShootFrom && !combatSystem.canShootFrom(this, preMuzzle, target)) {
+            return;
+        }
+
         this.attackCooldown = this.fireRate;
         this.handSystem.triggerShoot();
-        
+
         const muzzle = this.handSystem.getMuzzleWorldPosition();
         
         // Call combat system to spawn enemy bullet

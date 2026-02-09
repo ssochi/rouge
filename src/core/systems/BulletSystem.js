@@ -361,9 +361,38 @@ export class BulletSystem {
                         ? obj.getHurtboxes()
                         : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
 
-                    if (CollisionUtils.lineIntersectsRects(p1, p2, hurtboxes)) {
-                         hit = true;
-                         if (b.type !== 'rocket' && b.type !== 'grenade') {
+                    let intersectedBox = null;
+                    for (const box of hurtboxes) {
+                        if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
+                            intersectedBox = box;
+                            break;
+                        }
+                    }
+
+                    if (intersectedBox) {
+                         if (b.type === 'ricochet' && b.bounceCount > 0) {
+                             // Reflect off object
+                             const boxLeft = intersectedBox.x;
+                             const boxRight = intersectedBox.x + intersectedBox.width;
+                             const boxTop = intersectedBox.y;
+                             const boxBottom = intersectedBox.y + intersectedBox.height;
+                             
+                             const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
+                             const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
+                             
+                             if (wasOutsideX && wasOutsideY) {
+                                 b.vx = -b.vx;
+                                 b.vy = -b.vy;
+                             } else if (wasOutsideX) {
+                                 b.vx = -b.vx;
+                             } else {
+                                 b.vy = -b.vy;
+                             }
+                             b.x = prevX;
+                             b.y = prevY;
+                             b.bounceCount--;
+                             
+                             // Damage object on bounce
                              obj.takeDamage(b.damage);
                              if (obj.isBroken) {
                                  this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -371,8 +400,34 @@ export class BulletSystem {
                                      this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
                                  }
                              }
+
+                             // Bounce spark
+                             for (let s = 0; s < 3; s++) {
+                                 this.particles.push({
+                                     x: b.x, y: b.y,
+                                     vx: (Math.random() - 0.5) * 3,
+                                     vy: (Math.random() - 0.5) * 3,
+                                     life: 15,
+                                     color: '#2ecc71',
+                                     size: Math.random() * 3 + 2,
+                                     friction: 0.85
+                                 });
+                             }
+                             // Do not set hit=true, allowing bullet to continue
+                             break;
+                         } else {
+                             hit = true;
+                             if (b.type !== 'rocket' && b.type !== 'grenade') {
+                                 obj.takeDamage(b.damage);
+                                 if (obj.isBroken) {
+                                     this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                     if (obj.type === 'explosive_barrel') {
+                                         this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                     }
+                                 }
+                             }
+                             break;
                          }
-                         break;
                     }
                 }
             }

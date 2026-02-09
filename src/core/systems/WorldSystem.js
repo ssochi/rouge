@@ -14,6 +14,7 @@ import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
+import { CollisionUtils } from '../../utils/CollisionUtils.js';
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
@@ -153,16 +154,20 @@ export class WorldSystem {
         ));
     }
 
-    initConstructionMap() {
-        // Large empty area
+    addBoundaryWalls() {
         this.walls.push({x: 0, y: 0, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
         this.walls.push({x: 0, y: (MAP_HEIGHT - 1) * TILE_SIZE, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
         this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
         this.walls.push({x: (MAP_WIDTH - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
+    }
+
+    applyGeneratedLayout(configOverrides = null) {
+        this.addBoundaryWalls();
 
         const layout = generateConstructionLayout({
             mapWidth: MAP_WIDTH,
-            mapHeight: MAP_HEIGHT
+            mapHeight: MAP_HEIGHT,
+            config: configOverrides
         });
 
         if (layout.ok) {
@@ -178,16 +183,49 @@ export class WorldSystem {
                 this.player.y = 300;
             }
 
-            // Store floor map and build pre-rendered canvas
             if (layout.floorMap) {
                 this.floorMap = layout.floorMap;
                 this.floorMapWidth = layout.floorMapWidth;
                 this.floorMapHeight = layout.floorMapHeight;
                 this.buildFloorCanvas();
             }
-        } else {
-            this.initConstructionFallbackLayout();
+
+            return true;
         }
+
+        this.initConstructionFallbackLayout();
+        return false;
+    }
+
+    spawnGameEncounters() {
+        // Spawn Zombies
+        for (let i = 0; i < 40; i++) {
+            this.spawnEnemy('zombie');
+        }
+
+        // Spawn Female Zombies
+        for (let i = 0; i < 30; i++) {
+            this.spawnEnemy('zombie_female');
+        }
+
+        // Spawn Zombie Brutes
+        for (let i = 0; i < 8; i++) {
+            this.spawnEnemy('zombie_brute');
+        }
+
+        // Spawn Hunters
+        for (let i = 0; i < 10; i++) {
+            this.spawnEnemy('hunter');
+        }
+
+        // Spawn Soldiers
+        for (let i = 0; i < 6; i++) {
+            this.spawnEnemy('soldier');
+        }
+    }
+
+    initConstructionMap() {
+        this.applyGeneratedLayout();
 
         // Return Portal
         this.portals.push(new Portal(
@@ -224,6 +262,25 @@ export class WorldSystem {
         this.breakableObjects.push(new BreakableObject(baseX + 8 * TILE_SIZE, baseY + 4 * TILE_SIZE, 'bed'));
         this.breakableObjects.push(new BreakableObject(baseX + 9 * TILE_SIZE, baseY + 4 * TILE_SIZE, 'nightstand'));
         this.breakableObjects.push(new BreakableObject(baseX + 5 * TILE_SIZE, baseY + 5 * TILE_SIZE, 'table'));
+
+        const clutterCandidates = [
+            { x: houseTileX - 5, y: houseTileY - 2 },
+            { x: houseTileX - 4, y: houseTileY + 1 },
+            { x: houseTileX - 4, y: houseTileY + 4 },
+            { x: houseTileX + houseW + 3, y: houseTileY - 1 },
+            { x: houseTileX + houseW + 4, y: houseTileY + 2 },
+            { x: houseTileX + houseW + 4, y: houseTileY + 5 },
+            { x: houseTileX + 2, y: houseTileY + houseH + 3 },
+            { x: houseTileX + 5, y: houseTileY + houseH + 4 },
+            { x: houseTileX + 8, y: houseTileY + houseH + 3 },
+            { x: houseTileX + 1, y: houseTileY - 4 }
+        ];
+        const clutterTypes = ['box', 'barrel', 'vase'];
+        for (const tile of clutterCandidates) {
+            if (tile.x < 2 || tile.x > MAP_WIDTH - 3 || tile.y < 2 || tile.y > MAP_HEIGHT - 3) continue;
+            const type = clutterTypes[Math.floor(Math.random() * clutterTypes.length)];
+            this.breakableObjects.push(new BreakableObject(tile.x * TILE_SIZE, tile.y * TILE_SIZE, type));
+        }
 
         this.player.x = (houseTileX + Math.floor(houseW / 2)) * TILE_SIZE + TILE_SIZE / 2;
         this.player.y = (houseTileY + houseH) * TILE_SIZE + TILE_SIZE / 2;
@@ -408,75 +465,21 @@ export class WorldSystem {
     }
 
     initGameMap() {
-        this.initMap(); // Use existing logic
-        
-        // Add Return Portal? Maybe not for main game loop yet
-    }
+        // Game scene now uses the same building pipeline as construction scene.
+        // No reserved portal area is needed here.
+        this.applyGeneratedLayout({ reservedRects: [] });
+        this.spawnGameEncounters();
 
-    initMap() {
-        this.walls.push({x: 0, y: 0, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: (MAP_HEIGHT - 1) * TILE_SIZE, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-        this.walls.push({x: (MAP_WIDTH - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-
-        for (let i = 0; i < 20; i++) {
-            const wx = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2) * TILE_SIZE;
-            const wy = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2) * TILE_SIZE;
-            this.walls.push({x: wx, y: wy, w: TILE_SIZE * 2, h: TILE_SIZE * 2});
-        }
-
-        // Spawn Zombies
-        for (let i = 0; i < 40; i++) {
-            this.spawnEnemy('zombie');
-        }
-
-        // Spawn Female Zombies
-        for (let i = 0; i < 30; i++) {
-            this.spawnEnemy('zombie_female');
-        }
-
-        // Spawn Zombie Brutes
-        for (let i = 0; i < 8; i++) {
-            this.spawnEnemy('zombie_brute');
-        }
-
-        // Spawn Hunters
-        for (let i = 0; i < 10; i++) {
-            this.spawnEnemy('hunter');
-        }
-
-        // Spawn Soldiers
-        for (let i = 0; i < 6; i++) {
-            this.spawnEnemy('soldier');
-        }
-        
-        this.droppedItems.push(new DroppedItem(500, 400, 'weapon:rifle', 1));
-        this.droppedItems.push(new DroppedItem(600, 350, 'weapon:rifle', 1));
-
-        for (let i = 0; i < 30; i++) {
-            const types = ['box', 'barrel', 'vase'];
-            const type = types[Math.floor(Math.random() * types.length)];
-            const ox = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2) * TILE_SIZE;
-            const oy = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2) * TILE_SIZE;
-            
-            let overlap = false;
-            for (const w of this.walls) {
-                if (ox < w.x + w.w && ox + 32 > w.x && oy < w.y + w.h && oy + 32 > w.y) {
-                    overlap = true;
-                    break;
-                }
-            }
-            if (!overlap) {
-                this.breakableObjects.push(new BreakableObject(ox, oy, type));
-            }
-        }
-        
-        // Set Player Start
-        this.player.x = 400;
-        this.player.y = 300;
-
-        this.navGrid.setWalls(this.walls);
-        this.navGrid.updateFlowField(this.player.x, this.player.y);
+        const minX = TILE_SIZE * 2;
+        const maxX = (MAP_WIDTH - 3) * TILE_SIZE;
+        const minY = TILE_SIZE * 2;
+        const maxY = (MAP_HEIGHT - 3) * TILE_SIZE;
+        const drop1X = Math.max(minX, Math.min(maxX, this.player.x + TILE_SIZE * 2));
+        const drop1Y = Math.max(minY, Math.min(maxY, this.player.y + TILE_SIZE * 1));
+        const drop2X = Math.max(minX, Math.min(maxX, this.player.x + TILE_SIZE * 4));
+        const drop2Y = Math.max(minY, Math.min(maxY, this.player.y - TILE_SIZE * 1));
+        this.droppedItems.push(new DroppedItem(drop1X, drop1Y, 'weapon:rifle', 1));
+        this.droppedItems.push(new DroppedItem(drop2X, drop2Y, 'weapon:rifle', 1));
     }
 
     updatePortals() {
@@ -749,6 +752,179 @@ export class WorldSystem {
         }
     }
 
+    _getRectCenter(rect) {
+        const width = rect.width ?? rect.w ?? 0;
+        const height = rect.height ?? rect.h ?? 0;
+        return {
+            x: rect.x + width / 2,
+            y: rect.y + height / 2
+        };
+    }
+
+    _distancePointToRect(px, py, rect) {
+        const width = rect.width ?? rect.w ?? 0;
+        const height = rect.height ?? rect.h ?? 0;
+        const nearX = Math.max(rect.x, Math.min(px, rect.x + width));
+        const nearY = Math.max(rect.y, Math.min(py, rect.y + height));
+        return Math.hypot(px - nearX, py - nearY);
+    }
+
+    _isDoorObject(obj) {
+        if (!obj) return false;
+        return obj.baseType === 'door_h' || obj.baseType === 'door_v' || obj.type === 'door_h' || obj.type === 'door_v';
+    }
+
+    _pickEnemyBreachTarget(enemy) {
+        const from = { x: enemy.x, y: enemy.y };
+        const to = { x: this.player.x, y: this.player.y };
+        const toLen = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+        const dirToPlayerX = (to.x - from.x) / toLen;
+        const dirToPlayerY = (to.y - from.y) / toLen;
+        const nearbyRadius = 84;
+
+        let doorOnPath = null;
+        let doorOnPathDist = Number.POSITIVE_INFINITY;
+        let doorNearby = null;
+        let doorNearbyDist = Number.POSITIVE_INFINITY;
+        let blockerOnPath = null;
+        let blockerOnPathDist = Number.POSITIVE_INFINITY;
+        let blockerNearby = null;
+        let blockerNearbyDist = Number.POSITIVE_INFINITY;
+
+        for (const obj of this.breakableObjects) {
+            if (!obj || obj.isBroken) continue;
+
+            const isDoor = this._isDoorObject(obj);
+            if (isDoor && obj.isOpen) continue;
+
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+            if (!hitboxes || hitboxes.length === 0) continue;
+
+            let minDist = Number.POSITIVE_INFINITY;
+            let nearestHitbox = null;
+            let intersectsPath = false;
+
+            for (const hb of hitboxes) {
+                const dist = this._distancePointToRect(enemy.x, enemy.y, hb);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestHitbox = hb;
+                }
+
+                if (!intersectsPath && CollisionUtils.lineIntersectsRect(from, to, hb)) {
+                    intersectsPath = true;
+                }
+            }
+
+            if (!nearestHitbox || !Number.isFinite(minDist)) continue;
+
+            if (intersectsPath) {
+                if (isDoor && minDist < doorOnPathDist) {
+                    doorOnPathDist = minDist;
+                    doorOnPath = { object: obj, hitbox: nearestHitbox };
+                } else if (!isDoor && minDist < blockerOnPathDist) {
+                    blockerOnPathDist = minDist;
+                    blockerOnPath = { object: obj, hitbox: nearestHitbox };
+                }
+                continue;
+            }
+
+            if (minDist > nearbyRadius) continue;
+
+            const center = this._getRectCenter(nearestHitbox);
+            const vecX = center.x - enemy.x;
+            const vecY = center.y - enemy.y;
+            const vecLen = Math.hypot(vecX, vecY) || 1;
+            const dot = (vecX / vecLen) * dirToPlayerX + (vecY / vecLen) * dirToPlayerY;
+            if (dot < -0.15) continue;
+
+            if (isDoor && minDist < doorNearbyDist) {
+                doorNearbyDist = minDist;
+                doorNearby = { object: obj, hitbox: nearestHitbox };
+            } else if (!isDoor && minDist < blockerNearbyDist) {
+                blockerNearbyDist = minDist;
+                blockerNearby = { object: obj, hitbox: nearestHitbox };
+            }
+        }
+
+        return doorOnPath || doorNearby || blockerOnPath || blockerNearby || null;
+    }
+
+    _damageObstacleFromEnemy(enemy, targetObj) {
+        if (!targetObj || targetObj.isBroken) return;
+
+        const baseDamage = Number.isFinite(enemy.damage) ? enemy.damage : 6;
+        const damage = Math.max(4, Math.round(baseDamage * 0.8));
+        const wasBroken = targetObj.isBroken;
+        targetObj.takeDamage(damage);
+
+        if (!wasBroken && targetObj.isBroken && this.combatSystem) {
+            if (this.combatSystem.spawnDebris) {
+                this.combatSystem.spawnDebris(
+                    targetObj.x + (targetObj.width || 32) / 2,
+                    targetObj.y + (targetObj.height || 32) / 2,
+                    targetObj.type
+                );
+            }
+
+            if (targetObj.type === 'explosive_barrel' && this.combatSystem.spawnExplosion) {
+                this.combatSystem.spawnExplosion(
+                    targetObj.x + (targetObj.width || 32) / 2,
+                    targetObj.y + (targetObj.height || 32) / 2,
+                    80,
+                    100,
+                    10
+                );
+            }
+        }
+    }
+
+    _updateEnemyBreachBehavior(enemy) {
+        if (!enemy || enemy.hp <= 0) return false;
+
+        const distToPlayer = Math.hypot(this.player.x - enemy.x, this.player.y - enemy.y);
+        if (distToPlayer > 700) return false;
+
+        const flowDist = this.navGrid.getFlowDistance(enemy.x, enemy.y);
+        const stuckFrames = enemy._movementState?.stuckFrames || 0;
+        if (flowDist >= 0 && stuckFrames < 10) {
+            return false;
+        }
+
+        const target = this._pickEnemyBreachTarget(enemy);
+        if (!target) return false;
+
+        const targetCenter = this._getRectCenter(target.hitbox);
+        const toTargetX = targetCenter.x - enemy.x;
+        const toTargetY = targetCenter.y - enemy.y;
+        const toTargetDist = Math.hypot(toTargetX, toTargetY);
+        const attackRange = Math.max(30, (enemy.attackRange || 24) + 8);
+
+        enemy._breachAttackCooldown = Math.max(0, enemy._breachAttackCooldown || 0);
+        if (enemy._breachAttackCooldown > 0) {
+            enemy._breachAttackCooldown--;
+        }
+
+        if (toTargetDist <= attackRange) {
+            enemy.state = 'attack';
+
+            if (enemy._breachAttackCooldown <= 0) {
+                this._damageObstacleFromEnemy(enemy, target.object);
+                enemy._breachAttackCooldown = this._isDoorObject(target.object) ? 20 : 26;
+            }
+            return true;
+        }
+
+        const dirX = toTargetDist > 0 ? toTargetX / toTargetDist : 0;
+        const dirY = toTargetDist > 0 ? toTargetY / toTargetDist : 0;
+        const speed = enemy.getEffectiveSpeed ? enemy.getEffectiveSpeed() : (enemy.speed || 1);
+        const nextX = enemy.x + dirX * speed;
+        const nextY = enemy.y + dirY * speed;
+        this.resolveEntityMovement(enemy, nextX, nextY, dirX, dirY);
+        enemy.state = 'run';
+        return true;
+    }
+
     updateEnemies() {
         // Periodically update wall visuals (e.g., every 10 frames)
         // We assume updateEnemies is called every frame
@@ -833,6 +1009,8 @@ export class WorldSystem {
                 this.combatSystem,
                 resolveEnemyMove
             );
+
+            this._updateEnemyBreachBehavior(e);
         });
     }
 }

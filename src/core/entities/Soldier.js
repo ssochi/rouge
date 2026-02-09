@@ -55,12 +55,17 @@ export class Soldier extends Enemy {
 
         // Continue burst (fire remaining shots)
         if (this.burstRemaining > 0 && this.burstDelay <= 0) {
-            this.fireOneBullet(combatSystem);
-            this.burstRemaining--;
-            if (this.burstRemaining > 0) {
-                this.burstDelay = this.burstDelayMax;
+            const fired = this.fireOneBullet(combatSystem, player);
+            if (!fired) {
+                this.burstRemaining = 0;
+                this.burstCooldown = Math.max(this.burstCooldown, 30);
             } else {
-                this.burstCooldown = this.burstCooldownMax;
+                this.burstRemaining--;
+                if (this.burstRemaining > 0) {
+                    this.burstDelay = this.burstDelayMax;
+                } else {
+                    this.burstCooldown = this.burstCooldownMax;
+                }
             }
         }
 
@@ -96,8 +101,13 @@ export class Soldier extends Enemy {
         this.burstDelay = 0; // Fire first shot immediately
     }
 
-    fireOneBullet(combatSystem) {
-        if (!combatSystem) return;
+    fireOneBullet(combatSystem, target = null) {
+        if (!combatSystem) return false;
+
+        const preMuzzle = this.handSystem.getMuzzleWorldPosition();
+        if (combatSystem.canShootFrom && !combatSystem.canShootFrom(this, preMuzzle, target)) {
+            return false;
+        }
 
         this.handSystem.triggerShoot();
 
@@ -111,6 +121,7 @@ export class Soldier extends Enemy {
             damage: this.damage,
             speed: 9
         });
+        return true;
     }
 
     moveTowards(target, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver) {

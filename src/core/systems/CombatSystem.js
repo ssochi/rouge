@@ -1,11 +1,14 @@
 import { ParticleSpawner } from './ParticleSpawner.js';
 import { StatusEffectSystem } from './StatusEffectSystem.js';
 import { BulletSystem } from './BulletSystem.js';
+import { CollisionUtils } from '../../utils/CollisionUtils.js';
 
 export class CombatSystem {
     constructor(deps) {
         this.bullets = deps.bullets;
         this.particles = deps.particles;
+        this.walls = deps.walls || [];
+        this.breakableObjects = deps.breakableObjects || [];
         this.camera = deps.camera;
         this.handSystem = deps.handSystem;
         this.player = deps.player;
@@ -18,14 +21,83 @@ export class CombatSystem {
         this.lastShotTime = 0;
     }
 
+    _isSegmentBlocked(start, end) {
+        const walls = this.walls || [];
+        const breakableObjects = this.breakableObjects || [];
+
+        for (const wall of walls) {
+            if (CollisionUtils.lineIntersectsRect(start, end, { x: wall.x, y: wall.y, width: wall.w, height: wall.h })) {
+                return true;
+            }
+        }
+
+        for (const obj of breakableObjects) {
+            if (!obj || obj.isBroken) continue;
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+            for (const hb of hitboxes) {
+                if (CollisionUtils.lineIntersectsRect(start, end, hb)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    _resolveTargetPoint(target) {
+        if (!target) return null;
+        if (typeof target.x === 'number' && typeof target.y === 'number' && !target.getBulletHurtbox) {
+            return { x: target.x, y: target.y };
+        }
+
+        const hb = target.getBulletHurtbox
+            ? target.getBulletHurtbox()
+            : null;
+        if (hb) {
+            return {
+                x: hb.x + (hb.width ?? hb.w) / 2,
+                y: hb.y + (hb.height ?? hb.h) / 2
+            };
+        }
+
+        if (typeof target.x === 'number' && typeof target.y === 'number') {
+            return { x: target.x, y: target.y };
+        }
+
+        return null;
+    }
+
+    canShootFrom(shooter, muzzle, target = null) {
+        if (!shooter || !muzzle) return false;
+
+        const body = { x: shooter.x, y: shooter.y };
+        const barrel = { x: muzzle.x, y: muzzle.y };
+
+        // Prevent muzzle clipping through blockers (body on one side, muzzle on the other side).
+        if (this._isSegmentBlocked(body, barrel)) {
+            return false;
+        }
+
+        const targetPoint = this._resolveTargetPoint(target);
+        if (targetPoint && this._isSegmentBlocked(barrel, targetPoint)) {
+            return false;
+        }
+
+        return true;
+    }
+
     tryShoot() {
         const now = Date.now();
         const weapon = this.handSystem.currentWeapon;
         const FIRE_RATE = weapon.fireRate || 150;
 
         if (now - this.lastShotTime > FIRE_RATE) {
-            this.handSystem.triggerShoot();
+            const preMuzzle = this.handSystem.getMuzzleWorldPosition(now);
+            if (!this.canShootFrom(this.player, preMuzzle)) {
+                return false;
+            }
 
+            this.handSystem.triggerShoot();
             const muzzle = this.handSystem.getMuzzleWorldPosition(now);
 
             // Laser beam: hitscan, no bullet

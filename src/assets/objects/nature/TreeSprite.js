@@ -4,85 +4,73 @@ import { NaturePalette as P } from './NaturePalette.js';
 export function createTreeSprite() {
     const d = new PixelDraw(32, 48);
 
-    // === TRUNK (drawn first — canopy overlaps upper portion) ===
-    d.rect(14, 24, 4, 22, P.trunk);         // shaft x14-17, y24-45
-    d.rect(13, 42, 6, 4, P.trunk);          // wider base x13-18, y42-45
-    d.rect(12, 46, 8, 2, P.trunkDark);      // root spread x12-19, y46-47
+    // === SHADOW ===
+    d.ellipse(16, 45, 10, 3, P.shadow);
 
-    // Bark texture
-    d.vLine(14, 28, 14, P.trunkLight);
-    d.vLine(17, 28, 14, P.trunkDark);
-    d.pixel(15, 31, P.trunkLight);
-    d.pixel(15, 35, P.trunkLight);
-    d.pixel(15, 39, P.trunkLight);
-    d.pixel(16, 33, P.trunkDark);
-    d.pixel(16, 37, P.trunkDark);
-    d.pixel(16, 41, P.trunkDark);
+    // === TRUNK ===
+    // Main shaft
+    d.rect(13, 28, 6, 18, P.trunkOutline); // Outline
+    d.rect(14, 29, 4, 16, P.trunk);        // Fill
 
-    // Trunk outline
-    d.vLine(13, 26, 16, P.trunkOutline);    // left shaft y26-41
-    d.vLine(18, 26, 16, P.trunkOutline);    // right shaft y26-41
-    d.vLine(12, 42, 4, P.trunkOutline);     // left base y42-45
-    d.vLine(19, 42, 4, P.trunkOutline);     // right base y42-45
-    d.vLine(11, 46, 2, P.trunkOutline);     // left root y46-47
-    d.vLine(20, 46, 2, P.trunkOutline);     // right root y46-47
-    d.hLine(12, 47, 8, P.trunkOutline);     // ground line
+    // Roots (Flared base)
+    d.fillPath([{x:13, y:40}, {x:11, y:46}, {x:14, y:46}], P.trunkOutline); // Left root outline
+    d.fillPath([{x:19, y:40}, {x:21, y:46}, {x:18, y:46}], P.trunkOutline); // Right root outline
+    
+    d.fillPath([{x:14, y:40}, {x:12, y:45}, {x:14, y:45}], P.trunk); // Left root fill
+    d.fillPath([{x:18, y:40}, {x:20, y:45}, {x:18, y:45}], P.trunk); // Right root fill
 
-    // === CANOPY dark layer (outline shape) ===
-    const darkRows = [
-        [1, 12, 8], [2, 10, 12], [3, 8, 16],
-        [4, 7, 19], [5, 6, 21], [6, 5, 23],
-        [7, 4, 24], [8, 4, 25], [9, 3, 26], [10, 3, 26],
-        [11, 3, 27], [12, 3, 27], [13, 3, 27],
-        [14, 4, 26], [15, 4, 25], [16, 5, 23],
-        [17, 5, 22], [18, 6, 21], [19, 7, 19],
-        [20, 8, 17], [21, 9, 15], [22, 10, 13],
-        [23, 11, 11], [24, 12, 9], [25, 14, 5]
+    // Trunk Shading & Texture
+    d.vLine(14, 29, 16, P.trunkLight); // Highlight left
+    d.vLine(17, 29, 16, P.trunkDark);  // Shadow right
+    // Random bark details
+    d.pixel(15, 32, P.trunkDark);
+    d.pixel(16, 36, P.trunkLight);
+    d.pixel(15, 40, P.trunkDark);
+    d.hLine(15, 34, 2, P.trunkOutline); // Scar
+
+    // === CANOPY ===
+    // Using meta-balls technique: overlapping circles to create organic shape
+    // Structure: {x, y, r}
+    const clusters = [
+        {x: 16, y: 13, r: 10}, // Top
+        {x: 10, y: 22, r: 9},  // Left
+        {x: 22, y: 22, r: 9},  // Right
+        {x: 16, y: 26, r: 10}, // Bottom Center
+        {x: 13, y: 18, r: 8},  // Filler
+        {x: 19, y: 18, r: 8}   // Filler
     ];
-    for (const [y, x, w] of darkRows) d.rect(x, y, w, 1, P.canopyDark);
 
-    // === CANOPY main color (1px inset) ===
-    const mainRows = [
-        [2, 11, 10], [3, 9, 14],
-        [4, 8, 17], [5, 7, 19], [6, 6, 21],
-        [7, 5, 22], [8, 5, 23], [9, 4, 24], [10, 4, 24],
-        [11, 4, 25], [12, 4, 25], [13, 4, 25],
-        [14, 5, 24], [15, 5, 23], [16, 6, 21],
-        [17, 6, 20], [18, 7, 19], [19, 8, 17],
-        [20, 9, 15], [21, 10, 13], [22, 11, 11],
-        [23, 12, 9], [24, 13, 7]
+    // 1. Outline (Deepest Shadow)
+    clusters.forEach(c => d.circle(c.x, c.y, c.r + 1, P.canopyOutline));
+
+    // 2. Dark Body (Shadow areas)
+    clusters.forEach(c => d.circle(c.x, c.y, c.r, P.canopyDark));
+
+    // 3. Main Body (Mid-tone) - Shifted Up-Left slightly for volume
+    clusters.forEach(c => d.circle(c.x, c.y - 2, c.r - 1, P.canopy));
+
+    // 4. Light Areas (Top-Left lighting)
+    clusters.forEach(c => {
+        // Draw smaller circles offset to top-left
+        d.circle(c.x - 2, c.y - 4, c.r - 4, P.canopyLight);
+    });
+
+    // 5. Highlights (Specularity)
+    d.circle(14, 9, 3, P.canopyHighlight);  // Top peak
+    d.pixel(8, 19, P.canopyHighlight);      // Left shoulder
+    d.pixel(20, 19, P.canopyHighlight);     // Right shoulder
+
+    // 6. Texture / Leaf Noise
+    // Add some random pixels to break smoothness
+    const noise = [
+        {x: 18, y: 15, c: P.canopyDark},
+        {x: 12, y: 25, c: P.canopyDark},
+        {x: 20, y: 25, c: P.canopyDark},
+        {x: 15, y: 30, c: P.canopyDark},
+        {x: 14, y: 12, c: P.canopyLight},
+        {x: 11, y: 20, c: P.canopyLight}
     ];
-    for (const [y, x, w] of mainRows) d.rect(x, y, w, 1, P.canopy);
-
-    // === CANOPY light (upper-left) ===
-    const lightRows = [
-        [4, 9, 10], [5, 8, 11], [6, 7, 12],
-        [7, 6, 12], [8, 6, 11], [9, 5, 11],
-        [10, 5, 10], [11, 5, 10], [12, 6, 8],
-        [13, 7, 6], [14, 8, 4]
-    ];
-    for (const [y, x, w] of lightRows) d.rect(x, y, w, 1, P.canopyLight);
-
-    // Highlights (bright spots)
-    d.pixel(10, 5, P.canopyHighlight);
-    d.pixel(9, 7, P.canopyHighlight);
-    d.pixel(8, 9, P.canopyHighlight);
-    d.pixel(11, 6, P.canopyHighlight);
-    d.pixel(7, 8, P.canopyHighlight);
-
-    // Leaf cluster depth (dark spots in main zone)
-    d.pixel(17, 10, P.canopyDark);
-    d.pixel(19, 14, P.canopyDark);
-    d.pixel(14, 18, P.canopyDark);
-    d.pixel(21, 9, P.canopyDark);
-    d.pixel(16, 16, P.canopyDark);
-    d.pixel(22, 12, P.canopyDark);
-
-    // Right-side shadow edge
-    d.pixel(28, 10, P.canopyOutline);
-    d.pixel(29, 12, P.canopyOutline);
-    d.pixel(28, 15, P.canopyOutline);
-    d.pixel(26, 18, P.canopyOutline);
+    noise.forEach(p => d.pixel(p.x, p.y, p.c));
 
     return d.getCanvas();
 }

@@ -1,7 +1,7 @@
-# Build 场景房间生成系统方案
+# 建筑生成系统方案（construction + game）
 
 ## 1. 背景与目标
-当前 `construction` 场景使用手写房屋与固定家具布局，难以覆盖多样结构验证。为提高可测性与可扩展性，本方案在 **Build 场景** 引入生成式建筑系统，实现：
+当前 `construction` 与 `game` 场景都使用同一套建筑生成流水线。该系统用于替代旧的固定/随机墙布局，提升结构多样性与可扩展性，实现：
 
 1. 多栋建筑群自动生成（2-4 栋）。
 2. 单栋内部多房间分区，门连接后保持内部可达。
@@ -11,13 +11,14 @@
 ## 2. 范围
 
 ### 2.1 In Scope
-1. 仅接入 `WorldSystem.initConstructionMap()`。
+1. 接入 `WorldSystem.initConstructionMap()` 与 `WorldSystem.initGameMap()`。
 2. 自动生成 `wall / door_h / door_v` 与现有家具对象。
 3. 纯随机（不保留 seed）。
 4. 新增生成模块目录：`src/core/systems/generation/`。
+5. 户外生成包含自然植被与低密度环境杂物（箱子/木桶/罐子）。
 
 ### 2.2 Out of Scope
-1. 不改 `hub/test/game` 场景生成逻辑。
+1. 不改 `hub/test` 场景生成逻辑。
 2. 不新增美术资产，仅使用现有家具类型。
 3. 不改战斗、输入、背包系统行为。
 
@@ -83,7 +84,7 @@
 3. 产出 breakable 列表与玩家出生点。
 
 ## 4. 生成流程
-1. `WorldSystem.initConstructionMap()` 先建立地图边界墙。
+1. `WorldSystem.initConstructionMap()` / `WorldSystem.initGameMap()` 先建立地图边界墙。
 2. 调用 `generateConstructionLayout()`。
 3. 生成器执行：建筑外框 -> 房间切分 -> 门连接 -> 语义分配 -> 家具摆放 -> 校验 -> 编译。
 4. 成功后实例化 `BreakableObject`。
@@ -99,10 +100,11 @@
 4. `FurniturePlacement`: `{roomId, type, x, y, w, h, item}`
 
 ### 5.2 WorldSystem 接入点
-`initConstructionMap()` 改为：
-1. 调用生成器获取 `breakables + spawn`。
-2. 动态创建 `BreakableObject`。
+`initConstructionMap()` 与 `initGameMap()`：
+1. 调用生成器获取 `breakables + spawn + floorMap`。
+2. 动态创建 `BreakableObject` 并构建地板离屏缓存。
 3. 失败走 `initConstructionFallbackLayout()`。
+4. `initGameMap()` 在布局完成后额外叠加敌人与掉落物生成。
 
 ## 6. 失败回退策略
 1. 单栋内部任一阶段失败（门、语义、家具、校验）则该次全局尝试失败。
@@ -110,7 +112,7 @@
 3. 全部失败后使用 `fallback` 静态小屋布局。
 
 ## 7. 验收标准
-1. 连续进入 Build 场景 30 次无崩溃、无空布局。
+1. 连续进入 `construction/game` 场景 30 次无崩溃、无空布局。
 2. 每栋建筑内部任意房间可达。
 3. 每栋有且仅有 1 个入口门。
 4. 普通房间对门数量不超过 1；大房间对最多 2。

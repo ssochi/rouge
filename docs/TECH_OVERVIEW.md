@@ -26,7 +26,7 @@
       - `Portal.js`: 传送门逻辑与粒子渲染。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
@@ -60,6 +60,7 @@
 ### 武器与弹道机制
 - 武器配置统一定义在 `src/assets/weapons/WeaponData.js`，通过 `weaponConfigId` 与背包物品绑定。
 - `CombatSystem.tryShoot()` 支持多弹丸散射（`pelletCount` + `spread`），散弹枪弹丸具有速度、位置、生命周期和大小的随机偏差。
+- `CombatSystem.canShootFrom()` 在开火前统一做线段阻挡校验：先校验“身体中心 -> 枪口”是否穿过墙体/可破坏障碍，避免手臂或枪口穿墙开火；敌人额外校验“枪口 -> 目标”是否被阻挡，阻挡时不发射子弹。
 - `CombatSystem.tryShoot()` 支持：
   - **瞬间光束**（`laser_beam`）：激光枪使用 hitscan 射线检测，瞬间伤害射线上所有敌人，光束视觉效果通过粒子系统渲染。
   - **火焰弹**（`flame`）：喷火枪发射短程火焰粒子，命中后施加燃烧 DOT（`burnDamage` + `burnDuration`）。
@@ -97,8 +98,8 @@
 - **掉落物**: `DroppedWeapon` 类负责管理地面上的武器，包含简单的悬浮动画。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取与武器交换逻辑。
 
-### Build 场景房间生成
-- `construction` 地图通过 `generation/ConstructionLayoutGenerator.js` 进行流程化生成，而非手写固定布局。
+### 建筑生成场景（construction + game）
+- `construction` 与 `game` 地图都通过 `generation/ConstructionLayoutGenerator.js` 进行流程化生成，不再依赖 `game` 旧随机墙逻辑。
 - 生成流水线：
   - `BuildingFootprintPlanner`: 规划多栋建筑外框（避免重叠/越界）。
   - `RoomPartitioner`: BSP 切分房间并生成内部墙分割线。
@@ -108,12 +109,13 @@
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
-  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛），尊重建筑缓冲区和保留区域，保证最小间距；并基于 `floorMap` 限制仅在 `GRASS`/`DIRT` 子格对应地块生成，避免长在水泥路或木地板上。
+  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛）与少量户外杂物（箱子/木桶/罐子）。植被遵守建筑缓冲区与最小间距，并基于 `floorMap` 仅在 `GRASS`/`DIRT` 子格对应地块生成；杂物仅在建筑外侧近墙环带的草地上低概率生成，避免出现在水泥路、木地板或建筑内部。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。
   - 存储地板数据并预渲染 1600×1600 离屏 Canvas（`buildFloorCanvas()`）。
   - 生成失败时使用 fallback 布局，保证场景可进入。
+- `WorldSystem.initGameMap()` 复用同一套生成与地板流程，然后叠加敌人与掉落物生成。
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
@@ -133,6 +135,7 @@
 - 玩家和敌人通过 `getMovementHitboxAt(x, y)` 提供统一的“移动碰撞体”（脚底占地）。
 - `WorldSystem.resolveEntityMovement()` 负责统一处理移动、贴墙滑动、卡住检测与自动脱困。
 - 门关闭时会先做阻挡预检，避免将玩家或敌人夹进门框。
+- 当敌人与玩家路径不可达（或持续卡住）时，`WorldSystem` 会触发破障逻辑：优先攻击阻挡路径的门，其次攻击其他阻挡物体，打通后再继续追击。
 - 自适应墙体 (`wall`) 采用**多段碰撞体**（`getHitboxes()`），不再等价为单个矩形包围盒。
 - 墙体判定语义拆分为三类：
   - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。

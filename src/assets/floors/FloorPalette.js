@@ -7,13 +7,13 @@ export const FloorPalette = {
     grassBlade: '#6ba35a',
     grassShadow: '#345a28',
 
-    // Wood
-    woodBase: '#6d4c33',
-    woodLight: '#8b6642',
-    woodDark: '#5a3d28',
-    woodGrain: '#7d5a3c',
-    woodGap: '#3e2a1a',
-    woodHighlight: '#9e7b5a',
+    // Wood (Lighter Oak/Birch style to contrast with dark furniture)
+    woodBase: '#a69580',
+    woodLight: '#b8a894',
+    woodDark: '#8c7d6b',
+    woodGrain: '#968673',
+    woodGap: '#706354',
+    woodHighlight: '#d1c4b5',
 
     // Concrete
     concreteBase: '#7a7a78',
