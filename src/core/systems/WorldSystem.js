@@ -3,6 +3,7 @@ import { Zombie } from '../entities/Zombie.js';
 import { ZombieFemale } from '../entities/ZombieFemale.js';
 import { ZombieBrute } from '../entities/ZombieBrute.js';
 import { Hunter } from '../entities/Hunter.js';
+import { Soldier } from '../entities/Soldier.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
@@ -359,6 +360,11 @@ export class WorldSystem {
         for (let i = 0; i < 10; i++) {
             this.spawnEnemy('hunter');
         }
+
+        // Spawn Soldiers
+        for (let i = 0; i < 6; i++) {
+            this.spawnEnemy('soldier');
+        }
         
         this.droppedItems.push(new DroppedItem(500, 400, 'weapon:rifle', 1));
         this.droppedItems.push(new DroppedItem(600, 350, 'weapon:rifle', 1));
@@ -404,6 +410,8 @@ export class WorldSystem {
 
         if (type === 'hunter') {
             this.enemies.push(new Hunter(ex, ey));
+        } else if (type === 'soldier') {
+            this.enemies.push(new Soldier(ex, ey));
         } else if (type === 'zombie_female') {
             this.enemies.push(new ZombieFemale(ex, ey));
         } else if (type === 'zombie_brute') {

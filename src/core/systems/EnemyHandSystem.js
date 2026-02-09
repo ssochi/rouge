@@ -4,9 +4,9 @@ import { WEAPONS, WeaponType } from '../../assets/weapons/WeaponData.js';
 // Simplified version of HandSystem for Enemies
 // Supports basic aiming and rendering
 export class EnemyHandSystem {
-    constructor(owner) {
+    constructor(owner, weaponId = 'default_pistol') {
         this.owner = owner;
-        this.currentWeaponId = 'default_pistol'; // Hunters use pistols
+        this.currentWeaponId = weaponId;
         this.currentWeapon = WEAPONS[this.currentWeaponId];
         this.orbitRadius = this.currentWeapon.orbitRadius;
         this.angle = 0;

@@ -44,6 +44,8 @@ import { ZOMBIE_FEMALE_IDLE_FRAMES } from '../assets/characters/enemies/zombie_f
 import { ZOMBIE_FEMALE_RUN_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleRun.js';
 import { ZOMBIE_FEMALE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleAttack.js';
 import { ZOMBIE_BRUTE_IDLE_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteIdle.js';
+import { SOLDIER_IDLE_FRAMES } from '../assets/characters/enemies/soldier/SoldierIdle.js';
+import { SOLDIER_RUN_FRAMES } from '../assets/characters/enemies/soldier/SoldierRun.js';
 import { ZOMBIE_BRUTE_RUN_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteRun.js';
 import { ZOMBIE_BRUTE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteAttack.js';
 
@@ -117,6 +119,10 @@ export const Assets = {
         idle: ZOMBIE_BRUTE_IDLE_FRAMES,
         run: ZOMBIE_BRUTE_RUN_FRAMES,
         attack: ZOMBIE_BRUTE_ATTACK_FRAMES
+    },
+    soldier: {
+        idle: SOLDIER_IDLE_FRAMES,
+        run: SOLDIER_RUN_FRAMES
     },
     objects: {
         box: boxSprite,
