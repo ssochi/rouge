@@ -5,13 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rougelike Shooter Demo</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/src/ui/HUD.css">
 </head>
 <body>
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
+        
+        <!-- UI Layer (DOM) -->
         <div id="ui-layer">
-            <div id="health-bar">HP: 100</div>
-            <div id="ammo-bar">Ammo: ∞</div>
+            <!-- 顶部状态栏 -->
+            <div class="status-panel">
+                <div class="ui-card player-info">
+                    <div class="avatar-frame">
+                        <!-- Placeholder Avatar -->
+                        <div style="width:32px; height:32px; background:#e74c3c; border-radius:50%;"></div>
+                    </div>
+                    <div class="stats-container">
+                        <div class="bar-container hp-bar">
+                            <div id="hp-fill" class="bar-fill" style="width: 100%;"></div>
+                            <span id="hp-text" class="bar-text">100/100</span>
+                        </div>
+                        <div class="bar-container stamina-bar">
+                            <div id="stamina-fill" class="bar-fill" style="width: 100%;"></div>
+                            <span id="stamina-text" class="bar-text">READY</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 左下角日志 -->
+            <div id="message-log" class="message-log">
+                <!-- Log entries will be added here -->
+            </div>
+
+            <!-- 底部快捷栏 -->
+            <div id="hotbar-panel" class="hotbar-panel">
+                <!-- Slots will be injected by JS -->
+            </div>
+
+            <!-- 右下角武器 -->
+            <div class="ui-card weapon-panel">
+                <div class="current-weapon">
+                    <div class="weapon-icon">
+                        <img id="weapon-icon-img" src="" alt="GUN" style="display:none;"> <!-- Placeholder -->
+                        <span style="font-size:10px; color:#7f8c8d;">[IMG]</span>
+                    </div>
+                    <span id="weapon-name" class="weapon-name">RIFLE</span>
+                </div>
+                <div id="ammo-text" class="ammo-display">∞</div>
+            </div>
         </div>
     </div>
     <script type="module" src="/src/main.js"></script>

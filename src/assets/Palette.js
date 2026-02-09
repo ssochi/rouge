@@ -26,10 +26,29 @@ export const PALETTE = {
     // Details
     'w': '#ffffff', // White (Eyes)
     'k': '#000000', // Black Outline/Pupil
+    'H': '#f5cba7', // Hand (Floating) - Same as Skin Base for now, or use '#d68910' for gloves
+
     
     // Gun Colors
     'g': '#bdc3c7', // Metal Light
     'G': '#7f8c8d', // Metal Dark
     'm': '#2c3e50', // Gun Grip/Stock
-    'f': '#e74c3c'  // Laser Sight/Detail
+    'f': '#e74c3c',  // Laser Sight/Detail
+
+    // FX
+    'y': '#f1c40f', // Fire/Flash Yellow
+    'Y': '#fff700',  // Fire/Flash Bright
+
+    // Zombie Colors
+    'z': '#82e0aa', // Zombie Skin (Rotten Green)
+    'Z': '#27ae60', // Zombie Skin Shadow
+    'x': '#922b21', // Blood/Gore
+    'X': '#641e16',  // Dark Blood
+    '7': '#5d4037', // Dark Wood
+    '8': '#8d6e63', // Light Wood
+    '9': '#424242', // Metal Grey
+    'a': '#d35400', // Clay/Ceramic Orange
+    'e': '#556b2f', // Dark Olive Green (Camo Base)
+    'E': '#3b4d23', // Darker Green (Camo Shadow)
+    'h': '#8fbc8f', // Dark Sea Green (Camo Light)
 };

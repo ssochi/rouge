@@ -6,7 +6,7 @@ export class Camera {
         this.y = 0;
         this.width = width;
         this.height = height;
-        this.lerp = 0.1;
+        this.lerp = 0.3; // Increased from 0.1 to reduce aim drift when moving
     }
 
     follow(target) {

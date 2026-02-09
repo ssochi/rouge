@@ -60,6 +60,17 @@ export class SpriteGenerator {
 
         return canvas;
     }
+
+    /**
+     * 生成动画帧序列
+     * @param {Array<string[]>} framesTemplates 帧模板数组
+     * @param {Object} palette 调色板
+     * @param {number} scale 缩放
+     * @returns {HTMLCanvasElement[]}
+     */
+    generateFrames(framesTemplates, palette, scale = 1) {
+        return framesTemplates.map(template => this.generate(template, palette, scale));
+    }
 }
 
 export const spriteGenerator = new SpriteGenerator();

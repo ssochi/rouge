@@ -5,7 +5,14 @@ export class InputHandler {
             a: false,
             s: false,
             d: false,
-            space: false
+            q: false, // Weapon Switch (Quick)
+            e: false, // Interact / Pickup
+            r: false, // Reload
+            b: false, // Backpack
+            p: false, // Debug Toggle
+            space: false,
+            '1': false, '2': false, '3': false, '4': false, '5': false,
+            '6': false, '7': false, '8': false, '9': false
         };
         this.mouse = {
             x: 0,

@@ -1,0 +1,317 @@
+import { Assets } from '../../graphics/Assets.js';
+import { BreakableObject } from '../entities/BreakableObject.js';
+
+export const SLOT_COUNT = 63; // 9 Hotbar + 54 Backpack (6 rows)
+export const HOTBAR_SIZE = 9;
+
+export class InventorySystem {
+    constructor() {
+        this.items = new Map(); // id -> ItemDefinition
+        this.slots = new Array(SLOT_COUNT).fill(null).map(() => ({
+            itemId: null,
+            count: 0,
+            instanceData: null
+        }));
+        
+        this.selectedHotbarIndex = 0;
+        
+        this._initItemDefinitions();
+    }
+
+    _initItemDefinitions() {
+        // 1. Register Weapons (Manual for now, based on Assets.gun/rocket_launcher)
+        this.registerItem({
+            id: 'weapon:rifle',
+            type: 'weapon',
+            name: 'Rifle',
+            icon: 'gun', // Key in Assets
+            maxStack: 1,
+            data: { weaponConfigId: 'default_rifle' }
+        });
+
+        this.registerItem({
+            id: 'weapon:rocket_launcher',
+            type: 'weapon',
+            name: 'RPG',
+            icon: 'rocket_launcher',
+            maxStack: 1,
+            data: { weaponConfigId: 'rocket_launcher' }
+        });
+        
+        this.registerItem({
+            id: 'weapon:pistol',
+            type: 'weapon',
+            name: 'Pistol',
+            icon: 'pistol',
+            maxStack: 1,
+            data: { weaponConfigId: 'default_pistol' }
+        });
+
+        // 2. Register Placeables from Assets.objects
+        // Filter out implementation details like _flash, _frame, _panel
+        const objectKeys = Object.keys(Assets.objects).filter(k => 
+            !k.endsWith('_flash') && 
+            !k.includes('_frame') && 
+            !k.includes('_panel')
+        );
+
+        // Add special handling for doors which are composite in Assets but single type in Logic
+        // We will manually register door_h and door_v using frame as icon
+        if (!objectKeys.includes('door_h')) {
+            this.registerItem({
+                id: 'placeable:door_h',
+                type: 'placeable',
+                name: 'Horizontal Door',
+                icon: 'door_h_frame', // Use frame as icon for now
+                maxStack: 64,
+                data: { 
+                    breakableType: 'door_h',
+                    footprint: { w: 32, h: 12 }, // Approx
+                }
+            });
+        }
+        
+        if (!objectKeys.includes('door_v')) {
+            this.registerItem({
+                id: 'placeable:door_v',
+                type: 'placeable',
+                name: 'Vertical Door',
+                icon: 'door_v_frame',
+                maxStack: 64,
+                data: { 
+                    breakableType: 'door_v',
+                    footprint: { w: 12, h: 32 },
+                }
+            });
+        }
+
+        // Auto-register others
+        objectKeys.forEach(key => {
+            // Skip if already registered (like doors if we did above, or excluded ones)
+            if (this.items.has(`placeable:${key}`)) return;
+
+            // Create a temporary instance to get hitbox/stats if possible?
+            // For now, we rely on BreakableObject logic.
+            // We use the key as breakableType.
+            
+            // Name formatting: box -> Box, explosive_barrel -> Explosive Barrel
+            const name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+            this.registerItem({
+                id: `placeable:${key}`,
+                type: 'placeable',
+                name: name,
+                icon: key, // Key in Assets.objects
+                maxStack: 64,
+                data: { 
+                    breakableType: key,
+                    // We can refine footprint later by instantiating BreakableObject(0,0,key)
+                }
+            });
+        });
+    }
+
+    registerItem(def) {
+        this.items.set(def.id, def);
+    }
+
+    getItemDef(id) {
+        return this.items.get(id);
+    }
+
+    // --- Inventory Operations ---
+
+    /**
+     * Move or Swap item between two slots.
+     * Handles merging if items are the same type.
+     * @param {number} fromIndex 
+     * @param {number} toIndex 
+     * @returns {boolean} true if something changed
+     */
+    moveOrSwap(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return false;
+        if (fromIndex < 0 || fromIndex >= this.slots.length) return false;
+        if (toIndex < 0 || toIndex >= this.slots.length) return false;
+
+        const slotFrom = this.slots[fromIndex];
+        const slotTo = this.slots[toIndex];
+
+        // 1. If source is empty, nothing to do
+        if (!slotFrom.itemId) return false;
+
+        // 2. If target is empty, move
+        if (!slotTo.itemId) {
+            slotTo.itemId = slotFrom.itemId;
+            slotTo.count = slotFrom.count;
+            slotTo.instanceData = slotFrom.instanceData;
+
+            slotFrom.itemId = null;
+            slotFrom.count = 0;
+            slotFrom.instanceData = null;
+            return true;
+        }
+
+        // 3. If same item type, try to merge
+        if (slotFrom.itemId === slotTo.itemId) {
+            const def = this.getItemDef(slotFrom.itemId);
+            if (def.maxStack > 1 && slotTo.count < def.maxStack) {
+                const space = def.maxStack - slotTo.count;
+                const toMove = Math.min(space, slotFrom.count);
+                
+                slotTo.count += toMove;
+                slotFrom.count -= toMove;
+                
+                if (slotFrom.count <= 0) {
+                    slotFrom.itemId = null;
+                    slotFrom.count = 0;
+                    slotFrom.instanceData = null;
+                }
+                return true;
+            }
+        }
+
+        // 4. Different items or full stack -> Swap
+        const temp = { 
+            itemId: slotFrom.itemId,
+            count: slotFrom.count,
+            instanceData: slotFrom.instanceData
+        };
+
+        slotFrom.itemId = slotTo.itemId;
+        slotFrom.count = slotTo.count;
+        slotFrom.instanceData = slotTo.instanceData;
+
+        slotTo.itemId = temp.itemId;
+        slotTo.count = temp.count;
+        slotTo.instanceData = temp.instanceData;
+
+        return true;
+    }
+
+    // Add item to inventory. Returns remaining count that couldn't be added.
+    add(itemId, count, instanceData = null) {
+        const def = this.getItemDef(itemId);
+        if (!def) {
+            console.error(`Item ${itemId} not found`);
+            return count;
+        }
+
+        let remaining = count;
+
+        // 1. Try to stack into existing slots
+        if (def.maxStack > 1) {
+            for (let i = 0; i < this.slots.length; i++) {
+                const slot = this.slots[i];
+                if (slot.itemId === itemId && slot.count < def.maxStack) {
+                    const space = def.maxStack - slot.count;
+                    const toAdd = Math.min(space, remaining);
+                    slot.count += toAdd;
+                    remaining -= toAdd;
+                    if (remaining <= 0) return 0;
+                }
+            }
+        }
+
+        // 2. Add to empty slots
+        for (let i = 0; i < this.slots.length; i++) {
+            const slot = this.slots[i];
+            if (slot.itemId === null) {
+                const toAdd = Math.min(def.maxStack, remaining);
+                slot.itemId = itemId;
+                slot.count = toAdd;
+                slot.instanceData = instanceData;
+                remaining -= toAdd;
+                if (remaining <= 0) return 0;
+            }
+        }
+
+        return remaining;
+    }
+
+    remove(slotIndex, count) {
+        if (slotIndex < 0 || slotIndex >= this.slots.length) return 0;
+        const slot = this.slots[slotIndex];
+        if (!slot.itemId) return 0;
+
+        const removed = Math.min(slot.count, count);
+        slot.count -= removed;
+        
+        if (slot.count <= 0) {
+            slot.itemId = null;
+            slot.count = 0;
+            slot.instanceData = null;
+        }
+        
+        return removed;
+    }
+
+    /**
+     * Remove item from slot and return it as data object for dropping
+     * @param {number} slotIndex 
+     * @param {number} count 
+     * @returns {Object|null} { itemId, count, instanceData } or null
+     */
+    drop(slotIndex, count) {
+        if (slotIndex < 0 || slotIndex >= this.slots.length) return null;
+        const slot = this.slots[slotIndex];
+        if (!slot.itemId) return null;
+
+        const toDrop = Math.min(slot.count, count);
+        const itemData = {
+            itemId: slot.itemId,
+            count: toDrop,
+            instanceData: slot.instanceData ? { ...slot.instanceData } : null
+        };
+
+        slot.count -= toDrop;
+        if (slot.count <= 0) {
+            slot.itemId = null;
+            slot.count = 0;
+            slot.instanceData = null;
+        }
+
+        return itemData;
+    }
+
+    // --- Hotbar Operations ---
+
+    selectHotbarSlot(index) {
+        if (index >= 0 && index < HOTBAR_SIZE) {
+            this.selectedHotbarIndex = index;
+            // Toggle logic: if already selected, maybe unselect? 
+            // For now, simple selection.
+            return true;
+        }
+        return false;
+    }
+
+    getSelectedSlotIndex() {
+        return this.selectedHotbarIndex;
+    }
+
+    getSelectedSlot() {
+        return this.slots[this.selectedHotbarIndex];
+    }
+    
+    getSelectedItem() {
+        const slot = this.getSelectedSlot();
+        if (slot && slot.itemId) {
+            return {
+                ...slot,
+                def: this.getItemDef(slot.itemId)
+            };
+        }
+        return null;
+    }
+    
+    // Helper to get all placeables (for Test autofill)
+    getAllPlaceableIds() {
+        const ids = [];
+        for (const [id, def] of this.items) {
+            if (def.type === 'placeable') {
+                ids.push(id);
+            }
+        }
+        return ids;
+    }
+}

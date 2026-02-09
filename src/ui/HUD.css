@@ -1,0 +1,489 @@
+/* HUD.css - 游戏化拟物风格 UI */
+
+/* 引入复古像素字体 */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --ui-border-light: #ecf0f1;
+    --ui-border-dark: #2c3e50;
+    --ui-bg-color: rgba(44, 62, 80, 0.95);
+    --ui-slot-bg: rgba(30, 40, 50, 0.8);
+    --hp-color: #e74c3c;
+    --stamina-color: #f1c40f;
+    --text-shadow: 2px 2px 0px #000;
+    --highlight-color: #f1c40f;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* 顶部状态栏容器 */
+.status-panel {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+/* 拟物化卡片风格 */
+.ui-card {
+    background-color: var(--ui-bg-color);
+    border: 4px solid var(--ui-border-dark);
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 
+        inset 2px 2px 0px rgba(255,255,255,0.1),
+        4px 4px 0px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+/* 铆钉装饰 */
+.ui-card::before, .ui-card::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #95a5a6;
+    border-radius: 50%;
+    box-shadow: 1px 1px 0 #000;
+}
+.ui-card::before { top: 4px; left: 4px; }
+.ui-card::after { top: 4px; right: 4px; }
+
+/* 玩家头像区域 */
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.avatar-frame {
+    width: 48px;
+    height: 48px;
+    background: #34495e;
+    border: 3px solid #7f8c8d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.avatar-frame img {
+    width: 100%;
+    image-rendering: pixelated;
+}
+
+/* 属性条容器 */
+.stats-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+/* 进度条通用样式 */
+.bar-container {
+    position: relative;
+    height: 16px;
+    background: #1a1a1a;
+    border: 2px solid #000;
+    border-radius: 2px;
+}
+
+.bar-fill {
+    height: 100%;
+    width: 100%;
+    transition: width 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    position: relative;
+}
+
+/* HP 条 - 红色带有高光 */
+.hp-bar .bar-fill {
+    background: linear-gradient(to bottom, #ff7675, #d63031);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.3);
+}
+
+/* 耐力条 - 黄色 */
+.stamina-bar .bar-fill {
+    background: linear-gradient(to bottom, #ffeaa7, #fdcb6e);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.3);
+}
+
+/* 进度条上的文字 */
+.bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: white;
+    text-shadow: 1px 1px 0 #000;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+/* 武器/弹药面板 (右下角) */
+.weapon-panel {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.current-weapon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.weapon-icon {
+    width: 64px;
+    height: 32px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid #7f8c8d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.weapon-icon img {
+    width: 80%;
+    height: auto;
+    image-rendering: pixelated;
+}
+
+.ammo-display {
+    font-size: 16px;
+    color: #ecf0f1;
+    text-shadow: var(--text-shadow);
+}
+
+.weapon-name {
+    font-size: 10px;
+    color: #bdc3c7;
+    text-transform: uppercase;
+}
+
+/* 提示信息区域 */
+.message-log {
+    position: absolute;
+    bottom: 100px;
+    left: 20px;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.log-entry {
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 2px;
+    font-size: 10px;
+    animation: fadeOut 3s forwards;
+    border-left: 3px solid #3498db;
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; transform: translateX(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-10px); }
+}
+
+/* Hotbar Styles */
+.hotbar-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    background: var(--ui-bg-color);
+    border: 3px solid var(--ui-border-dark);
+    border-radius: 4px;
+    pointer-events: auto; /* Enable clicks on hotbar */
+    box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+}
+
+.hotbar-slot {
+    width: 48px;
+    height: 48px;
+    background: var(--ui-slot-bg);
+    border: 2px solid #576574;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.1s;
+    cursor: pointer;
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+}
+
+.hotbar-slot.selected {
+    border-color: var(--highlight-color);
+    background: rgba(241, 196, 15, 0.1);
+    box-shadow: 
+        inset 0 0 10px rgba(241, 196, 15, 0.2),
+        0 0 5px var(--highlight-color);
+    transform: translateY(-2px);
+    z-index: 10;
+}
+
+.hotbar-icon {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
+    object-fit: contain;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.5));
+}
+
+.hotbar-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    color: white;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+
+.hotbar-key {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 8px;
+    color: #95a5a6;
+    text-shadow: 1px 1px 0 #000;
+}
+
+/* Inventory Styles */
+#inventory-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    pointer-events: auto; /* Enable clicks */
+    transition: opacity 0.2s ease;
+}
+
+#inventory-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.inventory-window {
+    background: var(--ui-bg-color);
+    /* Double Border Effect */
+    border: 4px solid var(--ui-border-dark);
+    outline: 2px solid #7f8c8d;
+    
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 
+        0 10px 30px rgba(0,0,0,0.8),
+        inset 0 0 50px rgba(0,0,0,0.2);
+    min-width: 500px;
+    max-height: 80vh; /* Limit height to fit screen */
+    
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.inventory-header {
+    font-size: 20px;
+    color: #ecf0f1;
+    text-align: center;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 5px;
+    border-bottom: 2px solid #7f8c8d;
+    padding-bottom: 10px;
+    letter-spacing: 2px;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 48px);
+    gap: 6px;
+    justify-content: center;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+}
+
+/* Backpack Grid Specific - Scrollable */
+.backpack-grid {
+    overflow-y: auto;
+    max-height: 320px; /* Approx 5-6 rows visible */
+    padding-right: 5px; /* Space for scrollbar */
+    
+    /* Scrollbar Styling */
+    scrollbar-width: thin;
+    scrollbar-color: #7f8c8d #2c3e50;
+}
+
+.backpack-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.backpack-grid::-webkit-scrollbar-track {
+    background: #2c3e50;
+    border-radius: 4px;
+}
+
+.backpack-grid::-webkit-scrollbar-thumb {
+    background: #7f8c8d;
+    border-radius: 4px;
+    border: 1px solid #2c3e50;
+}
+
+.backpack-grid::-webkit-scrollbar-thumb:hover {
+    background: #95a5a6;
+}
+
+.inventory-divider {
+    height: 2px;
+    background: #7f8c8d;
+    margin: 5px 20px;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+/* Hotbar Grid in Inventory - Fixed at bottom */
+.hotbar-grid {
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: auto; /* Push to bottom if flex space allows, though gap handles it */
+}
+
+/* Reusing .hotbar-slot styles for .inventory-slot */
+.inventory-slot {
+    width: 48px;
+    height: 48px;
+    background: var(--ui-slot-bg);
+    border: 2px solid #576574;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+    transition: all 0.1s;
+}
+
+.inventory-slot:hover {
+    border-color: #bdc3c7;
+    background: rgba(52, 73, 94, 0.9);
+    transform: scale(1.05);
+    z-index: 5;
+}
+
+.inventory-slot:active {
+    transform: scale(0.95);
+}
+
+.inventory-slot.selected {
+    border-color: var(--highlight-color);
+    box-shadow: 0 0 5px var(--highlight-color);
+}
+
+.inventory-slot img {
+    width: 32px;
+    height: 32px;
+    image-rendering: pixelated;
+    object-fit: contain;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.5));
+}
+
+/* Cursor Item */
+#cursor-item {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    display: none;
+    transition: transform 0.05s linear; /* Smooth follow */
+}
+#cursor-item img {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    object-fit: contain;
+    filter: drop-shadow(4px 4px 0 rgba(0,0,0,0.5));
+}
+
+/* Tooltip */
+#item-tooltip {
+    position: fixed;
+    z-index: 2000;
+    background: rgba(20, 20, 20, 0.95);
+    border: 2px solid #bdc3c7;
+    padding: 10px;
+    color: white;
+    font-family: 'Courier New', monospace; /* More readable for text */
+    pointer-events: none;
+    min-width: 150px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    border-radius: 2px;
+}
+
+.tooltip-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: var(--highlight-color);
+    margin-bottom: 5px;
+    text-shadow: 1px 1px 0 #000;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+}
+
+.tooltip-type {
+    font-size: 10px;
+    color: #95a5a6;
+    margin-bottom: 5px;
+    font-style: italic;
+}
+
+.tooltip-desc {
+    font-size: 11px;
+    color: #ecf0f1;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.tooltip-hint {
+    font-size: 9px;
+    color: #7f8c8d;
+    border-top: 1px solid #555;
+    padding-top: 5px;
+}

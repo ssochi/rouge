@@ -1,289 +1,47 @@
-// Player Idle Animation - 8 Frames
-// Details: Breathing (vertical shift), Bandana waving, Arms slight movement
+import { PlayerGenerator } from './PlayerGenerator.js';
 
-const F0 = [
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................",
-    "................................"
-];
+/**
+ * Procedural Idle Animation
+ * Standard: High Quality (Smooth 16-frame cycle)
+ * Features:
+ * - Sub-pixel Breathing (Body & Head rise/fall)
+ * - Independent Hair Physics (Sine wave wind)
+ * - Coat adjustments (optional)
+ */
 
-const F1 = [
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................",
-    "................................"
-];
+const generator = new PlayerGenerator();
+const frames = [];
+const TOTAL_FRAMES = 16; 
 
-// Start breathing down
-const F2 = [
-    "................................",
-    "................................",
-    "................................", // Shift down
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................"
-];
+for (let i = 0; i < TOTAL_FRAMES; i++) {
+    const progress = i / TOTAL_FRAMES; // 0 to 1
+    const rad = progress * Math.PI * 2;
+    
+    // 1. Breathing Cycle (Body)
+    // Sine wave: Starts at 0, goes up to 1, down to -1.
+    // We want: Neutral -> Inhale (Up) -> Neutral -> Exhale (Down/Squash)
+    // Let's use sin(rad). 
+    // Amplitude: 0.8 pixels (Subtle)
+    const breathe = Math.sin(rad); 
+    const bodyYOffset = breathe * -0.8; // Up when sin is positive (Inhale)
+    
+    // 2. Head Bob
+    // Head follows body but with slight lag or exaggerated motion?
+    // Let's make head move slightly LESS than body to simulate neck compression?
+    // Or SAME. Let's do SAME for solid connection.
+    const headYOffset = bodyYOffset;
+    
+    // 3. Hair Wave (Wind)
+    // Offset phase by PI/2 so hair reacts to movement?
+    // Or just independent wind.
+    // Let's do independent wind cycle.
+    const hairPhase = progress; 
+    
+    frames.push(generator.generateFrame({
+        bodySquash: bodyYOffset,
+        headOffset: { x: 0, y: headYOffset },
+        hairWave: hairPhase
+    }));
+}
 
-// More down, bandana moves up relative to head
-const F3 = [
-    "................................",
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................"
-];
-
-// Bandana wave
-const F4 = [
-    "................................",
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR....RR...", // Wave out
-    ".........RRrrrrrrrrrrRR...RRR...",
-    ".........ssSSSSSSssssss..RR.....",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................"
-];
-
-// Rising back up
-const F5 = [
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR....RR...",
-    ".........RRrrrrrrrrrrRR...RRR...",
-    ".........ssSSSSSSssssss..RR.....",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................",
-    "................................"
-];
-
-// Bandana starts returning
-const F6 = [
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................",
-    "................................"
-];
-
-const F7 = [
-    "................................",
-    "................................",
-    "...........RRRRRRRRRR...........",
-    "..........RRrrrrrrrrRR..........",
-    ".........RRrrrrrrrrrrRR.........",
-    ".........RRrrrrrrrrrrRR...RR....",
-    ".........RRrrrrrrrrrrRR..RRR....",
-    ".........ssSSSSSSssssss.RR......",
-    ".........sskksssskkssss.........",
-    ".........sswwsssswwssss.........",
-    ".........ssssssssssssss.........",
-    ".........ssssssssssssss.........",
-    "..........ssssssssssss..........",
-    "..........VVVVVVVVVVVV..........",
-    ".........VVVVVVVVVVVVVV.........",
-    ".........vvvvVVVVvvvvVV.........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........ccvvvvllllvvvvcc........",
-    "........ccvvvvVVVVvvvvcc........",
-    "........CCvvvvVVVVvvvvCC........",
-    "..........bbbbllllbbbb..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........cccc....cccc..........",
-    "..........CCCC....CCCC..........",
-    "..........bbbb....bbbb..........",
-    "..........bbbb....bbbb..........",
-    "..........BBBB....BBBB..........",
-    "................................",
-    "................................",
-    "................................"
-];
-
-export const PLAYER_IDLE_FRAMES = [F0, F1, F2, F3, F4, F5, F6, F7];
+export const PLAYER_IDLE_FRAMES = frames;
