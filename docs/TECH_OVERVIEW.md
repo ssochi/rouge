@@ -47,12 +47,14 @@
 
 ### 武器与弹道机制
 - 武器配置统一定义在 `src/assets/weapons/WeaponData.js`，通过 `weaponConfigId` 与背包物品绑定。
-- `CombatSystem.tryShoot()` 支持多弹丸散射（`pelletCount` + `spread`），用于霰弹枪类武器。
+- `CombatSystem.tryShoot()` 支持多弹丸散射（`pelletCount` + `spread`），散弹枪弹丸具有速度、位置、生命周期和大小的随机偏差。
 - `CombatSystem.updateBullets()` 支持：
   - **穿透**（`piercing` + `hitList`）：用于狙击枪/弩箭，命中后可继续飞行并衰减伤害。
   - **重力弹道**（`gravity`）：用于榴弹类抛物线飞行。
   - **特殊爆炸弹**：`rocket` 与 `grenade` 触发范围爆炸，榴弹可在寿命结束时引爆。
 - `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade` 与默认圆形子弹分支。
+- **激光瞄准**：`Renderer.drawLaserSight()` 为狙击枪绘制激光线，使用 `HandSystem.angle` 确保方向与枪管一致，通过 `laserOffset` 定位发射器起点，射线检测墙壁遮挡。
+- **武器发射动画**：`HandSystem` 支持 `fireSprite` 配置，当弹药为空时自动切换精灵（如弩发射后弓臂前弹、弦松弛、无箭矢）。
 - 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。
 - 玩家受击框统一由 `player.getBulletHurtbox()` 提供，敌方子弹判定与 Debug 受击框模式使用同一数据源。
 

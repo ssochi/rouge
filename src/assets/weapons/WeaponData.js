@@ -157,13 +157,12 @@ export const WEAPONS = {
         name: "Sniper Rifle",
         type: WeaponType.RIFLE,
         sprite: "sniper",
-        drawOffset: { x: -12, y: -6 },
-        muzzleOffset: { x: 28, y: -1 },
-        // Laser Origin Offset relative to Pivot
-        // Pivot @ 10,9. Laser Emitter @ 21,7 (from SniperGenerator)
-        // Offset X = 21 - 10 = 11
-        // Offset Y = 7 - 9 = -2
-        laserOffset: { x: 11, y: -2 }, 
+        // Pivot @ Rear Grip (10, 9)
+        drawOffset: { x: -10, y: -9 },
+        // Muzzle Brake center @ ~(30, 7). Offset = (30-10, 7-9) = (20, -2)
+        muzzleOffset: { x: 20, y: -2 },
+        // Laser Emitter @ (21, 7). Offset = (21-10, 7-9) = (11, -2)
+        laserOffset: { x: 11, y: -2 },
         scale: 1.5,
         hands: {
             right: { x: 0, y: 3 },
@@ -188,12 +187,15 @@ export const WEAPONS = {
         name: "Crossbow",
         type: WeaponType.RIFLE,
         sprite: "crossbow",
-        drawOffset: { x: -8, y: -8 },
-        muzzleOffset: { x: 12, y: 0 },
+        fireSprite: "crossbow_fired",
+        // Pivot @ Grip (8, 9). Canvas 24x16.
+        drawOffset: { x: -8, y: -9 },
+        // Bolt tip @ (23, 8). Offset = (23-8, 8-9) = (15, -1)
+        muzzleOffset: { x: 15, y: -1 },
         scale: 1.5,
         hands: {
             right: { x: 0, y: 3 },
-            left: { x: 5, y: 1 }
+            left: { x: 6, y: 1 }
         },
         orbitRadius: 10,
         shellEject: false,
@@ -212,8 +214,10 @@ export const WEAPONS = {
         name: "Grenade Launcher",
         type: WeaponType.RIFLE,
         sprite: "grenade_launcher",
-        drawOffset: { x: -10, y: -7 },
-        muzzleOffset: { x: 16, y: -1 },
+        // Pivot @ Grip (8, 8). Canvas 24x14.
+        drawOffset: { x: -8, y: -8 },
+        // Muzzle bore @ (23, 6). Offset = (23-8, 6-8) = (15, -2)
+        muzzleOffset: { x: 15, y: -2 },
         scale: 1.5,
         hands: {
             right: { x: 0, y: 3 },

@@ -32,7 +32,7 @@ import { PixelDraw } from '../utils/PixelDraw.js';
 import { SMG_SPRITE } from '../assets/weapons/SmgGenerator.js';
 import { SHOTGUN_SPRITE } from '../assets/weapons/ShotgunGenerator.js';
 import { SNIPER_SPRITE } from '../assets/weapons/SniperGenerator.js';
-import { CROSSBOW_SPRITE } from '../assets/weapons/CrossbowGenerator.js';
+import { CROSSBOW_SPRITE, CROSSBOW_FIRED_SPRITE } from '../assets/weapons/CrossbowGenerator.js';
 import { GRENADE_LAUNCHER_SPRITE } from '../assets/weapons/GrenadeLauncherGenerator.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
@@ -154,6 +154,7 @@ export const Assets = {
     shotgun: SHOTGUN_SPRITE,
     sniper: SNIPER_SPRITE,
     crossbow: CROSSBOW_SPRITE,
+    crossbow_fired: CROSSBOW_FIRED_SPRITE,
     grenade_launcher: GRENADE_LAUNCHER_SPRITE,
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),

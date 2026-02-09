@@ -59,15 +59,23 @@ export class CombatSystem {
             for (let p = 0; p < pellets; p++) {
                 const offsetAngle = pellets > 1 ? (Math.random() - 0.5) * spreadRad : 0;
                 const finalAngle = muzzle.angle + offsetAngle;
+
+                // Per-pellet randomness for shotgun spread
+                const isShotgun = pellets > 1;
+                const speedMul = isShotgun ? 0.8 + Math.random() * 0.4 : 1;
+                const posOffset = isShotgun ? (Math.random() - 0.5) * 4 : 0;
+                const lifeMul = isShotgun ? 0.8 + Math.random() * 0.4 : 1;
+                const sizeVar = isShotgun ? Math.floor(Math.random() * 3) - 1 : 0;
+
                 this.bullets.push({
-                    x: muzzle.x,
-                    y: muzzle.y,
-                    vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12),
-                    vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12),
-                    life: weapon.bulletLife || 60,
+                    x: muzzle.x + Math.cos(finalAngle + Math.PI / 2) * posOffset,
+                    y: muzzle.y + Math.sin(finalAngle + Math.PI / 2) * posOffset,
+                    vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
+                    vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
+                    life: Math.round((weapon.bulletLife || 60) * lifeMul),
                     damage: weapon.damage || 10,
                     color: weapon.bulletColor || '#f1c40f',
-                    size: weapon.bulletSize || 5,
+                    size: Math.max(1, (weapon.bulletSize || 5) + sizeVar),
                     type: weapon.bulletType || 'standard',
                     blastRadius: weapon.blastRadius || 0,
                     knockback: weapon.knockback || 0,

@@ -251,12 +251,19 @@ export class HandSystem {
         // --- 3. Draw Weapon Components (Z-Sorted) ---
         const gunScale = this.currentWeapon.scale || 1;
         
-        // Draw Gun Sprite
-        if (Assets[this.currentWeapon.sprite]) {
+        // Draw Gun Sprite (swap to fireSprite when ammo is empty)
+        let spriteKey = this.currentWeapon.sprite;
+        if (this.currentWeapon.fireSprite) {
+            const state = this.getWeaponState();
+            if (state && state.currentAmmo === 0) {
+                spriteKey = this.currentWeapon.fireSprite;
+            }
+        }
+        if (Assets[spriteKey]) {
              const drawOffset = this.currentWeapon.drawOffset || { x: 0, y: -5 };
              ctx.save();
              ctx.scale(gunScale, gunScale);
-             ctx.drawImage(Assets[this.currentWeapon.sprite], drawOffset.x, drawOffset.y);
+             ctx.drawImage(Assets[spriteKey], drawOffset.x, drawOffset.y);
              
              // Draw Muzzle Flash
              if (this.showFlash && Assets.muzzleFlash) {

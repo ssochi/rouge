@@ -578,112 +578,105 @@ export class Renderer {
         if (!weapon || !weapon.laserSight) return;
 
         const now = Date.now();
-        
-        // Calculate Laser Start Position based on laserOffset
-        // Similar to getMuzzleWorldPosition but using laserOffset
+
+        // Use HandSystem's angle directly to guarantee laser matches gun orientation
+        const angle = this.handSystem.angle;
         const gunScale = weapon.scale || 1;
         const laserOffset = weapon.laserOffset || { x: 0, y: 0 };
-        
-        // Recalculate Pivot
+
+        // Recalculate Pivot (same as HandSystem.draw)
         let bobY = 0;
         if (this.player.state === 'idle') {
             bobY = Math.sin(now / 300) * 0.5;
         } else if (this.player.state === 'run') {
             bobY = Math.sin(now / 100) * 1.0;
         }
-        
-        const mouseAngle = Math.atan2(
-            this.input.mouse.y + this.camera.y - this.player.y, 
-            this.input.mouse.x + this.camera.x - this.player.x
-        );
-        
+
         const currentDist = (weapon.orbitRadius || 16) - (this.handSystem.recoilOffset || 0);
-        const pivotX = this.player.x + Math.cos(mouseAngle) * currentDist;
-        const pivotY = this.player.y + Math.sin(mouseAngle) * currentDist + bobY;
+        const pivotX = this.player.x + Math.cos(angle) * currentDist;
+        const pivotY = this.player.y + Math.sin(angle) * currentDist + bobY;
 
         let lx = laserOffset.x * gunScale;
         let ly = laserOffset.y * gunScale;
-        
+
         // Flip logic if facing left
-        const isFlipped = Math.abs(mouseAngle) > Math.PI / 2;
+        const isFlipped = Math.abs(angle) > Math.PI / 2;
         if (isFlipped) ly = -ly;
 
-        const rx = lx * Math.cos(mouseAngle) - ly * Math.sin(mouseAngle);
-        const ry = lx * Math.sin(mouseAngle) + ly * Math.cos(mouseAngle);
-        
-        const start = { 
-            x: pivotX + rx, 
-            y: pivotY + ry 
+        const rx = lx * Math.cos(angle) - ly * Math.sin(angle);
+        const ry = lx * Math.sin(angle) + ly * Math.cos(angle);
+
+        const start = {
+            x: pivotX + rx,
+            y: pivotY + ry
         };
+
+        // Laser direction parallel to barrel (same as bullet direction)
+        const dir = { x: Math.cos(angle), y: Math.sin(angle) };
         
-        // Calculate Direction towards Mouse Cursor (Converging Laser)
-        // Instead of parallel to gun angle, aim at the crosshair
-        const mouseWorldX = this.input.mouse.x + this.camera.x;
-        const mouseWorldY = this.input.mouse.y + this.camera.y;
-        
-        const dx = mouseWorldX - start.x;
-        const dy = mouseWorldY - start.y;
-        const distToMouse = Math.sqrt(dx*dx + dy*dy);
-        
-        // Avoid division by zero or weird behavior at extremely close range
-        let dir;
-        if (distToMouse > 1) {
-            dir = { x: dx / distToMouse, y: dy / distToMouse };
-        } else {
-            dir = { x: Math.cos(mouseAngle), y: Math.sin(mouseAngle) };
-        }
-        
-        const maxDist = 800; // Screen diagonal roughly
-        
+        const maxDist = 800;
         let minDist = maxDist;
-        
-        // Check Walls (Block Laser)
+
+        // Check all collidable surfaces (same order as bullet collision)
+
+        // 1. Walls
         this.walls.forEach(w => {
             const dist = this.rayRectIntersect(start, dir, {x: w.x, y: w.y, width: w.w, height: w.h});
-            if (dist !== null && dist < minDist) {
-                minDist = dist;
+            if (dist !== null && dist < minDist) minDist = dist;
+        });
+
+        // 2. Vehicles
+        this.vehicles.forEach(v => {
+            if (v.isDead) return;
+            const rect = { x: v.x - v.width/2, y: v.y - v.height/2, width: v.width, height: v.height };
+            const dist = this.rayRectIntersect(start, dir, rect);
+            if (dist !== null && dist < minDist) minDist = dist;
+        });
+
+        // 3. Breakable objects
+        this.breakableObjects.forEach(obj => {
+            if (obj.isBroken) return;
+            const box = obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox();
+            const dist = this.rayRectIntersect(start, dir, box);
+            if (dist !== null && dist < minDist) minDist = dist;
+        });
+
+        // 4. Enemies
+        let hitEnemy = null;
+        let hitEnemyDist = minDist;
+        this.enemies.forEach(e => {
+            const rect = e.getBulletHurtbox
+                ? e.getBulletHurtbox()
+                : { x: e.x - e.width/2, y: e.y - e.height, width: e.width, height: e.height };
+            const dist = this.rayRectIntersect(start, dir, rect);
+            if (dist !== null && dist < hitEnemyDist) {
+                hitEnemyDist = dist;
+                hitEnemy = e;
             }
         });
-        
+        if (hitEnemy) minDist = hitEnemyDist;
+
         const end = {
             x: start.x + dir.x * minDist,
             y: start.y + dir.y * minDist
         };
-        
+
         ctx.save();
         ctx.strokeStyle = weapon.laserColor || 'rgba(255, 0, 0, 0.5)';
-        ctx.lineWidth = 1; 
-        
+        ctx.lineWidth = 1;
+
         // Draw Laser Line
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
         ctx.stroke();
-        
-        // Draw Dot at end (always)
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+
+        // Draw Dot at end
+        ctx.fillStyle = hitEnemy ? 'rgba(255, 50, 50, 1.0)' : 'rgba(255, 0, 0, 0.8)';
         ctx.beginPath();
-        ctx.arc(end.x, end.y, 2, 0, Math.PI*2);
+        ctx.arc(end.x, end.y, hitEnemy ? 3 : 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Check Enemies (Highlight but don't block)
-        this.enemies.forEach(e => {
-             const rect = { x: e.x - e.width/2, y: e.y - e.height, width: e.width, height: e.height };
-             const dist = this.rayRectIntersect(start, dir, rect);
-             
-             // If enemy is hit by laser (and closer than the wall)
-             if (dist !== null && dist < minDist) {
-                 // Draw a highlight dot on the enemy
-                 const hitX = start.x + dir.x * dist;
-                 const hitY = start.y + dir.y * dist;
-                 
-                 ctx.fillStyle = 'rgba(255, 50, 50, 1.0)';
-                 ctx.beginPath();
-                 ctx.arc(hitX, hitY, 3, 0, Math.PI*2);
-                 ctx.fill();
-             }
-        });
-        
         ctx.restore();
     }
     
