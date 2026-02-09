@@ -39,6 +39,10 @@ import { LASER_GUN_SPRITE } from '../assets/weapons/LaserGunGenerator.js';
 import { FLAMETHROWER_SPRITE } from '../assets/weapons/FlamethrowerGenerator.js';
 import { BLACK_HOLE_GUN_SPRITE } from '../assets/weapons/BlackHoleGunGenerator.js';
 import { TELEPORT_GUN_SPRITE } from '../assets/weapons/TeleportGunGenerator.js';
+import { LIGHTNING_GUN_SPRITE } from '../assets/weapons/LightningGunGenerator.js';
+import { FREEZE_RAY_SPRITE } from '../assets/weapons/FreezeRayGenerator.js';
+import { RICOCHET_GUN_SPRITE } from '../assets/weapons/RicochetGunGenerator.js';
+import { BOOMERANG_SPRITE } from '../assets/weapons/BoomerangGenerator.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
@@ -188,6 +192,10 @@ export const Assets = {
     flamethrower: FLAMETHROWER_SPRITE,
     black_hole_gun: BLACK_HOLE_GUN_SPRITE,
     teleport_gun: TELEPORT_GUN_SPRITE,
+    lightning_gun: LIGHTNING_GUN_SPRITE,
+    freeze_ray: FREEZE_RAY_SPRITE,
+    ricochet_gun: RICOCHET_GUN_SPRITE,
+    boomerang: BOOMERANG_SPRITE,
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

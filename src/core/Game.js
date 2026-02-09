@@ -167,6 +167,10 @@ export class Game {
         this.inventorySystem.add('weapon:flamethrower', 1);
         this.inventorySystem.add('weapon:black_hole_gun', 1);
         this.inventorySystem.add('weapon:teleport_gun', 1);
+        this.inventorySystem.add('weapon:lightning_gun', 1);
+        this.inventorySystem.add('weapon:freeze_ray', 1);
+        this.inventorySystem.add('weapon:ricochet_gun', 1);
+        this.inventorySystem.add('weapon:boomerang', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -303,6 +307,7 @@ export class Game {
         this.combatSystem.updateBullets();
         this.combatSystem.updateBlackHoles();
         this.combatSystem.updateBurnEffects();
+        this.combatSystem.updateFreezeEffects();
         this.breakableObjects.forEach(obj => obj.update(this.player));
         this.combatSystem.updateParticles();
         this.worldSystem.updateEnemies();

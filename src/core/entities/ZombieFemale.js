@@ -19,6 +19,8 @@ export class ZombieFemale extends Enemy {
 
         super.update(player, walls, wallQuery);
 
+        if (this.frozenTimer > 0) return;
+
         // Attack Logic
         if (this.isAttacking) {
             this.attackTimer++;
@@ -99,8 +101,8 @@ export class ZombieFemale extends Enemy {
                         }
                     }
 
-                    const nextX = this.x + vx * this.speed;
-                    const nextY = this.y + vy * this.speed;
+                    const nextX = this.x + vx * this.getEffectiveSpeed();
+                    const nextY = this.y + vy * this.getEffectiveSpeed();
 
                     if (moveResolver) {
                         moveResolver(this, nextX, nextY, vx, vy);

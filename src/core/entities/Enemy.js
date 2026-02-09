@@ -53,6 +53,12 @@ export class Enemy {
         this.animationTimer++;
     }
 
+    getEffectiveSpeed() {
+        if (this.frozenTimer > 0) return 0;
+        if (this.slowTimer > 0) return this.speed * Math.max(0, 1 - (this.slowAmount || 0));
+        return this.speed;
+    }
+
     takeDamage(amount, knockback) {
         this.hp -= amount;
         this.hitFlashTimer = 5; // Flash for 5 frames

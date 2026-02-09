@@ -36,6 +36,8 @@ export class Soldier extends Enemy {
 
         super.update(player, walls, wallQuery);
 
+        if (this.frozenTimer > 0) return;
+
         // Update Aim
         this.handSystem.update(player.x, player.y);
 
@@ -138,8 +140,8 @@ export class Soldier extends Enemy {
             vy /= len;
         }
 
-        const nextX = this.x + vx * this.speed;
-        const nextY = this.y + vy * this.speed;
+        const nextX = this.x + vx * this.getEffectiveSpeed();
+        const nextY = this.y + vy * this.getEffectiveSpeed();
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {
@@ -158,8 +160,8 @@ export class Soldier extends Enemy {
             vy = dy / dist;
         }
 
-        const nextX = this.x + vx * this.speed * 0.7;
-        const nextY = this.y + vy * this.speed * 0.7;
+        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.7;
+        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.7;
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {
@@ -185,8 +187,8 @@ export class Soldier extends Enemy {
         let vx = -dy / dist * this.strafeDir;
         let vy = dx / dist * this.strafeDir;
 
-        const nextX = this.x + vx * this.speed * 0.5;
-        const nextY = this.y + vy * this.speed * 0.5;
+        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.5;
+        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.5;
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {

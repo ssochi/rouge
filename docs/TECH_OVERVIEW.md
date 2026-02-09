@@ -8,7 +8,7 @@
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
     - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -24,7 +24,10 @@
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
       - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑。
-      - `CombatSystem.js`: 射击、子弹、粒子与爆炸效果更新。
+      - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统。
+      - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
+      - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧）。
+      - `ParticleSpawner.js`: 粒子生成（碎片、血液、弹壳）与粒子物理更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、家具摆放、布局校验、布局编译）。
@@ -56,15 +59,23 @@
 - `CombatSystem.tryShoot()` 支持：
   - **瞬间光束**（`laser_beam`）：激光枪使用 hitscan 射线检测，瞬间伤害射线上所有敌人，光束视觉效果通过粒子系统渲染。
   - **火焰弹**（`flame`）：喷火枪发射短程火焰粒子，命中后施加燃烧 DOT（`burnDamage` + `burnDuration`）。
+  - **闪电弹**（`lightning`）：闪电枪发射快速弹丸，命中后链式跳跃到附近最多 3 个敌人，每跳衰减 60% 伤害。
+  - **冰晶弹**（`ice_shard`）：冰冻枪持续发射冰晶锥，命中减速 50%，累计 5 次命中冻结敌人 2 秒（冻结期间受 1.5x 伤害）。
 - `CombatSystem.updateBullets()` 支持：
   - **穿透**（`piercing` + `hitList`）：用于狙击枪/弩箭，命中后可继续飞行并衰减伤害。
   - **重力弹道**（`gravity`）：用于榴弹类抛物线飞行。
   - **特殊爆炸弹**：`rocket` 与 `grenade` 触发范围爆炸，榴弹可在寿命结束时引爆。
   - **黑洞弹丸**（`black_hole_projectile`）：命中后创建持续 3 秒的黑洞，吸引并伤害范围内敌人。
   - **传送弹丸**（`teleport`）：命中后将玩家瞬移到弹丸位置，自动防卡墙。
+  - **弹跳弹**（`ricochet`）：碰墙反弹最多 3 次，伤害不衰减，反射通过 prevX/prevY 判断碰撞轴。
+  - **回旋镖**（`boomerang`）：飞行 200px 后自动归航返回玩家，去回各可命中敌人，阶段切换时重置 hitList。
 - `CombatSystem.updateBlackHoles()`：更新黑洞实体（拉力、周期伤害、粒子、到期移除）。
 - `CombatSystem.updateBurnEffects()`：更新燃烧 DOT（周期伤害、火焰粒子）。
-- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport` 与默认圆形子弹分支。
+- `CombatSystem.updateFreezeEffects()`：更新减速/冻结状态（冻结粒子、slowTimer/frozenTimer 递减、freezeStacks 管理）。
+- `CombatSystem._chainLightning()`：处理闪电链式跳跃（查找最近未命中敌人、衰减伤害、生成 `lightning_arc` 粒子）。
+- **冻结易伤**：所有伤害源（子弹、爆炸、燃烧 DOT、闪电链）对冻结中敌人造成 1.5x 伤害。
+- **敌人速度系统**：`Enemy.getEffectiveSpeed()` 统一处理减速/冻结对移动速度的影响，所有敌人子类使用此方法。
+- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang` 与默认圆形子弹分支。
 - **激光瞄准**：`Renderer.drawLaserSight()` 为狙击枪绘制激光线，使用 `HandSystem.angle` 确保方向与枪管一致，通过 `laserOffset` 定位发射器起点，射线检测墙壁遮挡。
 - **武器发射动画**：`HandSystem` 支持 `fireSprite` 配置，当弹药为空时自动切换精灵（如弩发射后弓臂前弹、弦松弛、无箭矢）。
 - 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。

@@ -171,6 +171,77 @@ export class Renderer {
                 y: e.y + e.height/2,
                 draw: () => {
                     e.draw(this.ctx);
+                    // Ice effect overlay
+                    if (e.frozenTimer > 0) {
+                        const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
+                            { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        this.ctx.save();
+                        // Ice block body
+                        this.ctx.globalAlpha = 0.45;
+                        this.ctx.fillStyle = '#a8d8ea';
+                        const pad = 3;
+                        const bx = hb.x - pad, by = hb.y - pad;
+                        const bw = hb.width + pad * 2, bh = hb.height + pad * 2;
+                        this.ctx.fillRect(bx, by, bw, bh);
+                        // Ice block highlight (top edge)
+                        this.ctx.globalAlpha = 0.6;
+                        this.ctx.fillStyle = '#dfe6e9';
+                        this.ctx.fillRect(bx + 1, by, bw - 2, 2);
+                        this.ctx.fillRect(bx, by, 2, bh / 2);
+                        // Ice block border
+                        this.ctx.globalAlpha = 0.7;
+                        this.ctx.strokeStyle = '#74b9ff';
+                        this.ctx.lineWidth = 1.5;
+                        this.ctx.strokeRect(bx, by, bw, bh);
+                        // Ice crystal decorations at corners
+                        this.ctx.globalAlpha = 0.8;
+                        this.ctx.fillStyle = '#ffffff';
+                        // Top-left crystal
+                        this.ctx.fillRect(bx - 1, by - 2, 2, 3);
+                        this.ctx.fillRect(bx - 2, by - 1, 3, 2);
+                        // Top-right crystal
+                        this.ctx.fillRect(bx + bw - 1, by - 2, 2, 3);
+                        this.ctx.fillRect(bx + bw - 1, by - 1, 3, 2);
+                        // Bottom-left crystal
+                        this.ctx.fillRect(bx - 1, by + bh - 1, 2, 3);
+                        this.ctx.fillRect(bx - 2, by + bh, 3, 2);
+                        // Inner frost cracks
+                        this.ctx.globalAlpha = 0.3;
+                        this.ctx.strokeStyle = '#dfe6e9';
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(bx + bw * 0.3, by + 2);
+                        this.ctx.lineTo(bx + bw * 0.4, by + bh * 0.5);
+                        this.ctx.lineTo(bx + bw * 0.3, by + bh - 2);
+                        this.ctx.moveTo(bx + bw * 0.6, by + 3);
+                        this.ctx.lineTo(bx + bw * 0.7, by + bh * 0.4);
+                        this.ctx.stroke();
+                        this.ctx.restore();
+                    } else if (e.slowTimer > 0) {
+                        const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
+                            { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        const slowRatio = e.slowAmount || 0;
+                        this.ctx.save();
+                        // Frost overlay scales with slow amount
+                        this.ctx.globalAlpha = 0.1 + slowRatio * 0.3;
+                        this.ctx.fillStyle = '#a8d8ea';
+                        this.ctx.fillRect(hb.x, hb.y, hb.width, hb.height);
+                        // Frost border grows with stacks
+                        if (slowRatio > 0.3) {
+                            this.ctx.globalAlpha = slowRatio * 0.5;
+                            this.ctx.strokeStyle = '#74b9ff';
+                            this.ctx.lineWidth = 1;
+                            this.ctx.strokeRect(hb.x - 1, hb.y - 1, hb.width + 2, hb.height + 2);
+                        }
+                        // Ice crystals forming at high stacks
+                        if (slowRatio > 0.6) {
+                            this.ctx.globalAlpha = (slowRatio - 0.6) * 2;
+                            this.ctx.fillStyle = '#dfe6e9';
+                            this.ctx.fillRect(hb.x - 1, hb.y - 1, 2, 2);
+                            this.ctx.fillRect(hb.x + hb.width - 1, hb.y - 1, 2, 2);
+                        }
+                        this.ctx.restore();
+                    }
                 }
             });
         });
@@ -512,6 +583,94 @@ export class Renderer {
                 this.ctx.arc(0, 0, b.size * 0.4, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
+            } else if (b.type === 'lightning') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                // Outer electric glow
+                this.ctx.globalAlpha = 0.4;
+                this.ctx.fillStyle = '#f1c40f';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 2, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Core
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Yellow ring
+                this.ctx.strokeStyle = '#f1c40f';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
+                this.ctx.restore();
+            } else if (b.type === 'ice_shard') {
+                this.ctx.save();
+                const lifeRatio = b.life / (b.maxLife || 25);
+                this.ctx.globalAlpha = Math.max(0.3, lifeRatio);
+                this.ctx.translate(b.x, b.y);
+                this.ctx.rotate(Math.atan2(b.vy, b.vx));
+                // Diamond / crystal shape
+                this.ctx.fillStyle = '#74b9ff';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-b.size * 0.5, 0);
+                this.ctx.lineTo(0, -b.size * 0.3);
+                this.ctx.lineTo(b.size * 0.5, 0);
+                this.ctx.lineTo(0, b.size * 0.3);
+                this.ctx.closePath();
+                this.ctx.fill();
+                // White center
+                this.ctx.fillStyle = '#dfe6e9';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.15, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'ricochet') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const bounceProgress = 1 - ((b.bounceCount || 0) / (b.maxBounces || 3));
+                const glowSize = b.size * (1.5 + bounceProgress);
+                // Glow gets brighter with bounces
+                this.ctx.globalAlpha = 0.3 + bounceProgress * 0.3;
+                this.ctx.fillStyle = '#2ecc71';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Core
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#2ecc71';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                // White center
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.4, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'boomerang') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                // Spinning rotation
+                const spinAngle = ((b.maxLife || 150) - b.life) * 0.3;
+                this.ctx.rotate(spinAngle);
+                // V-shape boomerang
+                this.ctx.fillStyle = '#8d6e63';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-6, -2);
+                this.ctx.lineTo(0, -1);
+                this.ctx.lineTo(6, -6);
+                this.ctx.lineTo(6, -4);
+                this.ctx.lineTo(1, 1);
+                this.ctx.lineTo(6, 6);
+                this.ctx.lineTo(4, 6);
+                this.ctx.lineTo(-1, 1);
+                this.ctx.lineTo(-6, 0);
+                this.ctx.closePath();
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#5d4037';
+                this.ctx.lineWidth = 1;
+                this.ctx.stroke();
+                this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();
@@ -549,6 +708,49 @@ export class Renderer {
                 this.ctx.arc(p.x2, p.y2, 4 * progress, 0, Math.PI * 2);
                 this.ctx.fill();
             }
+            this.ctx.restore();
+        });
+
+        // Draw lightning arc particles
+        this.particles.forEach(p => {
+            if (p.type !== 'lightning_arc') return;
+            const progress = p.life / p.maxLife;
+            this.ctx.save();
+            this.ctx.globalAlpha = progress;
+
+            const dx = p.x2 - p.x1;
+            const dy = p.y2 - p.y1;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const segments = Math.max(3, Math.floor(dist / 15));
+
+            // Outer yellow glow
+            this.ctx.strokeStyle = '#f1c40f';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p.x1, p.y1);
+            for (let s = 1; s < segments; s++) {
+                const t = s / segments;
+                const mx = p.x1 + dx * t + (Math.random() - 0.5) * 10;
+                const my = p.y1 + dy * t + (Math.random() - 0.5) * 10;
+                this.ctx.lineTo(mx, my);
+            }
+            this.ctx.lineTo(p.x2, p.y2);
+            this.ctx.stroke();
+
+            // White core
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p.x1, p.y1);
+            for (let s = 1; s < segments; s++) {
+                const t = s / segments;
+                const mx = p.x1 + dx * t + (Math.random() - 0.5) * 6;
+                const my = p.y1 + dy * t + (Math.random() - 0.5) * 6;
+                this.ctx.lineTo(mx, my);
+            }
+            this.ctx.lineTo(p.x2, p.y2);
+            this.ctx.stroke();
+
             this.ctx.restore();
         });
 

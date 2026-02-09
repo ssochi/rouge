@@ -18,11 +18,13 @@ export class Zombie extends Enemy {
         if (this.hp <= 0) return;
 
         super.update(player, walls, wallQuery);
-        
+
+        if (this.frozenTimer > 0) return;
+
         // Attack Logic
         if (this.isAttacking) {
             this.attackTimer++;
-            
+
             // Hit Frame (e.g. frame 20)
             if (this.attackTimer === 20) {
                 this.checkAttackHit(player);
@@ -102,8 +104,8 @@ export class Zombie extends Enemy {
                         }
                     }
 
-                    const nextX = this.x + vx * this.speed;
-                    const nextY = this.y + vy * this.speed;
+                    const nextX = this.x + vx * this.getEffectiveSpeed();
+                    const nextY = this.y + vy * this.getEffectiveSpeed();
 
                     if (moveResolver) {
                         moveResolver(this, nextX, nextY, vx, vy);

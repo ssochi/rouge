@@ -23,10 +23,12 @@ export class Hunter extends Enemy {
         if (this.hp <= 0) return;
 
         super.update(player, walls, wallQuery);
-        
+
+        if (this.frozenTimer > 0) return;
+
         // Update Aim
         this.handSystem.update(player.x, player.y);
-        
+
         // Facing
         if (player.x > this.x) this.facingRight = true;
         else this.facingRight = false;
@@ -105,8 +107,8 @@ export class Hunter extends Enemy {
             vy /= len;
         }
         
-        const nextX = this.x + vx * this.speed;
-        const nextY = this.y + vy * this.speed;
+        const nextX = this.x + vx * this.getEffectiveSpeed();
+        const nextY = this.y + vy * this.getEffectiveSpeed();
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {
@@ -125,8 +127,8 @@ export class Hunter extends Enemy {
             vy = (dy / dist);
         }
         
-        const nextX = this.x + vx * this.speed * 0.8; // Back off slightly slower
-        const nextY = this.y + vy * this.speed * 0.8;
+        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.8; // Back off slightly slower
+        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.8;
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {
