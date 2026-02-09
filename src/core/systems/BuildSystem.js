@@ -1,4 +1,5 @@
 import { TILE_SIZE } from '../../utils/Constants.js';
+import { FLOOR_TILE_SIZE, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
 import { Assets } from '../../graphics/Assets.js';
@@ -39,20 +40,28 @@ export class BuildSystem {
         this.active = true;
         this.preview.active = true;
         this.preview.itemDef = selectedItem.def;
-        
+
         // 2. Calculate Grid Position
         const mx = this.input.mouse.worldX;
         const my = this.input.mouse.worldY;
-        
-        // Snap to grid
-        const gridX = Math.floor(mx / TILE_SIZE) * TILE_SIZE;
-        const gridY = Math.floor(my / TILE_SIZE) * TILE_SIZE;
-        
-        this.preview.x = gridX;
-        this.preview.y = gridY;
-        
-        // 3. Validation
-        this.preview.valid = this.validatePlacement(gridX, gridY, selectedItem.def);
+
+        const isFloorTile = selectedItem.def.data && selectedItem.def.data.isFloorTile;
+
+        if (isFloorTile) {
+            // Floor tiles: snap to 16×16 sub-tile grid
+            const gridX = Math.floor(mx / FLOOR_TILE_SIZE) * FLOOR_TILE_SIZE;
+            const gridY = Math.floor(my / FLOOR_TILE_SIZE) * FLOOR_TILE_SIZE;
+            this.preview.x = gridX;
+            this.preview.y = gridY;
+            this.preview.valid = this.worldSystem.floorMap != null;
+        } else {
+            // Regular objects: snap to 32×32 tile grid
+            const gridX = Math.floor(mx / TILE_SIZE) * TILE_SIZE;
+            const gridY = Math.floor(my / TILE_SIZE) * TILE_SIZE;
+            this.preview.x = gridX;
+            this.preview.y = gridY;
+            this.preview.valid = this.validatePlacement(gridX, gridY, selectedItem.def);
+        }
         
         // 4. Input Handling (Left Click to Place)
         // We assume PlayerSystem handles "using tool", but we can also check input here if we coordinate.
@@ -117,27 +126,31 @@ export class BuildSystem {
     
     place() {
         if (!this.active || !this.preview.valid) return false;
-        
+
         const itemDef = this.preview.itemDef;
-        const type = itemDef.data.breakableType;
-        
-        if (type.startsWith('carpet_')) {
-            const carpet = new Carpet(this.preview.x, this.preview.y, type);
-            this.worldSystem.carpets.push(carpet);
+
+        if (itemDef.data && itemDef.data.isFloorTile) {
+            // Floor tile placement: modify floorMap
+            const sx = Math.floor(this.preview.x / FLOOR_TILE_SIZE);
+            const sy = Math.floor(this.preview.y / FLOOR_TILE_SIZE);
+            this.worldSystem.setFloorTile(sx, sy, itemDef.data.floorType);
         } else {
-            // Create Object
-            const obj = new BreakableObject(this.preview.x, this.preview.y, type);
-            this.worldSystem.breakableObjects.push(obj);
-            
-            // Update World
-            this.worldSystem.updateFlowField();
+            const type = itemDef.data.breakableType;
+
+            if (type.startsWith('carpet_')) {
+                const carpet = new Carpet(this.preview.x, this.preview.y, type);
+                this.worldSystem.carpets.push(carpet);
+            } else {
+                const obj = new BreakableObject(this.preview.x, this.preview.y, type);
+                this.worldSystem.breakableObjects.push(obj);
+                this.worldSystem.updateFlowField();
+            }
         }
-        
+
         // Consume Item
-        // We assume InventorySystem handles slot management, but here we trigger consume
         const selectedIndex = this.inventorySystem.getSelectedSlotIndex();
         this.inventorySystem.remove(selectedIndex, 1);
-        
+
         return true;
     }
     
@@ -197,9 +210,26 @@ export class BuildSystem {
     // Called by Renderer
     drawPreview(ctx, camera) {
         if (!this.preview.active) return;
-        
+
         const { x, y, valid, itemDef } = this.preview;
-        
+
+        // Floor tile preview
+        if (itemDef.data && itemDef.data.isFloorTile) {
+            ctx.save();
+            const key = FLOOR_TYPE_KEYS[itemDef.data.floorType];
+            const variants = Assets.floors[key];
+            if (variants && variants[0]) {
+                ctx.globalAlpha = 0.7;
+                ctx.drawImage(variants[0], x, y);
+                ctx.globalAlpha = 1.0;
+            }
+            ctx.strokeStyle = valid ? '#2ecc71' : '#c0392b';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, FLOOR_TILE_SIZE, FLOOR_TILE_SIZE);
+            ctx.restore();
+            return;
+        }
+
         ctx.save();
         
         // Draw Tinted Sprite (Semi-transparent)

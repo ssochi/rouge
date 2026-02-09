@@ -115,6 +115,14 @@ export const DEFAULT_GENERATION_CONFIG = Object.freeze({
         doorClearanceDepth: 2,
         minWalkableRatio: 0.35
     },
+    outdoor: {
+        treeChance: 0.06,
+        treeSmallChance: 0.08,
+        bushChance: 0.10,
+        grassChance: 0.12,
+        buildingBuffer: 4,
+        minSpacing: 1
+    },
     reservedRects: [
         // Keep the construction-map return portal neighborhood clear.
         { x: 1, y: 1, w: 8, h: 8 }

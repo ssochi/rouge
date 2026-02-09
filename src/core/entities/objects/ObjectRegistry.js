@@ -15,6 +15,10 @@ import { TableObject } from './TableObject.js';
 import { SofaObject } from './SofaObject.js';
 import { BookshelfObject } from './BookshelfObject.js';
 import { TVStandObject } from './TVStandObject.js';
+import { TreeObject } from './TreeObject.js';
+import { TreeSmallObject } from './TreeSmallObject.js';
+import { BushObject } from './BushObject.js';
+import { GrassTuftObject } from './GrassTuftObject.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -33,7 +37,11 @@ const OBJECT_DEFS = new Map([
     ['table', TableObject],
     ['sofa', SofaObject],
     ['bookshelf', BookshelfObject],
-    ['tv_stand', TVStandObject]
+    ['tv_stand', TVStandObject],
+    ['tree', TreeObject],
+    ['tree_small', TreeSmallObject],
+    ['bush', BushObject],
+    ['grass_tuft', GrassTuftObject]
 ]);
 
 export function getObjectDef(type) {

@@ -1,5 +1,6 @@
 import { Assets } from '../../graphics/Assets.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
+import { FLOOR_TYPES } from '../../utils/FloorTypes.js';
 
 export const SLOT_COUNT = 63; // 9 Hotbar + 54 Backpack (6 rows)
 export const HOTBAR_SIZE = 9;
@@ -199,6 +200,24 @@ export class InventorySystem {
                     breakableType: 'door_v',
                     footprint: { w: 12, h: 32 },
                 }
+            });
+        }
+
+        // 3. Register Floor Tiles
+        const floorTiles = [
+            { id: 'floor:grass', name: 'Grass', icon: 'floor_grass', floorType: FLOOR_TYPES.GRASS },
+            { id: 'floor:wood', name: 'Wood Floor', icon: 'floor_wood', floorType: FLOOR_TYPES.WOOD },
+            { id: 'floor:concrete', name: 'Concrete', icon: 'floor_concrete', floorType: FLOOR_TYPES.CONCRETE },
+            { id: 'floor:dirt', name: 'Dirt', icon: 'floor_dirt', floorType: FLOOR_TYPES.DIRT },
+        ];
+        for (const ft of floorTiles) {
+            this.registerItem({
+                id: ft.id,
+                type: 'placeable',
+                name: ft.name,
+                icon: ft.icon,
+                maxStack: 64,
+                data: { isFloorTile: true, floorType: ft.floorType }
             });
         }
 
