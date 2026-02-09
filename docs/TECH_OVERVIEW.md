@@ -12,6 +12,7 @@
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
+    - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
@@ -22,17 +23,17 @@
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
-      - `DroppedWeapon.js`: 掉落武器逻辑与悬浮效果。
+      - `DroppedItem.js`: 掉落物逻辑与悬浮效果（支持 weapon/placeable/consumable）。
       - `Portal.js`: 传送门逻辑与粒子渲染。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。
-      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。
+      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
       - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧）。
       - `ParticleSpawner.js`: 粒子生成（碎片、血液、弹壳）与粒子物理更新。
-      - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑。
+      - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable）。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）。
     - `Renderer.js`: 负责场景绘制与 UI 刷新。
@@ -94,11 +95,12 @@
   - 第三次：关闭调试框。
 
 ### 物品与建造系统
-- **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体）。快捷栏（Hotbar）支持键盘选择。
+- **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品）。快捷栏（Hotbar）支持键盘选择。
 - **武器实例化**: 武器入包时自动生成唯一实例数据（含独立弹药状态），`HandSystem` 在开火/换枪/换弹时实时回写到背包对应实例。
 - **Build Mode**: 选中可放置物体时进入建造模式，`BuildSystem` 处理网格吸附与放置判定。
-- **掉落物**: `DroppedWeapon` 类负责管理地面上的武器，包含简单的悬浮动画。
-- **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取与武器交换逻辑。
+- **消耗品**: 选中消耗品（如恢复针）后进入“使用模式”，鼠标左键会触发道具效果并扣除数量，不进入建造逻辑。
+- **掉落物**: `DroppedItem` 类负责管理地面掉落（武器/可放置物/消耗品），包含悬浮动画与拾取提示。
+- **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取、快捷栏切换以及左键动作分流（射击/放置/使用消耗品）。
 - **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。
 
 ### 建筑生成场景（construction + game）
@@ -119,8 +121,8 @@
   - 调用生成器并实例化对象。
   - 存储地板数据并预渲染离屏 Canvas（当前 100x100 地图下约为 3200×3200，`buildFloorCanvas()`）。
   - 生成失败时使用 fallback 布局，保证场景可进入；fallback 同样会初始化草地地板，避免出现“无地面”。
-- `WorldSystem.initGameMap()` 复用同一套生成与地板流程，然后叠加敌人与掉落物生成。
-- 地图全局尺寸已扩展为 `100x100`，并将建筑目标数量提升到 `6~12`，`game` 场景会基于生成器输出的室内候选点，优先将非僵尸敌人刷在建筑内部。
+- `WorldSystem.initGameMap()` 复用同一套生成与地板流程，然后叠加房间随机枪支、敌人与击杀掉落生成。
+- 地图全局尺寸已扩展为 `100x100`，并将建筑目标数量提升到 `6~12`，`game` 场景会基于生成器输出的 `meta.indoorSpawnTiles` 与 `meta.indoorRooms` 管理室内刷怪与房间掉落。
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。

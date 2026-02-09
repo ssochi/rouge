@@ -18,6 +18,7 @@ export class DroppedItem {
         this.name = "Unknown Item";
         this.sprite = null;
         this.isWeapon = false;
+        this.isConsumable = false;
 
         this._resolveMetadata();
         
@@ -64,6 +65,13 @@ export class DroppedItem {
             } else if (Assets[key]) {
                 this.sprite = Assets[key];
             }
+        } else if (this.itemId.startsWith('consumable:')) {
+            this.isConsumable = true;
+            const key = this.itemId.replace('consumable:', '');
+            this.name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            if (Assets[key]) {
+                this.sprite = Assets[key];
+            }
         }
         
         // Handle array sprites (animations)
@@ -102,6 +110,7 @@ export class DroppedItem {
             // Placeables: 0.8x? (They are 32x32 usually, might be too big for a drop)
             let scale = 1.0;
             if (this.isWeapon) scale = 1.5;
+            else if (this.isConsumable) scale = 1.1;
             else scale = 0.6; // Shrink large furniture
             
             ctx.scale(scale, scale);

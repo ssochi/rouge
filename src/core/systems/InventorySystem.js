@@ -170,6 +170,19 @@ export class InventorySystem {
             data: { weaponConfigId: 'boomerang' }
         });
 
+        this.registerItem({
+            id: 'consumable:recovery_needle',
+            type: 'consumable',
+            name: 'Recovery Needle',
+            description: 'Left click to recover 35 HP.',
+            icon: 'recovery_needle',
+            maxStack: 5,
+            data: {
+                healAmount: 35,
+                holdWeaponKey: 'recovery_needle'
+            }
+        });
+
         // 2. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel
         const objectKeys = Object.keys(Assets.objects).filter(k => 
@@ -258,6 +271,12 @@ export class InventorySystem {
 
     getItemDef(id) {
         return this.items.get(id);
+    }
+
+    isConsumableItem(itemId) {
+        if (!itemId) return false;
+        const def = this.getItemDef(itemId);
+        return !!def && def.type === 'consumable';
     }
 
     _isWeaponSlot(slot) {

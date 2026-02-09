@@ -151,6 +151,24 @@ function collectIndoorSpawnTiles(buildingPlans) {
     return candidates;
 }
 
+function collectIndoorRooms(buildingPlans) {
+    const rooms = [];
+    for (const building of buildingPlans) {
+        for (const room of building.rooms || []) {
+            rooms.push({
+                id: room.id,
+                buildingId: building.id,
+                x: room.x,
+                y: room.y,
+                w: room.w,
+                h: room.h,
+                semantic: room.semantic || null
+            });
+        }
+    }
+    return rooms;
+}
+
 export function generateConstructionLayout({ mapWidth, mapHeight, config: overrides = null, rng = Math.random } = {}) {
     const config = mergeConfig(DEFAULT_GENERATION_CONFIG, overrides);
     const failReasonBreakdown = createFailBreakdown();
@@ -339,6 +357,7 @@ export function generateConstructionLayout({ mapWidth, mapHeight, config: overri
 
         const allBreakables = compiled.breakables.concat(outdoorResult.placements);
         const indoorSpawnTiles = collectIndoorSpawnTiles(buildingPlans);
+        const indoorRooms = collectIndoorRooms(buildingPlans);
 
         return {
             ok: true,
@@ -348,7 +367,8 @@ export function generateConstructionLayout({ mapWidth, mapHeight, config: overri
             floorMapHeight: floorData.height,
             spawn: pickPlayerSpawn(buildingPlans, mapWidth, mapHeight, TILE_SIZE),
             meta: {
-                indoorSpawnTiles
+                indoorSpawnTiles,
+                indoorRooms
             },
             stats: {
                 attempts: attempt + 1,

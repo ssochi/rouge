@@ -106,6 +106,21 @@ export const WEAPONS = {
         magazineSize: 0,
         maxReserve: 0
     },
+    recovery_needle: {
+        name: "Recovery Needle",
+        type: WeaponType.PISTOL,
+        sprite: "recovery_needle",
+        drawOffset: { x: -5, y: -8 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 }
+        },
+        orbitRadius: 16,
+        fireRate: 0,
+        magazineSize: 0,
+        maxReserve: 0,
+        isUtility: true
+    },
     shotgun: {
         name: "Shotgun",
         type: WeaponType.RIFLE,

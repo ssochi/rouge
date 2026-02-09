@@ -34,6 +34,7 @@ import { createTreeSprite } from '../assets/objects/nature/TreeSprite.js';
 import { createTreeSmallSprite } from '../assets/objects/nature/TreeSmallSprite.js';
 import { createBushSprites } from '../assets/objects/nature/BushSprite.js';
 import { createGrassTuftSprites } from '../assets/objects/nature/GrassTuftSprite.js';
+import { createRecoveryNeedleSprite } from '../assets/items/RecoveryNeedleSprite.js';
 import { PixelDraw } from '../utils/PixelDraw.js';
 import { SMG_SPRITE } from '../assets/weapons/SmgGenerator.js';
 import { SHOTGUN_SPRITE } from '../assets/weapons/ShotgunGenerator.js';
@@ -92,6 +93,7 @@ const treeSprite = createTreeSprite();
 const treeSmallSprite = createTreeSmallSprite();
 const bushSprites = createBushSprites();
 const grassTuftSprites = createGrassTuftSprites();
+const recoveryNeedleSprite = createRecoveryNeedleSprite();
 
 const hammerSprite = (() => {
     const canvas = document.createElement('canvas');
@@ -214,6 +216,7 @@ export const Assets = {
     floor_dirt: floorSprites.dirt[0],
     gun: RIFLE_SPRITE,
     hammer: hammerSprite,
+    recovery_needle: recoveryNeedleSprite,
     rocket_launcher: ROCKET_LAUNCHER_SPRITE,
     pistol: PISTOL_SPRITE,
     smg: SMG_SPRITE,

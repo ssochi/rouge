@@ -21,6 +21,10 @@ import {
     weaponItemIdFromConfigId
 } from './WeaponInstanceUtils.js';
 
+const ROOM_GUN_SPAWN_CHANCE = 0.05;
+const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.08;
+const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle']);
+
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
         this.navGrid = navGrid;
@@ -41,6 +45,7 @@ export class WorldSystem {
         this.floorCanvas = null;
         this.generatedLayoutMeta = null;
         this.soldierWeaponPool = null;
+        this.roomWeaponPool = null;
     }
 
     loadMap(mapType) {
@@ -378,6 +383,7 @@ export class WorldSystem {
         // Weapon Rack
         let wx = 200;
         for (const key in WEAPONS) {
+            if (key === 'hammer' || WEAPONS[key]?.isUtility) continue;
             this.droppedItems.push(new DroppedItem(wx, 200, `weapon:${key.replace('default_', '')}`, 1));
             wx += 64;
         }
@@ -488,6 +494,7 @@ export class WorldSystem {
         // Game scene now uses the same building pipeline as construction scene.
         // No reserved portal area is needed here.
         this.applyGeneratedLayout({ reservedRects: [] });
+        this.spawnRoomWeaponDrops();
         this.spawnGameEncounters();
     }
 
@@ -554,11 +561,94 @@ export class WorldSystem {
             return this.soldierWeaponPool;
         }
 
-        this.soldierWeaponPool = Object.keys(WEAPONS).filter(id => id !== 'hammer' && id !== 'boomerang');
+        this.soldierWeaponPool = Object.keys(WEAPONS).filter(id => {
+            const weapon = WEAPONS[id];
+            if (!weapon) return false;
+            if (weapon.isUtility) return false;
+            return id !== 'hammer' && id !== 'boomerang';
+        });
         if (this.soldierWeaponPool.length === 0) {
             this.soldierWeaponPool = ['smg'];
         }
         return this.soldierWeaponPool;
+    }
+
+    _getRoomWeaponPool() {
+        if (Array.isArray(this.roomWeaponPool) && this.roomWeaponPool.length > 0) {
+            return this.roomWeaponPool;
+        }
+
+        this.roomWeaponPool = Object.keys(WEAPONS).filter(id => {
+            const weapon = WEAPONS[id];
+            if (!weapon) return false;
+            if (weapon.isUtility) return false;
+            return !ROOM_GUN_POOL_BLACKLIST.has(id);
+        });
+
+        if (this.roomWeaponPool.length === 0) {
+            this.roomWeaponPool = ['default_pistol'];
+        }
+        return this.roomWeaponPool;
+    }
+
+    _isDroppedItemPositionValid(x, y, radius = 10) {
+        const rect = {
+            x: x - radius,
+            y: y - radius,
+            width: radius * 2,
+            height: radius * 2
+        };
+        if (this.isRectBlocked(rect)) return false;
+
+        for (const item of this.droppedItems) {
+            if (!item) continue;
+            if (Math.hypot(item.x - x, item.y - y) < radius * 2) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    spawnRoomWeaponDrops() {
+        const rooms = this.generatedLayoutMeta?.indoorRooms || [];
+        if (!Array.isArray(rooms) || rooms.length === 0) return;
+
+        const spawnTiles = this.generatedLayoutMeta?.indoorSpawnTiles || [];
+        const roomTileMap = new Map();
+        for (const tile of spawnTiles) {
+            if (!tile || !tile.roomId) continue;
+            if (!Number.isFinite(tile.x) || !Number.isFinite(tile.y)) continue;
+            if (tile.x < 1 || tile.x > MAP_WIDTH - 2 || tile.y < 1 || tile.y > MAP_HEIGHT - 2) continue;
+            if (!roomTileMap.has(tile.roomId)) {
+                roomTileMap.set(tile.roomId, []);
+            }
+            roomTileMap.get(tile.roomId).push(tile);
+        }
+
+        const weaponPool = this._getRoomWeaponPool();
+        if (weaponPool.length === 0) return;
+
+        for (const room of rooms) {
+            if (!room || !room.id) continue;
+            if (Math.random() > ROOM_GUN_SPAWN_CHANCE) continue;
+
+            const candidates = roomTileMap.get(room.id);
+            if (!Array.isArray(candidates) || candidates.length === 0) continue;
+
+            const shuffledTiles = this._shuffleInPlace(candidates.slice());
+            for (const tile of shuffledTiles) {
+                const world = this._tileToWorldCenter(tile.x, tile.y);
+                if (!this._isDroppedItemPositionValid(world.x, world.y)) continue;
+
+                const weaponConfigId = weaponPool[Math.floor(Math.random() * weaponPool.length)];
+                const weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+                if (!weaponItemId) break;
+
+                const instanceData = createWeaponInstanceData({ weaponConfigId });
+                this.droppedItems.push(new DroppedItem(world.x, world.y, weaponItemId, 1, instanceData));
+                break;
+            }
+        }
     }
 
     _chooseSoldierWeaponConfigId() {
@@ -1121,6 +1211,18 @@ export class WorldSystem {
         this.droppedItems.push(new DroppedItem(dropX, dropY, weaponItemId, 1, instanceData));
     }
 
+    _dropEnemyRecoveryNeedle(enemy) {
+        if (!enemy) return;
+        if (Math.random() > ENEMY_RECOVERY_NEEDLE_DROP_CHANCE) return;
+
+        const itemId = 'consumable:recovery_needle';
+        if (this.inventorySystem && !this.inventorySystem.getItemDef(itemId)) return;
+
+        const dropX = enemy.x + (Math.random() - 0.5) * 18;
+        const dropY = enemy.y + (Math.random() - 0.5) * 18;
+        this.droppedItems.push(new DroppedItem(dropX, dropY, itemId, 1));
+    }
+
     _updateEnemyBreachBehavior(enemy) {
         if (!enemy || enemy.hp <= 0) return false;
 
@@ -1187,6 +1289,7 @@ export class WorldSystem {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             if (this.enemies[i].hp <= 0) {
                 this._dropEnemyWeapon(this.enemies[i]);
+                this._dropEnemyRecoveryNeedle(this.enemies[i]);
                 this.enemies.splice(i, 1);
             }
         }

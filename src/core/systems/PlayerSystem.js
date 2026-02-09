@@ -386,9 +386,35 @@ export class PlayerSystem {
         if (item.def.type === 'weapon') {
             const instanceData = this.inventorySystem.ensureWeaponInstanceForSlot(selectedIndex);
             this.handSystem.setWeapon(item.def.data.weaponConfigId, instanceData, item.itemId);
+        } else if (item.def.type === 'consumable') {
+            const holdWeaponKey = item.def.data?.holdWeaponKey || 'recovery_needle';
+            if (WEAPONS[holdWeaponKey]) {
+                this.handSystem.setWeapon(holdWeaponKey);
+            } else {
+                this.handSystem.setWeapon('hammer');
+            }
         } else if (item.def.type === 'placeable') {
             this.handSystem.setWeapon('hammer');
         }
+    }
+
+    useSelectedConsumable(selectedItem = null) {
+        if (!this.inventorySystem) return false;
+
+        const slotIndex = this.inventorySystem.getSelectedSlotIndex();
+        const item = selectedItem || this.inventorySystem.getSelectedItem();
+        if (!item || !item.itemId || item.def?.type !== 'consumable') return false;
+
+        const removed = this.inventorySystem.remove(slotIndex, 1);
+        if (removed <= 0) return false;
+
+        const healAmount = Math.max(0, Number(item.def?.data?.healAmount) || 0);
+        const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
+        const currentHp = Number.isFinite(this.player.hp) ? this.player.hp : maxHp;
+        this.player.hp = Math.min(maxHp, currentHp + healAmount);
+
+        this.updateEquippedItem();
+        return true;
     }
 
     handleHotbarInput() {
@@ -437,14 +463,21 @@ export class PlayerSystem {
             this.player.oPressed = false;
         }
 
+        const selectedItem = this.inventorySystem ? this.inventorySystem.getSelectedItem() : null;
+
         if (mouse.down) {
             // Build Mode
-            if (this.buildSystem && this.buildSystem.active) {
+            if (selectedItem && selectedItem.def?.type === 'placeable' && this.buildSystem && this.buildSystem.active) {
                 if (!this.mousePressed) {
                     this.mousePressed = true;
                     if (this.buildSystem.place()) {
                          this.updateEquippedItem();
                     }
+                }
+            } else if (selectedItem && selectedItem.def?.type === 'consumable') {
+                if (!this.mousePressed) {
+                    this.mousePressed = true;
+                    this.useSelectedConsumable(selectedItem);
                 }
             } else {
                 // Shoot Mode (Auto-fire supported by CombatSystem rate limiting)
