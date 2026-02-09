@@ -110,9 +110,8 @@ export class EnemyHandSystem {
     }
 
     drawHand(ctx, x, y) {
-        ctx.fillStyle = '#ffccaa'; // Skin color
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        if (Assets.hand) {
+            ctx.drawImage(Assets.hand, x - 16, y - 16);
+        }
     }
 }

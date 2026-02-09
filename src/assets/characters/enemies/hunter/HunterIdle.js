@@ -1,37 +1,53 @@
 import { HunterGenerator } from './HunterGenerator.js';
 
+/**
+ * Procedural Idle Animation for Hunter
+ * Standard: 16-frame cycle
+ * Features:
+ * - Smooth breathing (sine wave)
+ * - Coat tail gentle sway
+ * - Scarf wind physics
+ * - Subtle head scan (alert, intimidating)
+ * - Hair physics (wind)
+ */
+
 const generator = new HunterGenerator();
 
 export const HUNTER_IDLE = [];
 
-// 16-frame Bandit Idle (Confident, Alert)
 for (let i = 0; i < 16; i++) {
     const phase = i / 16;
-    
-    // Breathing (Steady, Controlled)
-    const breath = Math.sin(phase * Math.PI * 2);
-    
-    // Minimal Body movement
-    const bodySquash = breath > 0.5 ? 1 : 0; 
-    
-    // Coat Physics (Slight breeze) - Replaces Hair Physics
+    const rad = phase * Math.PI * 2;
+
+    // Smooth breathing
+    const breath = Math.sin(rad);
+    const bodySquash = breath * -0.8;
+
+    // Coat tail gentle sway
     const coatWave = phase;
-    
-    // Head Scan (Slow, intimidating check)
-    // No twitching. Just a slow turn to check surroundings.
+
+    // Scarf wind (offset phase from coat)
+    const scarfWave = phase + 0.25;
+
+    // Head scan: slow, confident look-around
     let lookX = 0;
-    if (i >= 2 && i <= 7) lookX = -1; // Look Left slowly
-    // if (i >= 10 && i <= 15) lookX = 1; // Look Right? No, let's keep it subtle.
-    
-    const headOffset = { 
-        x: lookX, 
-        y: bodySquash 
+    if (i >= 3 && i <= 6) lookX = -1;     // Look left
+    if (i >= 11 && i <= 14) lookX = 1;    // Look right
+
+    const headOffset = {
+        x: lookX,
+        y: bodySquash
     };
+
+    // Hair wind physics
+    const hairWave = phase;
 
     HUNTER_IDLE.push(generator.generateFrame({
         bodySquash,
         headOffset,
         legFrame: 'idle',
-        coatWave
+        coatWave,
+        scarfWave,
+        hairWave
     }));
 }

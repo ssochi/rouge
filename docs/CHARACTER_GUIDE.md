@@ -111,11 +111,15 @@ src/assets/characters/player/
 ### 6.2 Hunter (Bandit/Rogue)
 *   **Archetype**: 强盗/流亡佣兵 (Bandit / Rogue Mercenary)。
 *   **外观特征**:
-    *   **头部**: 巨大化设计 (Burly Size 18x16)，比主角更大，极具压迫感。
-    *   **脸部**: 额头和眼部区域露出皮肤 (Visible Skin)，下半脸佩戴黑色面罩/方巾 (Bandana)。
-    *   **护目镜**: 琥珀色/橙色战术护目镜 (Amber Goggles)，带有深色边框。
-    *   **身体**: 强壮的身体 (14x9)，穿着棕色皮革背心/夹克 (Leather Vest) 和醒目的红色围巾 (Red Scarf)。
-    *   **姿态**: 正常直立或轻微前倾 (Athletic)，无明显驼背。
+    *   **头部**: 巨大化设计 (Burly Size 18x16)，比主角更大，极具压迫感。眉骨阴影增加深度。
+    *   **发型**: 头巾下露出的黑色长发 (Back Layer)，两侧垂至肩膀，带有 `hairWave` 动态飘动，高光细节。
+    *   **脸部**: 额头和眼部区域露出皮肤 (Visible Skin)，下半脸佩戴红色战术布质口罩，带有褶皱纹理、鼻梁凸起阴影、嘴部轮廓线和十字缝线图案。
+    *   **护目镜**: 琥珀色/橙色战术护目镜 (Amber Goggles)，带有深色边框、双高光反射和鼻梁连接。
+    *   **身体**: 强壮的身体 (14x9)，穿着棕色皮革背心/夹克 (Leather Vest)，中间露出灰色衬衫。无手臂绘制（手由 HandSystem 运行时渲染）。
+    *   **围巾**: 红色围巾 (Red Scarf) 带有 `scarfWave` 动态摆动参数，末端飘带随风飘动。
+    *   **外套下摆**: `coatWave` 参数控制动态摆动，与主角/僵尸一致。
+    *   **弹药带**: 斜挎弹药带 (Bandolier) 带金色子弹。
+    *   **腿部**: 标准 7 种姿势 (idle/fwd1/fwd2/back1/back2/knee/tuck)。
 *   **动画风格**:
-    *   **Idle**: 自信且警觉 (Confident & Alert)，平稳呼吸，缓慢扫视周围。
-    *   **Run**: 具有攻击性的奔跑 (Aggressive Run)，身体轻微前倾，步伐稳健有力。
+    *   **Idle** (16帧): 平滑呼吸 + 围巾风动 + 外套摆动 + 左右缓慢扫视 + 头发飘动。
+    *   **Run** (12帧): 标准 Contact→Down→Pass→Up→Air→Reach 循环，头部前倾、围巾飘动、头发飘动、外套下摆飘动。
