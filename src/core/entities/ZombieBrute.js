@@ -169,27 +169,23 @@ export class ZombieBrute extends Enemy {
         ctx.ellipse(0, 14, 10, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Attack Rotation
-        if (this.isAttacking) {
-            let angle = 0;
-            if (this.attackTimer < 18) {
-                angle = -0.15 * (this.attackTimer / 18); // Slow wind up
-            } else {
-                angle = 0.6 * ((this.attackTimer - 18) / 12); // Heavy swing
-                if (angle > 0.6) angle = 0.6 - (angle - 0.6);
-            }
-            ctx.rotate(angle);
-        }
-
         // Draw Sprite (40x40, offset -20,-20 to center)
         let frames = Assets.zombieBrute.idle;
-        if (this.state === 'run' || this.isAttacking) {
+        let frameIndex;
+        if (this.isAttacking && Assets.zombieBrute.attack) {
+            frames = Assets.zombieBrute.attack;
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / this.attackDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run') {
             frames = Assets.zombieBrute.run;
+            frameIndex = Math.floor(this.animationTimer / 6) % frames.length;
+        } else {
+            frameIndex = Math.floor(this.animationTimer / 6) % frames.length;
         }
 
         if (frames) {
-            const speedDiv = this.isAttacking ? 4 : 6; // Slower animation
-            const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
             ctx.drawImage(frames[frameIndex], -20, -20);
         }
 
@@ -197,8 +193,6 @@ export class ZombieBrute extends Enemy {
             ctx.save();
             ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
             if (frames) {
-                const speedDiv = this.isAttacking ? 4 : 6;
-                const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
                 ctx.drawImage(frames[frameIndex], -20, -20);
             }
             ctx.restore();

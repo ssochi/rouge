@@ -164,46 +164,31 @@ export class Zombie extends Enemy {
         ctx.ellipse(0, 12, 8, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Attack Rotation (Visual Swing)
-        if (this.isAttacking) {
-            // Wind up back, then swing forward
-            let angle = 0;
-            if (this.attackTimer < 15) {
-                angle = -0.2 * (this.attackTimer / 15); // Wind up
-            } else {
-                angle = 0.5 * ((this.attackTimer - 15) / 10); // Swing
-                if (angle > 0.5) angle = 0.5 - (angle - 0.5); // Return
-            }
-            ctx.rotate(angle);
-        }
-
         // Draw Sprite
         let frames = Assets.zombie.idle;
-        if (this.state === 'run' || this.isAttacking) {
+        let frameIndex;
+        if (this.isAttacking && Assets.zombie.attack) {
+            frames = Assets.zombie.attack;
+            // Map attackTimer (0~attackDuration) to attack frames (0~7)
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / this.attackDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run') {
             frames = Assets.zombie.run;
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
+        } else {
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
         }
-        
+
         if (frames) {
-            // Speed up animation if attacking
-            // Idle speed increased to 5 (from 10) for better trembling effect
-            const speedDiv = this.isAttacking ? 3 : 5;
-            const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
             ctx.drawImage(frames[frameIndex], -16, -16);
         }
 
-        // Hit Flash Logic
-        // We cannot use 'source-atop' directly on the main canvas because it composites against the background.
-        // Instead, we use a brightness filter if available, or just skip it if not critical.
-        // For standard Canvas 2D in modern browsers, filter works.
-        
         if (this.hitFlashTimer > 0) {
             ctx.save();
-            // Apply brightness filter to make it look white/flashing
-            ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)'; 
-            // Re-draw the sprite on top with the filter
+            ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
             if (frames) {
-                const speedDiv = this.isAttacking ? 3 : 5;
-                const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
                 ctx.drawImage(frames[frameIndex], -16, -16);
             }
             ctx.restore();

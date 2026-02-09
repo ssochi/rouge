@@ -107,6 +107,7 @@ src/assets/characters/player/
 *   **动画风格**:
     *   **Idle** (16帧): 呼吸起伏 + 第 8-10 帧突然抽搐 + 缓慢张嘴 + 领带/外套摆动。
     *   **Run** (12帧): 标准 Contact→Down→Pass→Up→Air→Reach 循环，加大身体起伏 (蹒跚感)、头部甩动、嘴巴张开抖动、领带大幅摆动、外套下摆飘动。
+    *   **Attack** (8帧): 蓄力(2帧)→前冲(2帧)→挥击(2帧)→恢复(2帧)。`drawAttackArms()` 根据 `attackPhase` (0~1) 动态绘制手臂位置，双臂从后拉到前伸再挥击，爪子在攻击阶段张开。腿部保持 idle 姿势，身体有蹲→前倾→恢复的联动。
 
 ### 6.2 Hunter (Bandit/Rogue)
 *   **Archetype**: 强盗/流亡佣兵 (Bandit / Rogue Mercenary)。
@@ -146,6 +147,7 @@ src/assets/characters/player/
 *   **动画风格**:
     *   **Idle** (16帧): 呼吸起伏 + 第 8-10 帧抽搐 + 缓慢张嘴 + 头发飘动 + 开衫下摆摆动。
     *   **Run** (12帧): 标准 Contact→Down→Pass→Up→Air→Reach 循环，头发大幅飘动、开衫下摆飘动、蹒跚感。
+    *   **Attack** (8帧): 蓄力(2帧)→前冲(2帧)→挥击(2帧)→恢复(2帧)。细臂快速前伸挠抓，头发在攻击时飘动加大。
 
 ### 6.4 Zombie Brute (Undead Construction Worker)
 *   **Archetype**: 末日工地僵尸 (Undead Construction Worker)，僵尸家族的重型变体。
@@ -170,3 +172,4 @@ src/assets/characters/player/
 *   **动画风格**:
     *   **Idle** (16帧): 沉重呼吸 (幅度 1.2) + 第 9-11 帧抽搐 + 缓慢张嘴 + 背心下摆摆动。
     *   **Run** (12帧): 标准 Contact→Down→Pass→Up→Air→Reach 循环，沉重落地 (bodyY +2)、左右摇晃、嘴巴在落地时张大。
+    *   **Attack** (8帧): 蓄力(2帧)→前冲(2帧)→挥击(2帧)→恢复(2帧)。粗壮手臂大幅后拉蓄力后猛冲前砸，拳头 (3x3) 在最大伸展时有"地面冲击"感，身体有更大幅度的蹲→冲→恢复联动。

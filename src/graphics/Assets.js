@@ -7,6 +7,7 @@ import { HAND_TEMPLATE } from '../assets/characters/HandSprite.js';
 import { ENEMY_TEMPLATE } from '../assets/characters/EnemySprite.js';
 import { ZOMBIE_IDLE_FRAMES } from '../assets/characters/enemies/zombie/ZombieIdle.js';
 import { ZOMBIE_RUN_FRAMES } from '../assets/characters/enemies/zombie/ZombieRun.js';
+import { ZOMBIE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie/ZombieAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
 import { PISTOL_SPRITE } from '../assets/weapons/PistolGenerator.js';
 import { ROCKET_LAUNCHER_SPRITE } from '../assets/weapons/RocketLauncherGenerator.js';
@@ -41,8 +42,10 @@ import { HUNTER_RUN } from '../assets/characters/enemies/hunter/HunterRun.js';
 import { HUNTER_AVATAR } from '../assets/characters/enemies/hunter/HunterSprite.js';
 import { ZOMBIE_FEMALE_IDLE_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleIdle.js';
 import { ZOMBIE_FEMALE_RUN_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleRun.js';
+import { ZOMBIE_FEMALE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_female/ZombieFemaleAttack.js';
 import { ZOMBIE_BRUTE_IDLE_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteIdle.js';
 import { ZOMBIE_BRUTE_RUN_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteRun.js';
+import { ZOMBIE_BRUTE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteAttack.js';
 
 import { createSuvSprite } from '../assets/vehicles/SuvSprite.js';
 import { createTruckSprite } from '../assets/vehicles/TruckSprite.js';
@@ -102,15 +105,18 @@ export const Assets = {
     enemy: spriteGenerator.generate(ENEMY_TEMPLATE, PALETTE),
     zombie: {
         idle: ZOMBIE_IDLE_FRAMES,
-        run: ZOMBIE_RUN_FRAMES
+        run: ZOMBIE_RUN_FRAMES,
+        attack: ZOMBIE_ATTACK_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,
-        run: ZOMBIE_FEMALE_RUN_FRAMES
+        run: ZOMBIE_FEMALE_RUN_FRAMES,
+        attack: ZOMBIE_FEMALE_ATTACK_FRAMES
     },
     zombieBrute: {
         idle: ZOMBIE_BRUTE_IDLE_FRAMES,
-        run: ZOMBIE_BRUTE_RUN_FRAMES
+        run: ZOMBIE_BRUTE_RUN_FRAMES,
+        attack: ZOMBIE_BRUTE_ATTACK_FRAMES
     },
     objects: {
         box: boxSprite,

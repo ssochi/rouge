@@ -158,27 +158,23 @@ export class ZombieFemale extends Enemy {
         ctx.ellipse(0, 12, 7, 3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Attack Rotation
-        if (this.isAttacking) {
-            let angle = 0;
-            if (this.attackTimer < 12) {
-                angle = -0.2 * (this.attackTimer / 12);
-            } else {
-                angle = 0.5 * ((this.attackTimer - 12) / 10);
-                if (angle > 0.5) angle = 0.5 - (angle - 0.5);
-            }
-            ctx.rotate(angle);
-        }
-
         // Draw Sprite
         let frames = Assets.zombieFemale.idle;
-        if (this.state === 'run' || this.isAttacking) {
+        let frameIndex;
+        if (this.isAttacking && Assets.zombieFemale.attack) {
+            frames = Assets.zombieFemale.attack;
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / this.attackDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run') {
             frames = Assets.zombieFemale.run;
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
+        } else {
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
         }
 
         if (frames) {
-            const speedDiv = this.isAttacking ? 3 : 5;
-            const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
             ctx.drawImage(frames[frameIndex], -16, -16);
         }
 
@@ -186,8 +182,6 @@ export class ZombieFemale extends Enemy {
             ctx.save();
             ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
             if (frames) {
-                const speedDiv = this.isAttacking ? 3 : 5;
-                const frameIndex = Math.floor(this.animationTimer / speedDiv) % frames.length;
                 ctx.drawImage(frames[frameIndex], -16, -16);
             }
             ctx.restore();

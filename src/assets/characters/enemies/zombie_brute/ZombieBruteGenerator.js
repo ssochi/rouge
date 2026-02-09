@@ -73,8 +73,12 @@ export class ZombieBruteGenerator {
         // 2. Draw Body (Vest + Tank Top)
         this.drawBody(drawer, cx, bodyY, pose);
 
-        // 3. Draw Arms (Thick, powerful zombie arms)
-        this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        // 3. Draw Arms (Thick, powerful zombie arms or Attack)
+        if (pose.attackPhase !== undefined) {
+            this.drawAttackArms(drawer, cx, bodyY, pose.attackPhase);
+        } else {
+            this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        }
 
         // 4. Draw Head
         this.drawHead(drawer, headX, headY, pose.jawOpen || 0);
@@ -313,6 +317,110 @@ export class ZombieBruteGenerator {
         drawer.rect(rx + rSwing, sy + 6, 3, 3, this.cSkin);
         drawer.pixel(rx + rSwing, sy + 7, this.cSkinShadow);
         drawer.pixel(rx + 2 + rSwing, sy + 8, this.cSkinShadow);
+    }
+
+    /**
+     * Draw arms in attack pose based on phase (0~1)
+     * Thick, powerful arms for brute zombie - heavy smash attack
+     */
+    drawAttackArms(drawer, cx, cy, phase) {
+        const sy = cy - 5;
+
+        let lArmX, lHandX, lHandY, rArmX, rHandX, rHandY;
+
+        if (phase < 0.2) {
+            // Wind-up: arms pull back and raise
+            const t = phase / 0.2;
+            lArmX = cx - 8 + t * 5;       // Pull left arm right (cx-8 → cx-3)
+            lHandX = cx - 10 + t * 8;
+            lHandY = sy + 5 - t * 2;      // Raise fists
+            rArmX = cx + 8;
+            rHandX = cx + 9 + t * 1;
+            rHandY = sy + 6 - t * 2;
+        } else if (phase < 0.5) {
+            // Lunge: arms thrust forward powerfully
+            const t = (phase - 0.2) / 0.3;
+            lArmX = cx - 3 - t * 10;      // Thrust forward (cx-3 → cx-13)
+            lHandX = cx - 2 - t * 14;
+            lHandY = sy + 3 + t * 3;      // Extend down
+            rArmX = cx + 9 - t * 14;      // Right arm forward too
+            rHandX = cx + 10 - t * 16;
+            rHandY = sy + 4 + t * 2;
+        } else if (phase < 0.75) {
+            // Strike: fists at max extension, ground pound feel
+            const t = (phase - 0.5) / 0.25;
+            lArmX = cx - 13;
+            lHandX = cx - 16 - t * 1;
+            lHandY = sy + 6 + t * 2;
+            rArmX = cx - 5;
+            rHandX = cx - 6 - t * 1;
+            rHandY = sy + 6 + t * 2;
+        } else {
+            // Recovery: arms return
+            const t = (phase - 0.75) / 0.25;
+            lArmX = cx - 13 + t * 5;
+            lHandX = cx - 17 + t * 7;
+            lHandY = sy + 8 - t * 3;
+            rArmX = cx - 5 + t * 13;
+            rHandX = cx - 7 + t * 16;
+            rHandY = sy + 8 - t * 2;
+        }
+
+        lArmX = Math.round(lArmX);
+        lHandX = Math.round(lHandX);
+        lHandY = Math.round(lHandY);
+        rArmX = Math.round(rArmX);
+        rHandX = Math.round(rHandX);
+        rHandY = Math.round(rHandY);
+
+        // -- Left Arm (Primary, thick) --
+        // Vest sleeve edge
+        drawer.fillPath([
+            {x: lArmX + 2, y: sy},
+            {x: lArmX + 6, y: sy},
+            {x: lArmX + 4, y: sy + 3},
+            {x: lArmX, y: sy + 2}
+        ], this.cVest);
+        // Thick forearm
+        drawer.fillPath([
+            {x: lArmX, y: sy + 2},
+            {x: lArmX + 4, y: sy + 3},
+            {x: lHandX + 3, y: lHandY},
+            {x: lHandX, y: lHandY - 1}
+        ], this.cSkin);
+        // Muscle shadow
+        drawer.pixel(lArmX + 1, sy + 3, this.cSkinShadow);
+        drawer.pixel(lHandX + 1, lHandY - 1, this.cSkinShadow);
+        // Blood/wound
+        drawer.pixel(lArmX + 2, sy + 4, this.cBlood);
+        // Fist (big, 3x3)
+        drawer.rect(lHandX - 1, lHandY, 3, 3, this.cSkin);
+        drawer.pixel(lHandX - 1, lHandY + 1, this.cSkinShadow);
+        drawer.pixel(lHandX + 1, lHandY + 2, this.cSkinShadow);
+
+        // -- Right Arm (Secondary, thick) --
+        // Vest sleeve edge
+        drawer.fillPath([
+            {x: rArmX - 4, y: sy},
+            {x: rArmX, y: sy},
+            {x: rArmX + 2, y: sy + 3},
+            {x: rArmX - 2, y: sy + 3}
+        ], this.cVest);
+        // Thick forearm
+        drawer.fillPath([
+            {x: rArmX - 2, y: sy + 3},
+            {x: rArmX + 2, y: sy + 3},
+            {x: rHandX + 3, y: rHandY},
+            {x: rHandX, y: rHandY - 1}
+        ], this.cSkin);
+        // Muscle shadow
+        drawer.pixel(rArmX + 1, sy + 4, this.cSkinShadow);
+        // Wound
+        drawer.pixel(rArmX, sy + 5, this.cBlood);
+        // Fist (big, 3x3)
+        drawer.rect(rHandX, rHandY, 3, 3, this.cSkin);
+        drawer.pixel(rHandX, rHandY + 1, this.cSkinShadow);
+        drawer.pixel(rHandX + 2, rHandY + 2, this.cSkinShadow);
     }
 
     drawLegs(drawer, cx, cy, pose) {

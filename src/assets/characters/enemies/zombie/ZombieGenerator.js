@@ -69,8 +69,12 @@ export class ZombieGenerator {
         // 2. Draw Body (Tattered Jacket + Shirt + Tie)
         this.drawBody(drawer, cx, bodyY, pose);
 
-        // 3. Draw Arms (Outstretched Zombie Pose)
-        this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        // 3. Draw Arms (Outstretched Zombie Pose or Attack)
+        if (pose.attackPhase !== undefined) {
+            this.drawAttackArms(drawer, cx, bodyY, pose.attackPhase);
+        } else {
+            this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        }
 
         // 4. Draw Head
         this.drawHead(drawer, headX, headY, pose.jawOpen || 0);
@@ -331,6 +335,119 @@ export class ZombieGenerator {
         // Hand
         drawer.pixel(rx + 1 + rSwing, sy + 6, this.cSkin);
         drawer.pixel(rx + 2 + rSwing, sy + 5, this.cSkinShadow);
+    }
+
+    /**
+     * Draw arms in attack pose based on phase (0~1)
+     * 0~0.2: Wind-up (arms pull back right)
+     * 0.3~0.6: Lunge (arms thrust forward left)
+     * 0.6~0.8: Strike (arms at max extension, claws spread)
+     * 0.8~1.0: Recovery (arms return)
+     */
+    drawAttackArms(drawer, cx, cy, phase) {
+        const sy = cy - 4;
+
+        // Interpolate arm positions based on phase
+        let lArmX, lHandX, lHandY, rArmX, rHandX, rHandY;
+
+        if (phase < 0.2) {
+            // Wind-up: arms pull back (toward right)
+            const t = phase / 0.2;
+            lArmX = cx - 6 + t * 4;       // Pull left arm right (cx-6 → cx-2)
+            lHandX = cx - 8 + t * 6;      // Hand pulls back
+            lHandY = sy + 4 - t * 1;      // Slightly raise
+            rArmX = cx + 6;
+            rHandX = cx + 7 + t * 1;
+            rHandY = sy + 5 - t * 1;
+        } else if (phase < 0.5) {
+            // Lunge: arms thrust forward (toward left)
+            const t = (phase - 0.2) / 0.3;
+            lArmX = cx - 2 - t * 8;       // Thrust left arm forward (cx-2 → cx-10)
+            lHandX = cx - 2 - t * 10;     // Hand reaches far
+            lHandY = sy + 3 + t * 2;      // Extend downward
+            rArmX = cx + 7 - t * 10;      // Right arm also swings forward
+            rHandX = cx + 8 - t * 12;     // Right hand reaches
+            rHandY = sy + 4 + t * 1;
+        } else if (phase < 0.75) {
+            // Strike: arms at max extension
+            const t = (phase - 0.5) / 0.25;
+            lArmX = cx - 10;
+            lHandX = cx - 12 - t * 1;     // Slight extra push
+            lHandY = sy + 5 + t * 1;      // Claw sweeps down
+            rArmX = cx - 3;
+            rHandX = cx - 4 - t * 1;
+            rHandY = sy + 5 + t * 1;
+        } else {
+            // Recovery: arms return to normal
+            const t = (phase - 0.75) / 0.25;
+            lArmX = cx - 10 + t * 4;      // Pull back toward normal
+            lHandX = cx - 13 + t * 5;
+            lHandY = sy + 6 - t * 1;
+            rArmX = cx - 3 + t * 9;
+            rHandX = cx - 5 + t * 11;
+            rHandY = sy + 6 - t * 1;
+        }
+
+        // Round all positions
+        lArmX = Math.round(lArmX);
+        lHandX = Math.round(lHandX);
+        lHandY = Math.round(lHandY);
+        rArmX = Math.round(rArmX);
+        rHandX = Math.round(rHandX);
+        rHandY = Math.round(rHandY);
+
+        // -- Left Arm (Primary attack arm) --
+        // Jacket sleeve
+        drawer.fillPath([
+            {x: lArmX + 1, y: sy},
+            {x: lArmX + 4, y: sy},
+            {x: lArmX + 2, y: sy + 3},
+            {x: lArmX - 1, y: sy + 2}
+        ], this.cJacket);
+        drawer.pixel(lArmX, sy + 2, this.cJacketDark);
+        // Forearm skin
+        drawer.fillPath([
+            {x: lArmX - 1, y: sy + 2},
+            {x: lArmX + 2, y: sy + 3},
+            {x: lHandX + 2, y: lHandY},
+            {x: lHandX, y: lHandY - 1}
+        ], this.cSkin);
+        drawer.pixel(lHandX + 1, lHandY - 1, this.cSkinShadow);
+        // Claws/Fingers (more spread during strike)
+        if (phase >= 0.3 && phase < 0.8) {
+            // Spread claws during attack
+            drawer.pixel(lHandX - 1, lHandY - 1, this.cSkin);
+            drawer.pixel(lHandX, lHandY + 1, this.cSkin);
+            drawer.pixel(lHandX + 1, lHandY + 1, this.cSkinShadow);
+            drawer.pixel(lHandX - 1, lHandY + 1, this.cSkin);
+        } else {
+            drawer.pixel(lHandX, lHandY, this.cSkin);
+            drawer.pixel(lHandX + 1, lHandY + 1, this.cSkinShadow);
+        }
+
+        // -- Right Arm (Secondary) --
+        // Jacket sleeve
+        drawer.fillPath([
+            {x: rArmX - 3, y: sy},
+            {x: rArmX, y: sy},
+            {x: rArmX + 1, y: sy + 3},
+            {x: rArmX - 2, y: sy + 3}
+        ], this.cJacket);
+        // Forearm skin
+        drawer.fillPath([
+            {x: rArmX - 2, y: sy + 3},
+            {x: rArmX + 1, y: sy + 3},
+            {x: rHandX + 2, y: rHandY},
+            {x: rHandX, y: rHandY - 1}
+        ], this.cSkin);
+        drawer.pixel(rHandX + 1, rHandY, this.cSkinShadow);
+        // Hand
+        if (phase >= 0.3 && phase < 0.8) {
+            drawer.pixel(rHandX - 1, rHandY, this.cSkin);
+            drawer.pixel(rHandX, rHandY + 1, this.cSkinShadow);
+        } else {
+            drawer.pixel(rHandX + 1, rHandY + 1, this.cSkin);
+        }
     }
 
     drawLegs(drawer, cx, cy, pose) {

@@ -7,6 +7,7 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
+    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。

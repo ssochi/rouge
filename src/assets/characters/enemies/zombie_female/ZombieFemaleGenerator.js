@@ -69,8 +69,12 @@ export class ZombieFemaleGenerator {
         // 2. Draw Body (Cardigan + Blouse)
         this.drawBody(drawer, cx, bodyY, pose);
 
-        // 3. Draw Arms (Zombie reaching pose)
-        this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        // 3. Draw Arms (Zombie reaching pose or Attack)
+        if (pose.attackPhase !== undefined) {
+            this.drawAttackArms(drawer, cx, bodyY, pose.attackPhase);
+        } else {
+            this.drawArms(drawer, cx, bodyY, pose.armSwing || 0);
+        }
 
         // 4. Draw Head (Hair + Face)
         this.drawHead(drawer, headX, headY, pose.hairWave || 0, pose.jawOpen || 0);
@@ -291,6 +295,108 @@ export class ZombieFemaleGenerator {
             {x: rx - 1 + rSwing, y: sy + 4}
         ], this.cSkin);
         drawer.pixel(rx + rSwing, sy + 5, this.cSkinShadow);
+    }
+
+    /**
+     * Draw arms in attack pose based on phase (0~1)
+     * Thinner arms for female zombie, quicker/scratchier attack
+     */
+    drawAttackArms(drawer, cx, cy, phase) {
+        const sy = cy - 4;
+
+        let lArmX, lHandX, lHandY, rArmX, rHandX, rHandY;
+
+        if (phase < 0.2) {
+            // Wind-up
+            const t = phase / 0.2;
+            lArmX = cx - 5 + t * 3;
+            lHandX = cx - 7 + t * 5;
+            lHandY = sy + 4 - t * 1;
+            rArmX = cx + 5;
+            rHandX = cx + 6 + t * 1;
+            rHandY = sy + 4 - t * 1;
+        } else if (phase < 0.5) {
+            // Lunge
+            const t = (phase - 0.2) / 0.3;
+            lArmX = cx - 2 - t * 7;
+            lHandX = cx - 2 - t * 9;
+            lHandY = sy + 3 + t * 2;
+            rArmX = cx + 6 - t * 9;
+            rHandX = cx + 7 - t * 11;
+            rHandY = sy + 3 + t * 2;
+        } else if (phase < 0.75) {
+            // Strike
+            const t = (phase - 0.5) / 0.25;
+            lArmX = cx - 9;
+            lHandX = cx - 11 - t * 1;
+            lHandY = sy + 5 + t * 1;
+            rArmX = cx - 3;
+            rHandX = cx - 4 - t * 1;
+            rHandY = sy + 5 + t * 1;
+        } else {
+            // Recovery
+            const t = (phase - 0.75) / 0.25;
+            lArmX = cx - 9 + t * 4;
+            lHandX = cx - 12 + t * 5;
+            lHandY = sy + 6 - t * 1;
+            rArmX = cx - 3 + t * 8;
+            rHandX = cx - 5 + t * 11;
+            rHandY = sy + 6 - t * 2;
+        }
+
+        lArmX = Math.round(lArmX);
+        lHandX = Math.round(lHandX);
+        lHandY = Math.round(lHandY);
+        rArmX = Math.round(rArmX);
+        rHandX = Math.round(rHandX);
+        rHandY = Math.round(rHandY);
+
+        // -- Left Arm (Primary) --
+        // Cardigan sleeve
+        drawer.fillPath([
+            {x: lArmX, y: sy},
+            {x: lArmX + 3, y: sy},
+            {x: lArmX + 1, y: sy + 3},
+            {x: lArmX - 2, y: sy + 2}
+        ], this.cCardigan);
+        // Thin forearm
+        drawer.fillPath([
+            {x: lArmX - 2, y: sy + 2},
+            {x: lArmX + 1, y: sy + 3},
+            {x: lHandX + 1, y: lHandY},
+            {x: lHandX - 1, y: lHandY - 1}
+        ], this.cSkin);
+        // Fingers
+        if (phase >= 0.3 && phase < 0.8) {
+            drawer.pixel(lHandX - 1, lHandY, this.cSkin);
+            drawer.pixel(lHandX, lHandY + 1, this.cSkinShadow);
+            drawer.pixel(lHandX - 1, lHandY + 1, this.cSkin);
+        } else {
+            drawer.pixel(lHandX, lHandY, this.cSkinShadow);
+        }
+
+        // -- Right Arm (Secondary) --
+        // Cardigan sleeve
+        drawer.fillPath([
+            {x: rArmX - 2, y: sy},
+            {x: rArmX + 1, y: sy},
+            {x: rArmX + 2, y: sy + 3},
+            {x: rArmX - 1, y: sy + 2}
+        ], this.cCardigan);
+        // Thin forearm
+        drawer.fillPath([
+            {x: rArmX - 1, y: sy + 2},
+            {x: rArmX + 2, y: sy + 3},
+            {x: rHandX + 1, y: rHandY},
+            {x: rHandX - 1, y: rHandY - 1}
+        ], this.cSkin);
+        // Fingers
+        if (phase >= 0.3 && phase < 0.8) {
+            drawer.pixel(rHandX - 1, rHandY, this.cSkin);
+            drawer.pixel(rHandX, rHandY + 1, this.cSkinShadow);
+        } else {
+            drawer.pixel(rHandX, rHandY, this.cSkinShadow);
+        }
     }
 
     drawLegs(drawer, cx, cy, pose) {
