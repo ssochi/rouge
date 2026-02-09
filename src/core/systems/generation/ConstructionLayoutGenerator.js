@@ -171,6 +171,9 @@ export function generateConstructionLayout({ mapWidth, mapHeight, config: overri
             buildingPlans,
             mapWidth,
             mapHeight,
+            floorMap: floorData.floorMap,
+            floorMapWidth: floorData.width,
+            floorMapHeight: floorData.height,
             rng,
             config
         });

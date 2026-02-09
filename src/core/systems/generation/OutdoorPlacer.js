@@ -1,12 +1,22 @@
 import { TILE_SIZE } from '../../../utils/Constants.js';
+import { FLOOR_TYPES, FLOOR_TILES_PER_CELL } from '../../../utils/FloorTypes.js';
 
 /**
  * Place outdoor nature objects (trees, bushes, grass) on open terrain.
  *
- * @param {{ buildingPlans: Array, mapWidth: number, mapHeight: number, rng: Function, config: Object }} opts
+ * @param {{ buildingPlans: Array, mapWidth: number, mapHeight: number, floorMap?: Uint8Array, floorMapWidth?: number, floorMapHeight?: number, rng: Function, config: Object }} opts
  * @returns {{ placements: Array<{x: number, y: number, type: string}> }}
  */
-export function placeOutdoorObjects({ buildingPlans, mapWidth, mapHeight, rng, config }) {
+export function placeOutdoorObjects({
+    buildingPlans,
+    mapWidth,
+    mapHeight,
+    floorMap,
+    floorMapWidth,
+    floorMapHeight,
+    rng,
+    config
+}) {
     const outdoor = config.outdoor || {};
     const buffer = outdoor.buildingBuffer || 4;
     const minSpacing = outdoor.minSpacing || 1;
@@ -48,11 +58,36 @@ export function placeOutdoorObjects({ buildingPlans, mapWidth, mapHeight, rng, c
         return true;
     }
 
+    // Restrict outdoor vegetation to natural ground only (GRASS / DIRT).
+    function isNaturalGround(tx, ty) {
+        if (!floorMap || !floorMapWidth || !floorMapHeight) return true;
+
+        const S = FLOOR_TILES_PER_CELL;
+        const sx0 = tx * S;
+        const sy0 = ty * S;
+
+        for (let dsy = 0; dsy < S; dsy++) {
+            for (let dsx = 0; dsx < S; dsx++) {
+                const sx = sx0 + dsx;
+                const sy = sy0 + dsy;
+                if (sx < 0 || sx >= floorMapWidth || sy < 0 || sy >= floorMapHeight) return false;
+
+                const floorType = floorMap[sy * floorMapWidth + sx];
+                if (floorType !== FLOOR_TYPES.GRASS && floorType !== FLOOR_TYPES.DIRT) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     // Iterate all tiles (skip boundary walls: 2 tiles margin)
     for (let ty = 2; ty < mapHeight - 2; ty++) {
         for (let tx = 2; tx < mapWidth - 2; tx++) {
             const key = ty * mapWidth + tx;
             if (occupied.has(key)) continue;
+            if (!isNaturalGround(tx, ty)) continue;
             if (!isSpacingOk(tx, ty)) continue;
 
             // Determine what to place based on probability cascade
@@ -69,7 +104,13 @@ export function placeOutdoorObjects({ buildingPlans, mapWidth, mapHeight, rng, c
             if (roll < threshold) { type = 'tree'; }
             else { threshold += treeSmallChance; if (roll < threshold) type = 'tree_small'; }
             if (!type) { threshold += bushChance; if (roll < threshold) type = 'bush'; }
-            if (!type) { threshold += grassChance; if (roll < threshold) type = 'grass_tuft'; }
+            if (!type) {
+                threshold += grassChance;
+                if (roll < threshold) {
+                    const grassTypes = ['grass_tuft', 'grass_tall', 'grass_flower'];
+                    type = grassTypes[Math.floor(rng() * grassTypes.length)];
+                }
+            }
 
             if (type) {
                 placements.push({

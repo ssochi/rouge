@@ -108,7 +108,7 @@
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
-  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛），尊重建筑缓冲区和保留区域，保证最小间距。
+  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛），尊重建筑缓冲区和保留区域，保证最小间距；并基于 `floorMap` 限制仅在 `GRASS`/`DIRT` 子格对应地块生成，避免长在水泥路或木地板上。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。

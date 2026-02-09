@@ -157,21 +157,23 @@ export class BreakableObject {
         }
 
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        if (this.shadow) {
-            if (this.shadow.type === 'rect') {
-                ctx.fillRect(this.shadow.x, this.shadow.y, this.shadow.w, this.shadow.h);
-            } else if (this.shadow.type === 'multiRect' && Array.isArray(this.shadow.rects)) {
-                this.shadow.rects.forEach(r => {
-                    ctx.fillRect(r.x, r.y, r.w, r.h);
-                });
+        if (this.shadow !== null) {
+            ctx.beginPath();
+            if (this.shadow) {
+                if (this.shadow.type === 'rect') {
+                    ctx.fillRect(this.shadow.x, this.shadow.y, this.shadow.w, this.shadow.h);
+                } else if (this.shadow.type === 'multiRect' && Array.isArray(this.shadow.rects)) {
+                    this.shadow.rects.forEach(r => {
+                        ctx.fillRect(r.x, r.y, r.w, r.h);
+                    });
+                } else {
+                    ctx.ellipse(16, this.shadow.y, this.shadow.rx, this.shadow.ry, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else {
-                ctx.ellipse(16, this.shadow.y, this.shadow.rx, this.shadow.ry, 0, 0, Math.PI * 2);
+                ctx.ellipse(16, 30, 12, 6, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
-        } else {
-            ctx.ellipse(16, 30, 12, 6, 0, 0, Math.PI * 2);
-            ctx.fill();
         }
 
         const sprite = Assets.objects[this.type];
