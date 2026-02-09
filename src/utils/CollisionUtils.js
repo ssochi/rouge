@@ -27,13 +27,17 @@ export const CollisionUtils = {
 
     // Standard Line-Line Intersection (p1-p2 vs p3-p4)
     lineIntersectsLine(p1, p2, p3, p4) {
+        const eps = 1e-6;
         const det = (p2.x - p1.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p2.y - p1.y);
-        if (det === 0) {
+        if (Math.abs(det) < eps) {
             return false;
         } else {
             const lambda = ((p4.y - p3.y) * (p4.x - p1.x) + (p3.x - p4.x) * (p4.y - p1.y)) / det;
             const gamma = ((p1.y - p2.y) * (p4.x - p1.x) + (p2.x - p1.x) * (p4.y - p1.y)) / det;
-            return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
+            return (
+                lambda >= -eps && lambda <= 1 + eps &&
+                gamma >= -eps && gamma <= 1 + eps
+            );
         }
     },
 

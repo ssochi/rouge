@@ -20,7 +20,7 @@ export class Renderer {
         this.worldSystem = worldSystem; // To access portals
         this.vehicles = vehicles || []; // Add vehicles
         this.buildSystem = buildSystem;
-        this.debugMode = false;
+        this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes
         this.pPressed = false;
     }
 
@@ -75,7 +75,7 @@ export class Renderer {
     draw() {
         // Toggle Debug Mode
         if (this.input.keys.p && !this.pPressed) {
-            this.debugMode = !this.debugMode;
+            this.debugMode = (this.debugMode + 1) % 3;
             this.pPressed = true;
         } else if (!this.input.keys.p) {
             this.pPressed = false;
@@ -370,6 +370,9 @@ export class Renderer {
 
         renderList.sort((a, b) => a.y - b.y);
         renderList.forEach(item => item.draw());
+        
+        // Draw Laser Sight
+        this.drawLaserSight(this.ctx);
 
         this.droppedItems.forEach(item => {
              item.draw(this.ctx);
@@ -386,6 +389,32 @@ export class Renderer {
                     this.ctx.drawImage(sprite, -sprite.width/2, -sprite.height/2);
                     this.ctx.restore();
                 }
+            } else if (b.type === 'bolt') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.rotate(Math.atan2(b.vy, b.vx));
+                this.ctx.fillStyle = b.color || '#95a5a6';
+                this.ctx.fillRect(-6, -1, 12, 2);
+                this.ctx.fillStyle = '#e74c3c';
+                this.ctx.fillRect(-6, -2, 3, 4);
+                this.ctx.restore();
+            } else if (b.type === 'grenade') {
+                // Draw Shadow
+                if (b.z > 0) {
+                    this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(b.x, b.y, 4, 2, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                const drawY = b.y - (b.z || 0);
+                this.ctx.fillStyle = '#556b2f';
+                this.ctx.beginPath();
+                this.ctx.arc(b.x, drawY, b.size || 4, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#3b4d23';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();
@@ -403,8 +432,10 @@ export class Renderer {
         }
 
         // Debug Drawing
-        if (this.debugMode) {
-            this.drawDebug(this.ctx);
+        if (this.debugMode === 1) {
+            this.drawCollisionDebug(this.ctx);
+        } else if (this.debugMode === 2) {
+            this.drawHurtboxDebug(this.ctx);
         }
 
         this.ctx.restore();
@@ -427,7 +458,7 @@ export class Renderer {
         this.uiManager.updateWeapon(this.handSystem.currentWeapon, this.handSystem.getWeaponState());
     }
 
-    drawDebug(ctx) {
+    drawCollisionDebug(ctx) {
         ctx.lineWidth = 1;
         
         // Draw Wall Hitboxes (Red)
@@ -502,5 +533,189 @@ export class Renderer {
                 ctx.strokeRect(hb.x, hb.y, hb.width, hb.height);
             });
         }
+    }
+
+    drawHurtboxDebug(ctx) {
+        ctx.lineWidth = 1;
+
+        // Player bullet hurtbox (Green).
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+        const phb = this.player.getBulletHurtbox
+            ? this.player.getBulletHurtbox()
+            : {
+                x: this.player.x - this.player.width / 2,
+                y: this.player.y - this.player.height / 2,
+                width: this.player.width,
+                height: this.player.height
+            };
+        ctx.strokeRect(phb.x, phb.y, phb.width, phb.height);
+
+        // Enemy bullet hurtboxes (Yellow) - same source used by CombatSystem.
+        ctx.strokeStyle = 'rgba(255, 255, 0, 0.9)';
+        this.enemies.forEach(e => {
+            const hb = e.getBulletHurtbox
+                ? e.getBulletHurtbox()
+                : {
+                    x: e.x - e.width / 2,
+                    y: e.y - e.height,
+                    width: e.width,
+                    height: e.height
+                };
+            ctx.strokeRect(hb.x, hb.y, hb.width, hb.height);
+        });
+
+        // Breakable object hurtboxes used for bullet collision (Cyan).
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.85)';
+        this.breakableObjects.forEach(obj => {
+            if (obj.isBroken) return;
+            const hb = obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox();
+            ctx.strokeRect(hb.x, hb.y, hb.width, hb.height);
+        });
+    }
+
+    drawLaserSight(ctx) {
+        const weapon = this.handSystem.currentWeapon;
+        if (!weapon || !weapon.laserSight) return;
+
+        const now = Date.now();
+        
+        // Calculate Laser Start Position based on laserOffset
+        // Similar to getMuzzleWorldPosition but using laserOffset
+        const gunScale = weapon.scale || 1;
+        const laserOffset = weapon.laserOffset || { x: 0, y: 0 };
+        
+        // Recalculate Pivot
+        let bobY = 0;
+        if (this.player.state === 'idle') {
+            bobY = Math.sin(now / 300) * 0.5;
+        } else if (this.player.state === 'run') {
+            bobY = Math.sin(now / 100) * 1.0;
+        }
+        
+        const mouseAngle = Math.atan2(
+            this.input.mouse.y + this.camera.y - this.player.y, 
+            this.input.mouse.x + this.camera.x - this.player.x
+        );
+        
+        const currentDist = (weapon.orbitRadius || 16) - (this.handSystem.recoilOffset || 0);
+        const pivotX = this.player.x + Math.cos(mouseAngle) * currentDist;
+        const pivotY = this.player.y + Math.sin(mouseAngle) * currentDist + bobY;
+
+        let lx = laserOffset.x * gunScale;
+        let ly = laserOffset.y * gunScale;
+        
+        // Flip logic if facing left
+        const isFlipped = Math.abs(mouseAngle) > Math.PI / 2;
+        if (isFlipped) ly = -ly;
+
+        const rx = lx * Math.cos(mouseAngle) - ly * Math.sin(mouseAngle);
+        const ry = lx * Math.sin(mouseAngle) + ly * Math.cos(mouseAngle);
+        
+        const start = { 
+            x: pivotX + rx, 
+            y: pivotY + ry 
+        };
+        
+        // Calculate Direction towards Mouse Cursor (Converging Laser)
+        // Instead of parallel to gun angle, aim at the crosshair
+        const mouseWorldX = this.input.mouse.x + this.camera.x;
+        const mouseWorldY = this.input.mouse.y + this.camera.y;
+        
+        const dx = mouseWorldX - start.x;
+        const dy = mouseWorldY - start.y;
+        const distToMouse = Math.sqrt(dx*dx + dy*dy);
+        
+        // Avoid division by zero or weird behavior at extremely close range
+        let dir;
+        if (distToMouse > 1) {
+            dir = { x: dx / distToMouse, y: dy / distToMouse };
+        } else {
+            dir = { x: Math.cos(mouseAngle), y: Math.sin(mouseAngle) };
+        }
+        
+        const maxDist = 800; // Screen diagonal roughly
+        
+        let minDist = maxDist;
+        
+        // Check Walls (Block Laser)
+        this.walls.forEach(w => {
+            const dist = this.rayRectIntersect(start, dir, {x: w.x, y: w.y, width: w.w, height: w.h});
+            if (dist !== null && dist < minDist) {
+                minDist = dist;
+            }
+        });
+        
+        const end = {
+            x: start.x + dir.x * minDist,
+            y: start.y + dir.y * minDist
+        };
+        
+        ctx.save();
+        ctx.strokeStyle = weapon.laserColor || 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 1; 
+        
+        // Draw Laser Line
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        
+        // Draw Dot at end (always)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(end.x, end.y, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        // Check Enemies (Highlight but don't block)
+        this.enemies.forEach(e => {
+             const rect = { x: e.x - e.width/2, y: e.y - e.height, width: e.width, height: e.height };
+             const dist = this.rayRectIntersect(start, dir, rect);
+             
+             // If enemy is hit by laser (and closer than the wall)
+             if (dist !== null && dist < minDist) {
+                 // Draw a highlight dot on the enemy
+                 const hitX = start.x + dir.x * dist;
+                 const hitY = start.y + dir.y * dist;
+                 
+                 ctx.fillStyle = 'rgba(255, 50, 50, 1.0)';
+                 ctx.beginPath();
+                 ctx.arc(hitX, hitY, 3, 0, Math.PI*2);
+                 ctx.fill();
+             }
+        });
+        
+        ctx.restore();
+    }
+    
+    // Helper: Ray vs Rect Intersection (Returns distance or null)
+    rayRectIntersect(origin, dir, rect) {
+        // Slab method
+        let tMin = 0;
+        let tMax = Infinity;
+        
+        // X slab
+        if (Math.abs(dir.x) < 1e-6) {
+            // Parallel to X axis
+            if (origin.x < rect.x || origin.x > rect.x + rect.width) return null;
+        } else {
+            const t1 = (rect.x - origin.x) / dir.x;
+            const t2 = (rect.x + rect.width - origin.x) / dir.x;
+            tMin = Math.max(tMin, Math.min(t1, t2));
+            tMax = Math.min(tMax, Math.max(t1, t2));
+        }
+        
+        // Y slab
+        if (Math.abs(dir.y) < 1e-6) {
+             if (origin.y < rect.y || origin.y > rect.y + rect.height) return null;
+        } else {
+            const t1 = (rect.y - origin.y) / dir.y;
+            const t2 = (rect.y + rect.height - origin.y) / dir.y;
+            tMin = Math.max(tMin, Math.min(t1, t2));
+            tMax = Math.min(tMax, Math.max(t1, t2));
+        }
+        
+        if (tMax < tMin || tMax < 0) return null;
+        
+        return tMin > 0 ? tMin : 0; 
     }
 }

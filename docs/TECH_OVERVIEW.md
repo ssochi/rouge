@@ -7,6 +7,7 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 敌人逻辑。
@@ -43,6 +44,23 @@
 - 采用标准的 `requestAnimationFrame` 循环。
 - `update()`: 由 `Game.js` 编排各系统更新（玩家、战斗、世界）。
 - `draw()`: `Renderer.js` 负责渲染逻辑，依赖 `Camera` 进行坐标转换。
+
+### 武器与弹道机制
+- 武器配置统一定义在 `src/assets/weapons/WeaponData.js`，通过 `weaponConfigId` 与背包物品绑定。
+- `CombatSystem.tryShoot()` 支持多弹丸散射（`pelletCount` + `spread`），用于霰弹枪类武器。
+- `CombatSystem.updateBullets()` 支持：
+  - **穿透**（`piercing` + `hitList`）：用于狙击枪/弩箭，命中后可继续飞行并衰减伤害。
+  - **重力弹道**（`gravity`）：用于榴弹类抛物线飞行。
+  - **特殊爆炸弹**：`rocket` 与 `grenade` 触发范围爆炸，榴弹可在寿命结束时引爆。
+- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade` 与默认圆形子弹分支。
+- 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。
+- 玩家受击框统一由 `player.getBulletHurtbox()` 提供，敌方子弹判定与 Debug 受击框模式使用同一数据源。
+
+### 调试视图
+- `P` 键使用三态循环：
+  - 第一次：显示碰撞框（墙/玩家/敌人/物体/载具/传送门）。
+  - 第二次：显示受击框（敌人 bullet hurtbox + 可破坏物 bullet hurtbox）。
+  - 第三次：关闭调试框。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体）。快捷栏（Hotbar）支持键盘选择。

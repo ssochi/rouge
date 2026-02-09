@@ -73,6 +73,14 @@ export class Game {
             this.camera.y += (Math.random() - 0.5) * 5;
         };
 
+        // Unified player hurtbox used by enemy bullet hit detection.
+        this.player.getBulletHurtbox = () => ({
+            x: this.player.x - this.player.width / 2,
+            y: this.player.y - this.player.height / 2,
+            width: this.player.width,
+            height: this.player.height
+        });
+
         this.handSystem = new HandSystem(this.player);
 
         this.combatSystem = new CombatSystem({
@@ -139,6 +147,11 @@ export class Game {
         this.inventorySystem.add('weapon:pistol', 1);
         this.inventorySystem.add('weapon:rifle', 1);
         this.inventorySystem.add('weapon:rocket_launcher', 1);
+        this.inventorySystem.add('weapon:smg', 1);
+        this.inventorySystem.add('weapon:shotgun', 1);
+        this.inventorySystem.add('weapon:sniper', 1);
+        this.inventorySystem.add('weapon:crossbow', 1);
+        this.inventorySystem.add('weapon:grenade_launcher', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click

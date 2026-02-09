@@ -42,20 +42,12 @@ export class DroppedItem {
         
         if (this.itemId.startsWith('weapon:')) {
             this.isWeapon = true;
-            // weapon:rifle -> rifle (key in WeaponData? No, WeaponData keys are like 'default_rifle')
-            // InventorySystem registration mapped weapon:rifle -> weaponConfigId: 'default_rifle'
-            // We need that mapping back?
-            // Or we can just look at WEAPONS if we know the config ID.
-            // But we only have itemId here.
-            
-            // Temporary mapping hack until we have a global ItemDatabase
+            const weaponKey = this.itemId.replace('weapon:', '');
             const map = {
-                'weapon:rifle': 'default_rifle',
-                'weapon:rocket_launcher': 'rocket_launcher',
-                'weapon:pistol': 'default_pistol'
+                rifle: 'default_rifle',
+                pistol: 'default_pistol'
             };
-            
-            const configId = map[this.itemId];
+            const configId = map[weaponKey] || weaponKey;
             if (configId && WEAPONS[configId]) {
                 const conf = WEAPONS[configId];
                 this.name = conf.name;

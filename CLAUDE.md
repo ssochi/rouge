@@ -41,6 +41,7 @@ npm run preview  # 预览生产构建
 5. **新增/修改模块**时必须同步更新 `docs/TECH_OVERVIEW.md`。
 6. **新增游戏按键**：必须在 `src/core/Input.js` 的 `keys` 对象和 `_initListeners` 中注册。
 7. **方案文档**放置在 `docs/feature/` 中。
+8. 开始开发代码前,确保代码都已经提交过,否则我无法回滚.
 
 ## 素材制作要点
 

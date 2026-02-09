@@ -20,6 +20,13 @@
 | 4 | Crossbow 弩 | RIFLE | 中距离特种 | 穿透 + 静音（无弹壳） |
 | 5 | Grenade Launcher 榴弹发射器 | RIFLE | 中距离范围控场 | 弧线弹道（重力） |
 
+### 0.1 实施状态（2026-02-09）
+- 已完成 5 把武器的素材与 `WeaponData` 接入：`shotgun`、`smg`、`sniper`、`crossbow`、`grenade_launcher`。
+- 已完成 `CombatSystem` 机制扩展：散射、多目标穿透、重力弹道、榴弹命中/超时爆炸。
+- 已完成 `Renderer` 子弹渲染扩展：`bolt`（弩箭）与 `grenade`（榴弹）专用表现。
+- 已完成背包与发放链路：`InventorySystem`、`Game` 初始发放、`WorldSystem` 测试图发放。
+- 已补充兼容修复：`DroppedItem` 的武器映射已覆盖新武器，避免掉落显示异常。
+
 ---
 
 ## 1. Shotgun 散弹枪 (Pump-Action)

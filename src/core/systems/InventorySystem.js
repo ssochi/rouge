@@ -47,6 +47,51 @@ export class InventorySystem {
             data: { weaponConfigId: 'default_pistol' }
         });
 
+        this.registerItem({
+            id: 'weapon:smg',
+            type: 'weapon',
+            name: 'SMG',
+            icon: 'smg',
+            maxStack: 1,
+            data: { weaponConfigId: 'smg' }
+        });
+
+        this.registerItem({
+            id: 'weapon:shotgun',
+            type: 'weapon',
+            name: 'Shotgun',
+            icon: 'shotgun',
+            maxStack: 1,
+            data: { weaponConfigId: 'shotgun' }
+        });
+
+        this.registerItem({
+            id: 'weapon:sniper',
+            type: 'weapon',
+            name: 'Sniper Rifle',
+            icon: 'sniper',
+            maxStack: 1,
+            data: { weaponConfigId: 'sniper' }
+        });
+
+        this.registerItem({
+            id: 'weapon:crossbow',
+            type: 'weapon',
+            name: 'Crossbow',
+            icon: 'crossbow',
+            maxStack: 1,
+            data: { weaponConfigId: 'crossbow' }
+        });
+
+        this.registerItem({
+            id: 'weapon:grenade_launcher',
+            type: 'weapon',
+            name: 'Grenade Launcher',
+            icon: 'grenade_launcher',
+            maxStack: 1,
+            data: { weaponConfigId: 'grenade_launcher' }
+        });
+
         // 2. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel
         const objectKeys = Object.keys(Assets.objects).filter(k => 

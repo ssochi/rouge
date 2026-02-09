@@ -105,5 +105,135 @@ export const WEAPONS = {
         fireRate: 0,
         magazineSize: 0,
         maxReserve: 0
+    },
+    shotgun: {
+        name: "Shotgun",
+        type: WeaponType.RIFLE,
+        sprite: "shotgun",
+        drawOffset: { x: -10, y: -6 },
+        muzzleOffset: { x: 18, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        orbitRadius: 10,
+        fireRate: 800,
+        damage: 8,
+        bulletSpeed: 10,
+        bulletLife: 25,
+        bulletColor: '#e74c3c',
+        bulletSize: 3,
+        pelletCount: 6,
+        spread: 25,
+        magazineSize: 6,
+        maxReserve: 36,
+        reloadTime: 2500,
+        caliber: 'shotgun'
+    },
+    smg: {
+        name: "SMG",
+        type: WeaponType.PISTOL,
+        sprite: "smg",
+        drawOffset: { x: -6, y: -7 },
+        muzzleOffset: { x: 10, y: -2 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 }
+        },
+        orbitRadius: 16,
+        fireRate: 80,
+        damage: 6,
+        bulletSpeed: 11,
+        bulletLife: 40,
+        bulletColor: '#f39c12',
+        bulletSize: 3,
+        magazineSize: 40,
+        maxReserve: 200,
+        reloadTime: 1800,
+        caliber: 'pistol'
+    },
+    sniper: {
+        name: "Sniper Rifle",
+        type: WeaponType.RIFLE,
+        sprite: "sniper",
+        drawOffset: { x: -12, y: -6 },
+        muzzleOffset: { x: 28, y: -1 },
+        // Laser Origin Offset relative to Pivot
+        // Pivot @ 10,9. Laser Emitter @ 21,7 (from SniperGenerator)
+        // Offset X = 21 - 10 = 11
+        // Offset Y = 7 - 9 = -2
+        laserOffset: { x: 11, y: -2 }, 
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 8, y: 3 }
+        },
+        orbitRadius: 10,
+        fireRate: 1200,
+        damage: 80,
+        bulletSpeed: 20,
+        bulletLife: 120,
+        bulletColor: '#3498db',
+        bulletSize: 4,
+        piercing: 1,
+        laserSight: true,
+        laserColor: 'rgba(255, 0, 0, 0.6)',
+        magazineSize: 5,
+        maxReserve: 25,
+        reloadTime: 3000,
+        caliber: 'rifle'
+    },
+    crossbow: {
+        name: "Crossbow",
+        type: WeaponType.RIFLE,
+        sprite: "crossbow",
+        drawOffset: { x: -8, y: -8 },
+        muzzleOffset: { x: 12, y: 0 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 5, y: 1 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 1000,
+        damage: 45,
+        bulletSpeed: 8,
+        bulletLife: 80,
+        bulletColor: '#95a5a6',
+        bulletSize: 4,
+        bulletType: 'bolt',
+        magazineSize: 1,
+        maxReserve: 20,
+        reloadTime: 1500
+    },
+    grenade_launcher: {
+        name: "Grenade Launcher",
+        type: WeaponType.RIFLE,
+        sprite: "grenade_launcher",
+        drawOffset: { x: -10, y: -7 },
+        muzzleOffset: { x: 16, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 1000,
+        damage: 20,
+        bulletSpeed: 8, // Increased from 6
+        bulletLife: 80,
+        bulletType: 'grenade',
+        blastRadius: 64,
+        knockback: 8,
+        // Fake 3D Parabola params
+        initialZ: 12,
+        vzInitial: 3, 
+        gravityZ: 0.15,
+        magazineSize: 1,
+        maxReserve: 15,
+        reloadTime: 2000
     }
 };

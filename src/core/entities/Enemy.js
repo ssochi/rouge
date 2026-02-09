@@ -105,4 +105,18 @@ export class Enemy {
     draw(ctx, camera) {
         // Base draw implementation or empty
     }
+
+    // Unified enemy hurtbox used by bullet hit detection.
+    // Align bottom to the sprite feet area and include lower body.
+    getBulletHurtbox() {
+        const width = this.width || 20;
+        const height = 32;
+        const bottomY = this.y + 16;
+        return {
+            x: this.x - width / 2,
+            y: bottomY - height,
+            width,
+            height
+        };
+    }
 }

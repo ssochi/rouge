@@ -70,6 +70,11 @@ export class WorldSystem {
         this.inventorySystem.add('weapon:rifle', 1);
         this.inventorySystem.add('weapon:rocket_launcher', 1);
         this.inventorySystem.add('weapon:pistol', 1);
+        this.inventorySystem.add('weapon:smg', 1);
+        this.inventorySystem.add('weapon:shotgun', 1);
+        this.inventorySystem.add('weapon:sniper', 1);
+        this.inventorySystem.add('weapon:crossbow', 1);
+        this.inventorySystem.add('weapon:grenade_launcher', 1);
 
         // Add Placeables
         const ids = this.inventorySystem.getAllPlaceableIds();

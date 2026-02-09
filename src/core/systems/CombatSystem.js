@@ -53,20 +53,34 @@ export class CombatSystem {
                 this.spawnShellCasing(pivotX + rx, pivotY + ry, muzzle.angle);
             }
 
-            this.bullets.push({
-                x: muzzle.x,
-                y: muzzle.y,
-                vx: Math.cos(muzzle.angle) * (weapon.bulletSpeed || 12),
-                vy: Math.sin(muzzle.angle) * (weapon.bulletSpeed || 12),
-                life: weapon.bulletLife || 60,
-                damage: weapon.damage || 10,
-                color: weapon.bulletColor || '#f1c40f',
-                size: weapon.bulletSize || 5,
-                type: weapon.bulletType || 'standard',
-                blastRadius: weapon.blastRadius || 0,
-                knockback: weapon.knockback || 0,
-                source: 'player' // Mark source
-            });
+            const pellets = weapon.pelletCount || 1;
+            const spreadRad = (weapon.spread || 0) * Math.PI / 180;
+
+            for (let p = 0; p < pellets; p++) {
+                const offsetAngle = pellets > 1 ? (Math.random() - 0.5) * spreadRad : 0;
+                const finalAngle = muzzle.angle + offsetAngle;
+                this.bullets.push({
+                    x: muzzle.x,
+                    y: muzzle.y,
+                    vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12),
+                    vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12),
+                    life: weapon.bulletLife || 60,
+                    damage: weapon.damage || 10,
+                    color: weapon.bulletColor || '#f1c40f',
+                    size: weapon.bulletSize || 5,
+                    type: weapon.bulletType || 'standard',
+                    blastRadius: weapon.blastRadius || 0,
+                    knockback: weapon.knockback || 0,
+                    piercing: weapon.piercing || 0,
+                    gravity: weapon.gravity || 0,
+                    // Fake 3D Parabola properties
+                    z: weapon.initialZ || 0,
+                    vz: weapon.vzInitial || 0,
+                    gravityZ: weapon.gravityZ || 0,
+                    hitList: [],
+                    source: 'player'
+                });
+            }
             
             const recoil = (weapon.damage || 10) / 5;
             this.camera.x += (Math.random() - 0.5) * recoil;
@@ -100,6 +114,14 @@ export class CombatSystem {
             // Save previous position for raycasting (Continuous Collision Detection)
             const prevX = b.x;
             const prevY = b.y;
+
+            if (b.gravityZ) {
+                // Fake 3D Parabola Physics
+                b.vz = (b.vz || 0) - b.gravityZ;
+                b.z = (b.z || 0) + b.vz;
+            } else if (b.gravity) {
+                b.vy += b.gravity;
+            }
             
             b.x += b.vx;
             b.y += b.vy;
@@ -118,15 +140,36 @@ export class CombatSystem {
                         friction: 0.9
                     });
                 }
+            } else if (b.type === 'grenade') {
+                if (Math.random() > 0.75) {
+                    this.particles.push({
+                        x: b.x,
+                        y: b.y,
+                        vx: (Math.random() - 0.5) * 0.4,
+                        vy: (Math.random() - 0.5) * 0.4,
+                        life: 12,
+                        color: '#7f8c8d',
+                        size: Math.random() * 3 + 1.5,
+                        friction: 0.9
+                    });
+                }
             }
 
             let hit = false;
+
+            if (b.gravityZ) {
+                if (b.z <= 0) {
+                    hit = true;
+                    b.z = 0;
+                }
+            }
             
             // Define line segment for this frame
             const p1 = {x: prevX, y: prevY};
             const p2 = {x: b.x, y: b.y};
 
             // Wall Collision
+            if (!b.gravityZ) {
             for (const wall of this.walls) {
                 // Check if line segment intersects wall rect
                 if (CollisionUtils.lineIntersectsRect(p1, p2, {x: wall.x, y: wall.y, width: wall.w, height: wall.h})) {
@@ -152,7 +195,7 @@ export class CombatSystem {
                     if (CollisionUtils.lineIntersectsRect(p1, p2, vRect)) {
                         hit = true;
                         
-                        if (b.type !== 'rocket') {
+                        if (b.type !== 'rocket' && b.type !== 'grenade') {
                             this.particles.push({
                                 x: b.x,
                                 y: b.y,
@@ -182,7 +225,7 @@ export class CombatSystem {
                     // Raycast check
                     if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
                          hit = true;
-                         if (b.type !== 'rocket') {
+                         if (b.type !== 'rocket' && b.type !== 'grenade') {
                              obj.takeDamage(b.damage);
                              if (obj.isBroken) {
                                  this.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -202,21 +245,18 @@ export class CombatSystem {
                     // Check Enemies
                     for (let j = this.enemies.length - 1; j >= 0; j--) {
                         const e = this.enemies[j];
-                        // Use full body dimensions for bullet hits
-                        const halfW = e.width / 2;
-                        const height = e.height;
-                        const eRect = {
-                            x: e.x - halfW,
-                            y: e.y - height,
-                            width: e.width,
-                            height: height
-                        };
+                        if (Array.isArray(b.hitList) && b.hitList.includes(e)) continue;
+                        const eRect = e.getBulletHurtbox
+                            ? e.getBulletHurtbox()
+                            : {
+                                x: e.x - e.width / 2,
+                                y: e.y - e.height,
+                                width: e.width,
+                                height: e.height
+                            };
                         
                         if (CollisionUtils.lineIntersectsRect(p1, p2, eRect)) {
-                            
-                            hit = true;
-                            
-                            if (b.type !== 'rocket') {
+                            if (b.type !== 'rocket' && b.type !== 'grenade') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = 4;
                                 if (e.takeDamage) {
@@ -233,6 +273,15 @@ export class CombatSystem {
                                     this.spawnBloodSplatter(e.x, e.y, angle);
                                 }
                             }
+
+                            if (b.piercing > 0) {
+                                if (!Array.isArray(b.hitList)) b.hitList = [];
+                                b.hitList.push(e);
+                                b.piercing--;
+                                b.damage *= 0.6;
+                            } else {
+                                hit = true;
+                            }
                             break;
                         }
                     }
@@ -248,13 +297,16 @@ export class CombatSystem {
                         continue;
                     }
                     
-                    // Player Body Hitbox (Full Body)
-                    // Visual width/height ~24-32
-                    const halfW = (p.width || 24) / 2;
-                    const height = p.height || 24;
-                    
-                    if (b.x > p.x - halfW && b.x < p.x + halfW && 
-                        b.y > p.y - height && b.y < p.y) {
+                    const pRect = p.getBulletHurtbox
+                        ? p.getBulletHurtbox()
+                        : {
+                            x: p.x - (p.width || 24) / 2,
+                            y: p.y - (p.height || 24) / 2,
+                            width: p.width || 24,
+                            height: p.height || 24
+                        };
+
+                    if (CollisionUtils.lineIntersectsRect(p1, p2, pRect)) {
                         
                         hit = true;
                         const angle = Math.atan2(b.vy, b.vx);
@@ -270,8 +322,12 @@ export class CombatSystem {
                 }
             }
 
-            if (hit || b.life <= 0) {
+            }
+            const expired = b.life <= 0;
+            if (hit || expired) {
                 if (hit && b.type === 'rocket') {
+                    this.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
+                } else if (b.type === 'grenade') {
                     this.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
                 }
                 this.bullets.splice(i, 1);
