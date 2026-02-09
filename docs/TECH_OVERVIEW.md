@@ -7,6 +7,7 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
+    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。

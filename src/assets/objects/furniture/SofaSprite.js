@@ -10,7 +10,7 @@ export function createSofaSprite() {
     const h = 24;
     const drawer = new PixelDraw(w, h);
 
-    const { cWoodDark } = FurniturePalette;
+    const { cWoodDark, cShadow } = FurniturePalette;
 
     // Steel blue modern palette
     const cFabric = '#5b7fad';
@@ -18,6 +18,7 @@ export function createSofaSprite() {
     const cFabricLight = '#7d9fcd';
     const cHighlight = '#9dbfe5';
     const cDeepShadow = '#2d4565';
+    const cOutline = '#1d3250';
 
     const armW = 7;
 
@@ -49,6 +50,8 @@ export function createSofaSprite() {
     drawer.hLine(seatX + 2, seatY + 1, cushionW - 3, cHighlight);
     // Cushion center crease
     drawer.hLine(seatX + 3, seatY + 5, cushionW - 5, cFabricLight);
+    // Cushion center depression
+    drawer.pixel(seatX + Math.floor(cushionW / 2), seatY + 5, cFabricDark);
 
     // Right cushion (rounded shape)
     const cx2 = seatX + cushionW + 2;
@@ -63,6 +66,8 @@ export function createSofaSprite() {
     drawer.hLine(cx2 + 1, seatY + 1, cushionW - 3, cHighlight);
     // Cushion center crease
     drawer.hLine(cx2 + 2, seatY + 5, cushionW - 5, cFabricLight);
+    // Cushion center depression
+    drawer.pixel(cx2 + Math.floor(cushionW / 2), seatY + 5, cFabricDark);
 
     // 3. Back legs (behind backrest, barely visible)
     drawer.rect(3, h - 2, 3, 2, cWoodDark);
@@ -100,35 +105,60 @@ export function createSofaSprite() {
     const armY = 1;
     const armH = 20;
 
-    // Left armrest body
-    drawer.rect(0, armY + 3, armW, armH - 3, cFabric);
-    // Left armrest top face (darker, angled)
+    // Left armrest body (chamfered bottom corner)
     drawer.fillPath([
-        {x: 0, y: armY},
-        {x: armW, y: armY},
+        {x: 0, y: armY + 3}, {x: armW, y: armY + 3},
+        {x: armW, y: armY + armH - 1},
+        {x: armW - 1, y: armY + armH},
+        {x: 0, y: armY + armH}
+    ], cFabric);
+    // Left armrest top face (with chamfer)
+    drawer.fillPath([
+        {x: 1, y: armY}, {x: armW, y: armY},
         {x: armW, y: armY + 3},
-        {x: 0, y: armY + 3}
+        {x: 0, y: armY + 3}, {x: 0, y: armY + 1}
     ], cFabricDark);
-    drawer.hLine(1, armY, armW - 2, cFabricLight);
+    drawer.hLine(1, armY, armW - 1, cFabricLight);
+    drawer.pixel(0, armY + 1, cHighlight);
     // Inner edge shadow
     drawer.vLine(armW - 1, armY + 3, armH - 4, cFabricDark);
     // Outer edge highlight
-    drawer.vLine(0, armY + 3, armH - 4, cFabricLight);
+    drawer.vLine(0, armY + 1, armH - 1, cFabricLight);
 
-    // Right armrest body
-    drawer.rect(w - armW, armY + 3, armW, armH - 3, cFabric);
-    // Right armrest top face
+    // Right armrest body (chamfered bottom corner)
     drawer.fillPath([
-        {x: w - armW, y: armY},
-        {x: w, y: armY},
-        {x: w, y: armY + 3},
+        {x: w - armW, y: armY + 3}, {x: w, y: armY + 3},
+        {x: w, y: armY + armH},
+        {x: w - armW + 1, y: armY + armH},
+        {x: w - armW, y: armY + armH - 1}
+    ], cFabric);
+    // Right armrest top face (with chamfer)
+    drawer.fillPath([
+        {x: w - armW, y: armY}, {x: w - 1, y: armY},
+        {x: w, y: armY + 1}, {x: w, y: armY + 3},
         {x: w - armW, y: armY + 3}
     ], cFabricDark);
-    drawer.hLine(w - armW + 1, armY, armW - 2, cFabricLight);
+    drawer.hLine(w - armW, armY, armW - 1, cFabricLight);
     // Inner edge shadow
     drawer.vLine(w - armW, armY + 3, armH - 4, cFabricDark);
     // Outer edge highlight
-    drawer.vLine(w - 1, armY + 3, armH - 4, cFabricLight);
+    drawer.vLine(w - 1, armY + 1, armH - 1, cFabricLight);
+
+    // 6. Natural edge definition (subtle, not full outline)
+    drawer.hLine(3, backY + backH, w - 6, cDeepShadow);
+    drawer.hLine(1, armY, w - 2, cHighlight);
+
+    // 7. Per-component shadow overlays (follows structure, not one flat rectangle)
+    // Right armrest shadow (only on armrest body)
+    drawer.fillPath([
+        {x: w - 3, y: armY + 3}, {x: w - 1, y: armY + 3},
+        {x: w - 1, y: armY + armH}, {x: w - 3, y: armY + armH}
+    ], cShadow);
+    // Backrest right shadow (between armrests, separate plane)
+    drawer.fillPath([
+        {x: w - armW - 4, y: backY + 2}, {x: w - armW, y: backY + 2},
+        {x: w - armW, y: backY + backH - 2}, {x: w - armW - 4, y: backY + backH - 2}
+    ], cShadow);
 
     return drawer.getCanvas();
 }
