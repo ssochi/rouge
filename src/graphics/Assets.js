@@ -28,6 +28,7 @@ import { createTVStandAnimatedSprite } from '../assets/objects/furniture/TVStand
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
+import { createFloorSprites } from '../assets/floors/FloorSprites.js';
 import { PixelDraw } from '../utils/PixelDraw.js';
 import { SMG_SPRITE } from '../assets/weapons/SmgGenerator.js';
 import { SHOTGUN_SPRITE } from '../assets/weapons/ShotgunGenerator.js';
@@ -69,6 +70,7 @@ const tvStandSprite = createTVStandAnimatedSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
+const floorSprites = createFloorSprites();
 
 const hammerSprite = (() => {
     const canvas = document.createElement('canvas');
@@ -158,6 +160,12 @@ export const Assets = {
             ? tvStandSprite.map(s => PixelDraw.createSilhouette(s)) 
             : PixelDraw.createSilhouette(tvStandSprite)
     },
+    floors: floorSprites,
+    // Floor tile icons for inventory (first variant of each type)
+    floor_grass: floorSprites.grass[0],
+    floor_wood: floorSprites.wood[0],
+    floor_concrete: floorSprites.concrete[0],
+    floor_dirt: floorSprites.dirt[0],
     gun: RIFLE_SPRITE,
     hammer: hammerSprite,
     rocket_launcher: ROCKET_LAUNCHER_SPRITE,

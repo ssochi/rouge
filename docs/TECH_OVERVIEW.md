@@ -9,6 +9,7 @@
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
     - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
+    - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
@@ -27,7 +28,7 @@
       - `CombatSystem.js`: 射击、子弹、粒子与爆炸效果更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
-      - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、家具摆放、布局校验、布局编译）。
+      - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、家具摆放、布局校验、布局编译、地板生成）。
     - `Renderer.js`: 负责场景绘制与 UI 刷新。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
@@ -35,7 +36,7 @@
   - `graphics/`: **渲染系统**。
     - `SpriteGenerator.js`: 将字符模板转换为 Canvas/Image 的核心工具。
     - `Assets.js`: 负责调用生成器并缓存生成的游戏资源。
-  - `utils/`: **工具库**。常量 (`Constants.js`)，`PixelDraw.js` (程序化像素绘制) 和通用辅助函数。
+  - `utils/`: **工具库**。常量 (`Constants.js`)，`PixelDraw.js` (程序化像素绘制)，`FloorTypes.js` (地板类型/子格常量) 和通用辅助函数。
   - `main.js`: **入口文件**。负责初始化游戏实例并挂载到 DOM。
 
 ## 基础架构
@@ -85,10 +86,21 @@
   - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
+  - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。
+  - 存储地板数据并预渲染 1600×1600 离屏 Canvas（`buildFloorCanvas()`）。
   - 生成失败时使用 fallback 布局，保证场景可进入。
+
+### 地板瓦片系统
+- 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
+- 4 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)，NONE(0) 使用棋盘格 fallback。
+- 数据存储：`WorldSystem.floorMap`（Uint8Array 100×100）+ `WorldSystem.floorCanvas`（预渲染离屏 Canvas）。
+- 渲染：Renderer 对有 `floorCanvas` 的地图做单次 `drawImage` 裁剪，无 `floorCanvas` 时保留棋盘格。
+- 类型边界使用 4px 噪声梯度抖动带（两侧共 8px）实现有机过渡。
+- 外围墙体子格按内外分裂：内侧 WOOD、外侧 CONCRETE，确保墙两侧地面不同。
+- 详见 `docs/feature/FLOOR_TILE_SYSTEM.md`。
 
 ### 规范
 - **素材分离**: 所有美术资源定义必须在 `src/assets` 中。

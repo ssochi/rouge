@@ -7,6 +7,7 @@ import { assignRoomSemantics } from './RoomSemanticAssigner.js';
 import { placeFurnitureForBuilding } from './FurniturePlacer.js';
 import { validateBuildingLayout } from './LayoutValidator.js';
 import { compileConstructionLayout } from './LayoutCompiler.js';
+import { generateFloorMap } from './FloorMapGenerator.js';
 import { clamp } from './GenerationUtils.js';
 
 function mergeConfig(base, overrides) {
@@ -158,9 +159,19 @@ export function generateConstructionLayout({ mapWidth, mapHeight, config: overri
             tileSize: TILE_SIZE
         });
 
+        const floorData = generateFloorMap({
+            buildingPlans,
+            mapWidth,
+            mapHeight,
+            rng
+        });
+
         return {
             ok: true,
             breakables: compiled.breakables,
+            floorMap: floorData.floorMap,
+            floorMapWidth: floorData.width,
+            floorMapHeight: floorData.height,
             spawn: pickPlayerSpawn(buildingPlans, mapWidth, mapHeight, TILE_SIZE),
             stats: {
                 attempts: attempt + 1,

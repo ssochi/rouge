@@ -100,16 +100,29 @@ export class Renderer {
         const viewportW = this.canvas.width / this.scale;
         const viewportH = this.canvas.height / this.scale;
 
-        const startCol = Math.floor(this.camera.x / gridSize);
-        const endCol = startCol + (viewportW / gridSize) + 1;
-        const startRow = Math.floor(this.camera.y / gridSize);
-        const endRow = startRow + (viewportH / gridSize) + 1;
+        if (this.worldSystem && this.worldSystem.floorCanvas) {
+            // Draw pre-rendered floor canvas (single drawImage)
+            const fc = this.worldSystem.floorCanvas;
+            const sx = Math.max(0, Math.floor(this.camera.x));
+            const sy = Math.max(0, Math.floor(this.camera.y));
+            const sw = Math.min(Math.ceil(viewportW) + 1, fc.width - sx);
+            const sh = Math.min(Math.ceil(viewportH) + 1, fc.height - sy);
+            if (sw > 0 && sh > 0) {
+                this.ctx.drawImage(fc, sx, sy, sw, sh, sx, sy, sw, sh);
+            }
+        } else {
+            // Fallback: original checkerboard for maps without floor data
+            const startCol = Math.floor(this.camera.x / gridSize);
+            const endCol = startCol + (viewportW / gridSize) + 1;
+            const startRow = Math.floor(this.camera.y / gridSize);
+            const endRow = startRow + (viewportH / gridSize) + 1;
 
-        for (let x = startCol; x < endCol; x++) {
-            for (let y = startRow; y < endRow; y++) {
-                if ((x + y) % 2 === 0) this.ctx.fillStyle = COLORS.FLOOR_CHECKER_1;
-                else this.ctx.fillStyle = COLORS.FLOOR_CHECKER_2;
-                this.ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+            for (let x = startCol; x < endCol; x++) {
+                for (let y = startRow; y < endRow; y++) {
+                    if ((x + y) % 2 === 0) this.ctx.fillStyle = COLORS.FLOOR_CHECKER_1;
+                    else this.ctx.fillStyle = COLORS.FLOOR_CHECKER_2;
+                    this.ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+                }
             }
         }
 

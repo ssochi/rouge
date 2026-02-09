@@ -12,6 +12,7 @@ import { Vehicle } from '../entities/Vehicle.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
+import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
@@ -26,6 +27,11 @@ export class WorldSystem {
         this.inventorySystem = inventorySystem;
         this.portals = [];
         this.carpets = [];
+        // Floor tile system
+        this.floorMap = null;
+        this.floorMapWidth = 0;
+        this.floorMapHeight = 0;
+        this.floorCanvas = null;
     }
 
     loadMap(mapType) {
@@ -37,6 +43,10 @@ export class WorldSystem {
         this.portals.length = 0;
         this.carpets.length = 0;
         if (this.vehicles) this.vehicles.length = 0;
+        this.floorMap = null;
+        this.floorMapWidth = 0;
+        this.floorMapHeight = 0;
+        this.floorCanvas = null;
         
         // Reset player state if needed (position is handled per map)
         
@@ -166,6 +176,14 @@ export class WorldSystem {
                 this.player.x = 200;
                 this.player.y = 300;
             }
+
+            // Store floor map and build pre-rendered canvas
+            if (layout.floorMap) {
+                this.floorMap = layout.floorMap;
+                this.floorMapWidth = layout.floorMapWidth;
+                this.floorMapHeight = layout.floorMapHeight;
+                this.buildFloorCanvas();
+            }
         } else {
             this.initConstructionFallbackLayout();
         }
@@ -208,6 +226,64 @@ export class WorldSystem {
 
         this.player.x = (houseTileX + Math.floor(houseW / 2)) * TILE_SIZE + TILE_SIZE / 2;
         this.player.y = (houseTileY + houseH) * TILE_SIZE + TILE_SIZE / 2;
+    }
+
+    /**
+     * Pre-render the floor tile map onto a single offscreen canvas.
+     * Pass 1: draw base tile sprites.
+     * Pass 2: dither edges where adjacent sub-tiles differ in type.
+     */
+    buildFloorCanvas() {
+        const fm = this.floorMap;
+        const fw = this.floorMapWidth;
+        const fh = this.floorMapHeight;
+        const FT = FLOOR_TILE_SIZE;
+        const canvasW = fw * FT;
+        const canvasH = fh * FT;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        // Pass 1: base tiles
+        for (let sy = 0; sy < fh; sy++) {
+            for (let sx = 0; sx < fw; sx++) {
+                const type = fm[sy * fw + sx];
+                if (type === FLOOR_TYPES.NONE) continue;
+                const key = FLOOR_TYPE_KEYS[type];
+                const variants = Assets.floors[key];
+                if (!variants) continue;
+                const vi = ((sx * 7 + sy * 13) & 0xFFFF) % variants.length;
+                ctx.drawImage(variants[vi], sx * FT, sy * FT);
+            }
+        }
+
+        this.floorCanvas = canvas;
+    }
+
+    /** Update a single sub-tile in the floor map and re-render it on the canvas. */
+    setFloorTile(sx, sy, type) {
+        if (!this.floorMap) return;
+        if (sx < 0 || sx >= this.floorMapWidth || sy < 0 || sy >= this.floorMapHeight) return;
+
+        this.floorMap[sy * this.floorMapWidth + sx] = type;
+
+        if (!this.floorCanvas) return;
+        const ctx = this.floorCanvas.getContext('2d');
+        const FT = FLOOR_TILE_SIZE;
+
+        if (type === FLOOR_TYPES.NONE) {
+            ctx.clearRect(sx * FT, sy * FT, FT, FT);
+        } else {
+            const key = FLOOR_TYPE_KEYS[type];
+            const variants = Assets.floors[key];
+            if (variants) {
+                const vi = ((sx * 7 + sy * 13) & 0xFFFF) % variants.length;
+                ctx.drawImage(variants[vi], sx * FT, sy * FT);
+            }
+        }
     }
 
     initTestMap() {
@@ -320,6 +396,14 @@ export class WorldSystem {
             this.vehicles.push(new Vehicle(320, 100, 'truck'));
             this.vehicles.push(new Vehicle(420, 100, 'police'));
         }
+
+        // Initialize floor map (GRASS base) so floor tiles can be placed
+        const S = FLOOR_TILES_PER_CELL;
+        this.floorMapWidth = MAP_WIDTH * S;
+        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
+        this.floorMap.fill(FLOOR_TYPES.GRASS);
+        this.buildFloorCanvas();
     }
 
     initGameMap() {
