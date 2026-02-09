@@ -18,7 +18,7 @@
       - `Portal.js`: 传送门逻辑与粒子渲染。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test)、地图生成、流场更新、敌人调度与简单的敌人间碰撞分离。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test)、地图生成、流场更新、敌人调度、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑。
       - `CombatSystem.js`: 射击、子弹、粒子与爆炸效果更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑。
@@ -72,3 +72,8 @@
 - **素材分离**: 所有美术资源定义必须在 `src/assets` 中。
 - **像素绘制**: 复杂物体请参考 `docs/PIXEL_ART_GUIDE.md` 使用程序化绘制。
 - **逻辑分层**: 渲染代码不应混入业务逻辑，输入处理应通过 `Input` 类解耦。
+
+### 移动碰撞约定
+- 玩家和敌人通过 `getMovementHitboxAt(x, y)` 提供统一的“移动碰撞体”（脚底占地）。
+- `WorldSystem.resolveEntityMovement()` 负责统一处理移动、贴墙滑动、卡住检测与自动脱困。
+- 门关闭时会先做阻挡预检，避免将玩家或敌人夹进门框。

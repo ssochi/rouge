@@ -81,6 +81,14 @@ export class Game {
             height: this.player.height
         });
 
+        // Unified player movement hitbox used by movement collision.
+        this.player.getMovementHitboxAt = (x = this.player.x, y = this.player.y) => ({
+            x: x - this.player.hitboxWidth / 2,
+            y: y + this.player.hitboxOffsetY - this.player.hitboxHeight / 2,
+            width: this.player.hitboxWidth,
+            height: this.player.hitboxHeight
+        });
+
         this.handSystem = new HandSystem(this.player);
 
         this.combatSystem = new CombatSystem({

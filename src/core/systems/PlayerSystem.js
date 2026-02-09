@@ -89,6 +89,11 @@ export class PlayerSystem {
                 if (dist < 50) { // 50px interaction radius
                     // Store state before interaction
                     const wasOpen = obj.isOpen;
+
+                    if (wasOpen && this.isDoorCloseBlocked(obj)) {
+                        console.log('Door is blocked');
+                        return true;
+                    }
                     
                     if (obj.interact()) {
                         // Interaction successful
@@ -105,70 +110,75 @@ export class PlayerSystem {
         }
         return false;
     }
+
+    _rectsOverlap(rect1, rect2) {
+        const r1w = rect1.width ?? rect1.w;
+        const r1h = rect1.height ?? rect1.h;
+        const r2w = rect2.width ?? rect2.w;
+        const r2h = rect2.height ?? rect2.h;
+        return (
+            rect1.x < rect2.x + r2w &&
+            rect1.x + r1w > rect2.x &&
+            rect1.y < rect2.y + r2h &&
+            rect1.y + r1h > rect2.y
+        );
+    }
+
+    getDoorClosedHitboxes(door) {
+        if (door.baseType === 'door_h') {
+            return [{
+                x: door.x + 0,
+                y: door.y + 10,
+                width: 32,
+                height: 12
+            }];
+        }
+        if (door.baseType === 'door_v') {
+            return [{
+                x: door.x + 10,
+                y: door.y + 0,
+                width: 12,
+                height: 32
+            }];
+        }
+        return [door.getHitbox()];
+    }
+
+    isDoorCloseBlocked(door) {
+        if (!door || !door.isOpen) return false;
+        const closedHitboxes = this.getDoorClosedHitboxes(door);
+        const entities = [this.player, ...this.worldSystem.enemies];
+
+        for (const entity of entities) {
+            const eRect = this.worldSystem.getEntityMovementRect(entity, entity.x, entity.y);
+            for (const hb of closedHitboxes) {
+                if (this._rectsOverlap(eRect, hb)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     
     resolveDoorStuck(door) {
-        // If door is closed, check if player or enemies are stuck inside
-        const hitbox = door.getHitbox();
+        const hitboxes = door.getHitboxes ? door.getHitboxes() : [door.getHitbox()];
         const entities = [this.player, ...this.worldSystem.enemies];
+        let resolved = true;
         
         for (const entity of entities) {
-            // Check collision with the new door hitbox
-            // Use entity hitbox logic (simplified)
-            const ew = entity.hitboxWidth || entity.width;
-            const eh = entity.hitboxHeight || entity.height;
-            const ey = entity.hitboxOffsetY || 0;
-            
-            const ex = entity.x - ew/2;
-            const ey_top = entity.y + ey - eh/2;
-            
-            // AABB Check
-            if (ex < hitbox.x + hitbox.w &&
-                ex + ew > hitbox.x &&
-                ey_top < hitbox.y + hitbox.h &&
-                ey_top + eh > hitbox.y) {
-                
-                // Stuck! Squeeze out.
-                // Find shortest exit direction.
-                
-                // Centers
-                const doorCX = hitbox.x + hitbox.w/2;
-                const doorCY = hitbox.y + hitbox.h/2;
-                const entCX = ex + ew/2;
-                const entCY = ey_top + eh/2;
-                
-                const dx = entCX - doorCX;
-                const dy = entCY - doorCY;
-                
-                // Normalize to axis
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    // Push Horizontal
-                    const pushDir = dx > 0 ? 1 : -1;
-                    // Push to edge + margin
-                    const targetX = doorCX + (hitbox.w/2 + ew/2 + 2) * pushDir;
-                    entity.x = targetX;
-                } else {
-                    // Push Vertical
-                    const pushDir = dy > 0 ? 1 : -1;
-                    const targetY = doorCY + (hitbox.h/2 + eh/2 + 2) * pushDir;
-                    // Adjust back to entity.y (center)
-                    // targetY is new entCY.
-                    // entCY = y + ey. => y = entCY - ey.
-                    entity.y = targetY - ey; // Keep center relative offset? No, entity.y is center usually.
-                    // Wait, entity.y + ey is center of hitbox?
-                    // Player: y is center visual. Hitbox offset Y=12.
-                    // So Center Hitbox Y = y + 12.
-                    // So y = Center Hitbox Y - 12.
-                    entity.y = targetY - ey + eh/2 - eh/2; // wait.
-                    // targetY is the new Center Y of hitbox.
-                    // So new Entity Y = targetY - (entity.hitboxOffsetY || 0).
-                    // Actually Player hitbox center is: y + hitboxOffsetY. (12)
-                    // If we set entity.y, we need to respect that.
-                    entity.y = targetY - ey;
+            const eRect = this.worldSystem.getEntityMovementRect(entity, entity.x, entity.y);
+            const overlap = hitboxes.some(hb => this._rectsOverlap(eRect, hb));
+            if (overlap) {
+                const unstuck = this.worldSystem.unstuckEntity(entity, { startRadius: 4, maxRadius: 96, step: 2 });
+                if (!unstuck) {
+                    resolved = false;
                 }
-                
-                // Re-verify wall collision to ensure we didn't push into a wall?
-                // For now, just a hard push is better than being stuck.
             }
+        }
+
+        if (!resolved && door.interact) {
+            // Re-open door if we failed to resolve overlaps.
+            door.interact();
         }
     }
     
@@ -332,7 +342,9 @@ export class PlayerSystem {
         }
         
         if (!blocked) {
-            this.worldSystem.resolveWallCollision(this.player, nextX, nextY);
+            const intentX = nextX - this.player.x;
+            const intentY = nextY - this.player.y;
+            this.worldSystem.resolveEntityMovement(this.player, nextX, nextY, intentX, intentY);
         }
     }
 

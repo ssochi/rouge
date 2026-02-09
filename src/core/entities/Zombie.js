@@ -14,7 +14,7 @@ export class Zombie extends Enemy {
         this.attackDuration = 40; // Frames for attack
     }
 
-    update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection) {
+    update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
         if (this.hp <= 0) return;
 
         super.update(player, walls, wallQuery);
@@ -104,8 +104,12 @@ export class Zombie extends Enemy {
 
                     const nextX = this.x + vx * this.speed;
                     const nextY = this.y + vy * this.speed;
-                    
-                    this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+
+                    if (moveResolver) {
+                        moveResolver(this, nextX, nextY, vx, vy);
+                    } else {
+                        this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+                    }
                 }
             } else {
                 this.state = 'idle';

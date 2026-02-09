@@ -70,9 +70,21 @@ export class Enemy {
                 rect1.y + rect1.height > rect2.y);
     }
 
+    getMovementHitboxAt(x = this.x, y = this.y) {
+        const w = this.hitboxWidth || this.width;
+        const h = this.hitboxHeight || this.height;
+        const oy = this.hitboxOffsetY || 0;
+        return {
+            x: x - w / 2,
+            y: y + oy - h / 2,
+            width: w,
+            height: h
+        };
+    }
+
     resolveWallCollision(newX, newY, walls, wallQuery) {
         let collidedX = false;
-        const testRectX = {x: newX - this.width/2, y: this.y - this.height/2, width: this.width, height: this.height};
+        const testRectX = this.getMovementHitboxAt(newX, this.y);
         
         if (wallQuery) {
             collidedX = wallQuery(testRectX);
@@ -87,7 +99,7 @@ export class Enemy {
         if (!collidedX) this.x = newX;
 
         let collidedY = false;
-        const testRectY = {x: this.x - this.width/2, y: newY - this.height/2, width: this.width, height: this.height};
+        const testRectY = this.getMovementHitboxAt(this.x, newY);
         
         if (wallQuery) {
             collidedY = wallQuery(testRectY);

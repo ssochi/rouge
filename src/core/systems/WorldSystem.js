@@ -422,75 +422,163 @@ export class WorldSystem {
     }
 
     checkRectCollision(rect1, rect2) {
-        return (rect1.x < rect2.x + rect2.w &&
-                rect1.x + rect1.width > rect2.x &&
-                rect1.y < rect2.y + rect2.h &&
-                rect1.y + rect1.height > rect2.y);
+        const r1w = rect1.width ?? rect1.w;
+        const r1h = rect1.height ?? rect1.h;
+        const r2w = rect2.width ?? rect2.w;
+        const r2h = rect2.height ?? rect2.h;
+        return (rect1.x < rect2.x + r2w &&
+                rect1.x + r1w > rect2.x &&
+                rect1.y < rect2.y + r2h &&
+                rect1.y + r1h > rect2.y);
     }
 
-    resolveWallCollision(entity, newX, newY) {
-        let collidedX = false;
-        
-        // Use custom hitbox if available, otherwise default to full size
+    getEntityMovementRect(entity, x = entity.x, y = entity.y) {
+        if (entity.getMovementHitboxAt) {
+            return entity.getMovementHitboxAt(x, y);
+        }
+
         const hbWidth = entity.hitboxWidth || entity.width;
         const hbHeight = entity.hitboxHeight || entity.height;
         const hbOffsetY = entity.hitboxOffsetY || 0;
-        
-        const testRectX = {
-            x: newX - hbWidth/2, 
-            y: entity.y + hbOffsetY - hbHeight/2, 
-            width: hbWidth, 
+        return {
+            x: x - hbWidth / 2,
+            y: y + hbOffsetY - hbHeight / 2,
+            width: hbWidth,
             height: hbHeight
         };
-        
-        collidedX = this.navGrid.isWallRectCollision(testRectX);
-        
-        if (!collidedX) {
-            for (const obj of this.breakableObjects) {
-                if (obj.isBroken) continue;
-                
-                // Support multiple hitboxes (complex shapes) or single hitbox
-                const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
-                
-                for (const hb of hitboxes) {
-                    if (this.checkRectCollision(testRectX, hb)) {
-                        collidedX = true;
-                        break;
-                    }
-                }
-                if (collidedX) break;
-            }
-        }
-        
-        if (!collidedX) entity.x = newX;
+    }
 
-        let collidedY = false;
-        const testRectY = {
-            x: entity.x - hbWidth/2, 
-            y: newY + hbOffsetY - hbHeight/2, 
-            width: hbWidth, 
-            height: hbHeight
-        };
-        
-        collidedY = this.navGrid.isWallRectCollision(testRectY);
-        
-        if (!collidedY) {
-            for (const obj of this.breakableObjects) {
-                if (obj.isBroken) continue;
-                
-                const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
-                
-                for (const hb of hitboxes) {
-                    if (this.checkRectCollision(testRectY, hb)) {
-                        collidedY = true;
-                        break;
-                    }
-                }
-                if (collidedY) break;
+    isRectBlocked(rect, options = {}) {
+        const ignoreObject = options.ignoreObject || null;
+        for (const wall of this.walls) {
+            if (this.checkRectCollision(rect, wall)) {
+                return true;
             }
         }
 
-        if (!collidedY) entity.y = newY;
+        for (const obj of this.breakableObjects) {
+            if (obj.isBroken || obj === ignoreObject) continue;
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+            for (const hb of hitboxes) {
+                if (this.checkRectCollision(rect, hb)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    isEntityBlockedAt(entity, x, y, options = {}) {
+        const rect = this.getEntityMovementRect(entity, x, y);
+        return this.isRectBlocked(rect, options);
+    }
+
+    _updateMovementState(entity, fromX, fromY, intentX, intentY, options = {}) {
+        const state = entity._movementState || {
+            stuckFrames: 0,
+            lastSafeX: fromX,
+            lastSafeY: fromY
+        };
+
+        const movedDist = Math.hypot(entity.x - fromX, entity.y - fromY);
+        const intentDist = Math.hypot(intentX, intentY);
+
+        if (!this.isEntityBlockedAt(entity, entity.x, entity.y, options)) {
+            state.lastSafeX = entity.x;
+            state.lastSafeY = entity.y;
+        }
+
+        if (intentDist > 0.2 && movedDist < 0.1) {
+            state.stuckFrames++;
+        } else {
+            state.stuckFrames = 0;
+        }
+
+        if (state.stuckFrames >= 8) {
+            const unstuck = this.unstuckEntity(entity, options);
+            state.stuckFrames = 0;
+
+            if (!unstuck && Number.isFinite(state.lastSafeX) && Number.isFinite(state.lastSafeY)) {
+                entity.x = state.lastSafeX;
+                entity.y = state.lastSafeY;
+            }
+        }
+
+        entity._movementState = state;
+    }
+
+    resolveEntityMovement(entity, newX, newY, intentX = newX - entity.x, intentY = newY - entity.y, options = {}) {
+        const fromX = entity.x;
+        const fromY = entity.y;
+
+        const tryMove = (tx, ty) => {
+            if (this.isEntityBlockedAt(entity, tx, ty, options)) return false;
+            entity.x = tx;
+            entity.y = ty;
+            return true;
+        };
+
+        let moved = tryMove(newX, newY);
+
+        if (!moved) {
+            const preferX = Math.abs(intentX) >= Math.abs(intentY);
+            if (preferX) {
+                moved = tryMove(newX, fromY) || tryMove(fromX, newY);
+            } else {
+                moved = tryMove(fromX, newY) || tryMove(newX, fromY);
+            }
+        }
+
+        if (!moved) {
+            const halfX = fromX + (newX - fromX) * 0.5;
+            const halfY = fromY + (newY - fromY) * 0.5;
+            moved = tryMove(halfX, halfY);
+        }
+
+        this._updateMovementState(entity, fromX, fromY, intentX, intentY, options);
+        return moved;
+    }
+
+    unstuckEntity(entity, options = {}) {
+        const state = entity._movementState || {};
+        const originX = entity.x;
+        const originY = entity.y;
+        const startRadius = options.startRadius ?? 2;
+        const maxRadius = options.maxRadius ?? 48;
+        const step = options.step ?? 2;
+        const dirs = [
+            { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+            { x: 0.707, y: 0.707 }, { x: -0.707, y: 0.707 }, { x: 0.707, y: -0.707 }, { x: -0.707, y: -0.707 }
+        ];
+
+        for (let r = startRadius; r <= maxRadius; r += step) {
+            for (const d of dirs) {
+                const tx = originX + d.x * r;
+                const ty = originY + d.y * r;
+                if (!this.isEntityBlockedAt(entity, tx, ty, options)) {
+                    entity.x = tx;
+                    entity.y = ty;
+                    state.lastSafeX = tx;
+                    state.lastSafeY = ty;
+                    entity._movementState = state;
+                    return true;
+                }
+            }
+        }
+
+        if (Number.isFinite(state.lastSafeX) && Number.isFinite(state.lastSafeY) &&
+            !this.isEntityBlockedAt(entity, state.lastSafeX, state.lastSafeY, options)) {
+            entity.x = state.lastSafeX;
+            entity.y = state.lastSafeY;
+            entity._movementState = state;
+            return true;
+        }
+
+        return false;
+    }
+
+    resolveWallCollision(entity, newX, newY) {
+        return this.resolveEntityMovement(entity, newX, newY, newX - entity.x, newY - entity.y);
     }
 
     updateFlowField() {
@@ -498,26 +586,30 @@ export class WorldSystem {
         
         for (const obj of this.breakableObjects) {
             if (obj.isBroken) continue;
-            const hitbox = obj.getHitbox();
-            
-            const startX = Math.floor(hitbox.x / TILE_SIZE);
-            const endX = Math.floor((hitbox.x + hitbox.w - 1) / TILE_SIZE);
-            const startY = Math.floor(hitbox.y / TILE_SIZE);
-            const endY = Math.floor((hitbox.y + hitbox.h - 1) / TILE_SIZE);
-            
-            for (let gx = startX; gx <= endX; gx++) {
-                for (let gy = startY; gy <= endY; gy++) {
-                    const cell = this.navGrid.getCell(gx * TILE_SIZE, gy * TILE_SIZE);
-                    const idx = cell.y * MAP_WIDTH + cell.x;
-                    if (idx >= 0 && idx < this.navGrid.wallBlocked.length) {
-                         this.navGrid.wallBlocked[idx] = 1;
-                         const key = cell.x + cell.y * MAP_WIDTH;
-                         let list = this.navGrid.wallGrid.get(key);
-                         if (!list) {
-                             list = [];
-                             this.navGrid.wallGrid.set(key, list);
-                         }
-                         list.push(hitbox);
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+
+            for (const hitbox of hitboxes) {
+                const hbWidth = hitbox.width ?? hitbox.w;
+                const hbHeight = hitbox.height ?? hitbox.h;
+                const startX = Math.floor(hitbox.x / TILE_SIZE);
+                const endX = Math.floor((hitbox.x + hbWidth - 1) / TILE_SIZE);
+                const startY = Math.floor(hitbox.y / TILE_SIZE);
+                const endY = Math.floor((hitbox.y + hbHeight - 1) / TILE_SIZE);
+
+                for (let gx = startX; gx <= endX; gx++) {
+                    for (let gy = startY; gy <= endY; gy++) {
+                        const cell = this.navGrid.getCell(gx * TILE_SIZE, gy * TILE_SIZE);
+                        const idx = cell.y * MAP_WIDTH + cell.x;
+                        if (idx >= 0 && idx < this.navGrid.wallBlocked.length) {
+                            this.navGrid.wallBlocked[idx] = 1;
+                            const key = cell.x + cell.y * MAP_WIDTH;
+                            let list = this.navGrid.wallGrid.get(key);
+                            if (!list) {
+                                list = [];
+                                this.navGrid.wallGrid.set(key, list);
+                            }
+                            list.push(hitbox);
+                        }
                     }
                 }
             }
@@ -591,23 +683,25 @@ export class WorldSystem {
         }
         
         this.navGrid.buildEnemyGrid(this.enemies);
-        const wallQuery = (rect) => {
-            if (this.navGrid.isWallRectCollision(rect)) return true;
-            for (const obj of this.breakableObjects) {
-                if (obj.isBroken) continue;
-                const hitbox = obj.getHitbox();
-                if (rect.x < hitbox.x + hitbox.w &&
-                    rect.x + rect.width > hitbox.x &&
-                    rect.y < hitbox.y + hitbox.h &&
-                    rect.y + rect.height > hitbox.y) {
-                    return true;
-                }
-            }
-            return false;
-        };
+        const wallQuery = (rect, options = {}) => this.isRectBlocked(rect, options);
         const getFlowDirection = (x, y) => this.navGrid.getFlowDirection(x, y);
         const getNearbyEnemies = (enemy) => this.navGrid.getNearbyEnemies(enemy);
-        const getNavDirection = (enemy, desiredX, desiredY) => this.navGrid.findNavigableDirection(enemy.x, enemy.y, enemy.width, enemy.height, desiredX, desiredY);
+        const getNavDirection = (enemy, desiredX, desiredY) => {
+            const hbWidth = enemy.hitboxWidth || enemy.width;
+            const hbHeight = enemy.hitboxHeight || enemy.height;
+            const hbOffsetY = enemy.hitboxOffsetY || 0;
+            return this.navGrid.findNavigableDirection(
+                enemy.x,
+                enemy.y + hbOffsetY,
+                hbWidth,
+                hbHeight,
+                desiredX,
+                desiredY
+            );
+        };
+        const resolveEnemyMove = (enemy, nextX, nextY, intentX, intentY) => {
+            this.resolveEntityMovement(enemy, nextX, nextY, intentX, intentY);
+        };
 
         // Simple Enemy-Enemy Collision Resolution (Separation)
         for (let i = 0; i < this.enemies.length; i++) {
@@ -626,18 +720,35 @@ export class WorldSystem {
                     const nx = dx / dist;
                     const ny = dy / dist;
                     
-                    // Push apart
                     const push = overlap / 2;
-                    e1.x += nx * push;
-                    e1.y += ny * push;
-                    e2.x -= nx * push;
-                    e2.y -= ny * push;
+                    const e1TargetX = e1.x + nx * push;
+                    const e1TargetY = e1.y + ny * push;
+                    const e2TargetX = e2.x - nx * push;
+                    const e2TargetY = e2.y - ny * push;
+
+                    if (!this.isEntityBlockedAt(e1, e1TargetX, e1TargetY)) {
+                        e1.x = e1TargetX;
+                        e1.y = e1TargetY;
+                    }
+                    if (!this.isEntityBlockedAt(e2, e2TargetX, e2TargetY)) {
+                        e2.x = e2TargetX;
+                        e2.y = e2TargetY;
+                    }
                 }
             }
         }
 
         this.enemies.forEach(e => {
-            e.update(this.player, this.walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, this.combatSystem);
+            e.update(
+                this.player,
+                this.walls,
+                wallQuery,
+                getFlowDirection,
+                getNearbyEnemies,
+                getNavDirection,
+                this.combatSystem,
+                resolveEnemyMove
+            );
         });
     }
 }

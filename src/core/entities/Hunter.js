@@ -19,7 +19,7 @@ export class Hunter extends Enemy {
         this.state = 'idle'; // idle, chase, combat, flee
     }
 
-    update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem) {
+    update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
         if (this.hp <= 0) return;
 
         super.update(player, walls, wallQuery);
@@ -52,7 +52,7 @@ export class Hunter extends Enemy {
                 
                 if (dist < this.minRange) {
                     // Back off
-                    this.moveAwayFrom(player, walls, wallQuery, getNavDirection);
+                    this.moveAwayFrom(player, walls, wallQuery, getNavDirection, moveResolver);
                 } else {
                     // Stand ground and shoot
                     // Maybe small random movement to not be a sitting duck
@@ -67,7 +67,7 @@ export class Hunter extends Enemy {
             } else {
                 // Chase State
                 this.state = 'run';
-                this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection);
+                this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
             }
         } else {
             // Idle State
@@ -75,7 +75,7 @@ export class Hunter extends Enemy {
         }
     }
 
-    moveTowards(target, walls, wallQuery, getFlowDirection, getNavDirection) {
+    moveTowards(target, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver) {
         // Reuse Zombie movement logic or simplify
         // Here we use simple nav
         let vx = 0, vy = 0;
@@ -107,10 +107,14 @@ export class Hunter extends Enemy {
         
         const nextX = this.x + vx * this.speed;
         const nextY = this.y + vy * this.speed;
-        this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+        if (moveResolver) {
+            moveResolver(this, nextX, nextY, vx, vy);
+        } else {
+            this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+        }
     }
 
-    moveAwayFrom(target, walls, wallQuery, getNavDirection) {
+    moveAwayFrom(target, walls, wallQuery, getNavDirection, moveResolver) {
         const dx = this.x - target.x;
         const dy = this.y - target.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
@@ -123,7 +127,11 @@ export class Hunter extends Enemy {
         
         const nextX = this.x + vx * this.speed * 0.8; // Back off slightly slower
         const nextY = this.y + vy * this.speed * 0.8;
-        this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+        if (moveResolver) {
+            moveResolver(this, nextX, nextY, vx, vy);
+        } else {
+            this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+        }
     }
 
     shoot(combatSystem) {
