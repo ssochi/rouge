@@ -140,11 +140,27 @@ export class StatusEffectSystem {
             tickInterval: b.blackHoleTickInterval || 15,
             tickCounter: 0,
             pullForce: b.blackHolePullForce || 2,
-            angle: 0
+            angle: 0,
+            source: b.source || 'player',
+            owner: b.owner || null
         });
     }
 
-    teleportPlayer(b) {
+    _isMovementHitboxBlocked(hitbox) {
+        for (const wall of this.walls) {
+            if (hitbox.x < wall.x + wall.w &&
+                hitbox.x + hitbox.width > wall.x &&
+                hitbox.y < wall.y + wall.h &&
+                hitbox.y + hitbox.height > wall.y) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    teleportEntity(entity, b) {
+        if (!entity || !b) return;
+
         let teleportX = b.x;
         let teleportY = b.y;
 
@@ -158,21 +174,9 @@ export class StatusEffectSystem {
                 const testX = b.x + dirX * step * 4;
                 const testY = b.y + dirY * step * 4;
 
-                if (this.player.getMovementHitboxAt) {
-                    const phb = this.player.getMovementHitboxAt(testX, testY);
-                    let blocked = false;
-
-                    for (const wall of this.walls) {
-                        if (phb.x < wall.x + wall.w &&
-                            phb.x + phb.width > wall.x &&
-                            phb.y < wall.y + wall.h &&
-                            phb.y + phb.height > wall.y) {
-                            blocked = true;
-                            break;
-                        }
-                    }
-
-                    if (!blocked) {
+                if (entity.getMovementHitboxAt) {
+                    const hb = entity.getMovementHitboxAt(testX, testY);
+                    if (!this._isMovementHitboxBlocked(hb)) {
                         teleportX = testX;
                         teleportY = testY;
                         break;
@@ -190,7 +194,7 @@ export class StatusEffectSystem {
             const angle = Math.random() * Math.PI * 2;
             const spd = Math.random() * 2 + 1;
             this.particles.push({
-                x: this.player.x, y: this.player.y,
+                x: entity.x, y: entity.y,
                 vx: Math.cos(angle) * spd,
                 vy: Math.sin(angle) * spd,
                 life: 20,
@@ -200,9 +204,9 @@ export class StatusEffectSystem {
             });
         }
 
-        // Move player
-        this.player.x = teleportX;
-        this.player.y = teleportY;
+        // Move entity
+        entity.x = teleportX;
+        entity.y = teleportY;
 
         // Arrival particles
         for (let j = 0; j < 8; j++) {
@@ -222,6 +226,10 @@ export class StatusEffectSystem {
         // Camera shake
         this.camera.x += (Math.random() - 0.5) * 10;
         this.camera.y += (Math.random() - 0.5) * 10;
+    }
+
+    teleportPlayer(b) {
+        this.teleportEntity(this.player, b);
     }
 
     updateBlackHoles() {
@@ -252,6 +260,29 @@ export class StatusEffectSystem {
                         }
                         if (e.hp <= 0) {
                             this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                        }
+                    }
+                }
+            }
+
+            // Enemy-origin black holes can affect player as well.
+            const p = this.player;
+            if (bh.source === 'enemy' && p && p.hp > 0 && p.state !== 'driving') {
+                const dx = bh.x - p.x;
+                const dy = bh.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < bh.radius && dist > 5) {
+                    const pullStrength = bh.pullForce * (1 - dist / bh.radius);
+                    const angle = Math.atan2(dy, dx);
+                    p.knockbackX = (p.knockbackX || 0) + Math.cos(angle) * pullStrength;
+                    p.knockbackY = (p.knockbackY || 0) + Math.sin(angle) * pullStrength;
+
+                    if (dist < bh.damageRadius && bh.tickCounter >= bh.tickInterval) {
+                        if (p.takeDamage) {
+                            p.takeDamage(bh.damage, { x: 0, y: 0 });
+                        } else {
+                            p.hp -= bh.damage;
                         }
                     }
                 }
@@ -422,6 +453,34 @@ export class StatusEffectSystem {
                 }
             }
         }
+
+        const p = this.player;
+        if (!p) return;
+
+        if (p.frozenTimer > 0) {
+            p.frozenTimer--;
+            if (Math.random() > 0.75) {
+                this.particles.push({
+                    type: 'fire',
+                    x: p.x + (Math.random() - 0.5) * 12,
+                    y: p.y + (Math.random() - 0.5) * 12,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: -Math.random() * 0.5,
+                    size: Math.random() * 3 + 1,
+                    color: '#74b9ff',
+                    life: 12,
+                    alpha: 0.6
+                });
+            }
+        }
+
+        if (p.slowTimer > 0) {
+            p.slowTimer--;
+            if (p.slowTimer <= 0) {
+                p.freezeStacks = 0;
+                p.slowAmount = 0;
+            }
+        }
     }
 
     updateBurnEffects() {
@@ -455,6 +514,35 @@ export class StatusEffectSystem {
                     this.particleSpawner.spawnBloodExplosion(e.x, e.y);
                 }
             }
+        }
+
+        const p = this.player;
+        if (!p || !p.burnTimer || p.burnTimer <= 0) return;
+
+        p.burnTimer--;
+        p.burnTickCounter = (p.burnTickCounter || 0) + 1;
+        if (p.burnTickCounter >= (p.burnTickInterval || 20)) {
+            p.burnTickCounter = 0;
+            let burnDmg = p.burnDamage || 2;
+            if (p.frozenTimer > 0) burnDmg = Math.floor(burnDmg * 1.5);
+
+            if (p.takeDamage) {
+                p.takeDamage(burnDmg, { x: 0, y: 0 });
+            } else {
+                p.hp -= burnDmg;
+            }
+
+            this.particles.push({
+                type: 'fire',
+                x: p.x + (Math.random() - 0.5) * 10,
+                y: p.y + (Math.random() - 0.5) * 10,
+                vx: (Math.random() - 0.5) * 1,
+                vy: -Math.random() * 1.5,
+                size: Math.random() * 4 + 2,
+                color: '#f1c40f',
+                life: 15,
+                alpha: 0.8
+            });
         }
     }
 }

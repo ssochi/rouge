@@ -4,6 +4,7 @@
 
 import { Assets } from '../../graphics/Assets.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
+import { weaponConfigIdFromItemId } from '../systems/WeaponInstanceUtils.js';
 
 export class DroppedItem {
     constructor(x, y, itemId, count = 1, instanceData = null) {
@@ -42,12 +43,7 @@ export class DroppedItem {
         
         if (this.itemId.startsWith('weapon:')) {
             this.isWeapon = true;
-            const weaponKey = this.itemId.replace('weapon:', '');
-            const map = {
-                rifle: 'default_rifle',
-                pistol: 'default_pistol'
-            };
-            const configId = map[weaponKey] || weaponKey;
+            const configId = weaponConfigIdFromItemId(this.itemId);
             if (configId && WEAPONS[configId]) {
                 const conf = WEAPONS[configId];
                 this.name = conf.name;

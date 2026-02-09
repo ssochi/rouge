@@ -6,7 +6,7 @@ import { WEAPONS, WeaponType } from '../../assets/weapons/WeaponData.js';
 export class EnemyHandSystem {
     constructor(owner, weaponId = 'default_pistol') {
         this.owner = owner;
-        this.currentWeaponId = weaponId;
+        this.currentWeaponId = 'default_pistol';
         this.currentWeapon = WEAPONS[this.currentWeaponId];
         this.orbitRadius = this.currentWeapon.orbitRadius;
         this.angle = 0;
@@ -15,6 +15,15 @@ export class EnemyHandSystem {
         this.recoilOffset = 0;
         this.showFlash = false;
         this.flashTimer = 0;
+
+        this.setWeapon(weaponId);
+    }
+
+    setWeapon(weaponId) {
+        if (!weaponId || !WEAPONS[weaponId]) return;
+        this.currentWeaponId = weaponId;
+        this.currentWeapon = WEAPONS[weaponId];
+        this.orbitRadius = this.currentWeapon.orbitRadius;
     }
 
     update(targetX, targetY) {

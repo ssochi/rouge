@@ -8,6 +8,7 @@ export class InputHandler {
             q: false, // Weapon Switch (Quick)
             e: false, // Interact / Pickup
             r: false, // Reload
+            o: false, // Spawn Nearby Vehicle
             b: false, // Backpack
             p: false, // Debug Toggle
             space: false,

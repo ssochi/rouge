@@ -1,6 +1,11 @@
 import { Assets } from '../../graphics/Assets.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { FLOOR_TYPES } from '../../utils/FloorTypes.js';
+import {
+    cloneWeaponInstanceData,
+    createWeaponInstanceData,
+    weaponConfigIdFromItemId
+} from './WeaponInstanceUtils.js';
 
 export const SLOT_COUNT = 63; // 9 Hotbar + 54 Backpack (6 rows)
 export const HOTBAR_SIZE = 9;
@@ -255,6 +260,49 @@ export class InventorySystem {
         return this.items.get(id);
     }
 
+    _isWeaponSlot(slot) {
+        if (!slot || !slot.itemId) return false;
+        const def = this.getItemDef(slot.itemId);
+        return !!def && def.type === 'weapon';
+    }
+
+    ensureWeaponInstanceForSlot(slotIndex) {
+        if (slotIndex < 0 || slotIndex >= this.slots.length) return null;
+        const slot = this.slots[slotIndex];
+        if (!this._isWeaponSlot(slot)) return null;
+
+        if (slot.instanceData && slot.instanceData.weaponInstanceId && slot.instanceData.ammo) {
+            return slot.instanceData;
+        }
+
+        const configId = weaponConfigIdFromItemId(slot.itemId) || this.getItemDef(slot.itemId)?.data?.weaponConfigId;
+        if (!configId) return null;
+
+        slot.instanceData = createWeaponInstanceData({ weaponConfigId: configId });
+        return slot.instanceData;
+    }
+
+    updateWeaponInstanceState({ itemId, weaponInstanceId, ammo }) {
+        if (!itemId || !weaponInstanceId || !ammo) return false;
+
+        for (const slot of this.slots) {
+            if (slot.itemId !== itemId || !slot.instanceData) continue;
+            if (slot.instanceData.weaponInstanceId !== weaponInstanceId) continue;
+
+            const cloned = cloneWeaponInstanceData(slot.instanceData) || {};
+            cloned.ammo = {
+                currentAmmo: Number.isFinite(ammo.currentAmmo) ? ammo.currentAmmo : 0,
+                reserveAmmo: Number.isFinite(ammo.reserveAmmo) ? ammo.reserveAmmo : 0,
+                maxAmmo: Number.isFinite(ammo.maxAmmo) ? ammo.maxAmmo : 0,
+                maxReserve: Number.isFinite(ammo.maxReserve) ? ammo.maxReserve : 0
+            };
+            slot.instanceData = cloned;
+            return true;
+        }
+
+        return false;
+    }
+
     // --- Inventory Operations ---
 
     /**
@@ -332,6 +380,33 @@ export class InventorySystem {
             return count;
         }
 
+        // Weapon items are non-stackable and always tracked by unique instance data.
+        if (def.type === 'weapon' && def.maxStack === 1) {
+            let remainingWeapon = count;
+            while (remainingWeapon > 0) {
+                const emptySlot = this.slots.find(slot => slot.itemId === null);
+                if (!emptySlot) break;
+
+                let dataToStore = null;
+                if (remainingWeapon === count && instanceData) {
+                    dataToStore = cloneWeaponInstanceData(instanceData);
+                    if (!dataToStore.weaponInstanceId || !dataToStore.weaponConfigId || !dataToStore.ammo) {
+                        dataToStore = null;
+                    }
+                }
+                if (!dataToStore) {
+                    const configId = weaponConfigIdFromItemId(itemId) || def.data?.weaponConfigId;
+                    dataToStore = createWeaponInstanceData({ weaponConfigId: configId });
+                }
+
+                emptySlot.itemId = itemId;
+                emptySlot.count = 1;
+                emptySlot.instanceData = dataToStore;
+                remainingWeapon--;
+            }
+            return remainingWeapon;
+        }
+
         let remaining = count;
 
         // 1. Try to stack into existing slots
@@ -355,7 +430,7 @@ export class InventorySystem {
                 const toAdd = Math.min(def.maxStack, remaining);
                 slot.itemId = itemId;
                 slot.count = toAdd;
-                slot.instanceData = instanceData;
+                slot.instanceData = instanceData ? cloneWeaponInstanceData(instanceData) : null;
                 remaining -= toAdd;
                 if (remaining <= 0) return 0;
             }
@@ -396,7 +471,7 @@ export class InventorySystem {
         const itemData = {
             itemId: slot.itemId,
             count: toDrop,
-            instanceData: slot.instanceData ? { ...slot.instanceData } : null
+            instanceData: cloneWeaponInstanceData(slot.instanceData)
         };
 
         slot.count -= toDrop;

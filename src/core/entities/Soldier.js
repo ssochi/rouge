@@ -1,6 +1,8 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
 import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
+import { WEAPONS } from '../../assets/weapons/WeaponData.js';
+import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
 
 export class Soldier extends Enemy {
     constructor(x, y) {
@@ -23,12 +25,59 @@ export class Soldier extends Enemy {
         this.spread = 0.08;            // Bullet spread (radians)
 
         this.damage = 5;
+        this.shotSpeed = 9;
+        this.currentWeapon = WEAPONS.smg;
 
         // Strafe
         this.strafeDir = 1;           // 1 = right, -1 = left
         this.strafeTimer = 0;
 
+        this.isNonZombieEnemy = true;
+        this.canOpenDoors = true;
+        this.dropWeaponChance = 0.3;
+        this.weaponConfigId = 'smg';
+        this.weaponItemId = weaponItemIdFromConfigId(this.weaponConfigId);
+        this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId: this.weaponConfigId });
+
+        this.setCombatWeapon(this.weaponConfigId);
+
         this.state = 'idle';
+    }
+
+    setCombatWeapon(weaponConfigId) {
+        if (!weaponConfigId || !WEAPONS[weaponConfigId]) return;
+        const weapon = WEAPONS[weaponConfigId];
+
+        this.weaponConfigId = weaponConfigId;
+        this.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+        this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
+        this.currentWeapon = weapon;
+        this.handSystem.setWeapon(weaponConfigId);
+
+        this.damage = weapon.damage || 8;
+        this.shotSpeed = weapon.bulletSpeed || 10;
+        const baseSpreadDeg = weapon.spread || 6;
+        this.spread = Math.max(0.01, Math.min(0.30, baseSpreadDeg * Math.PI / 180));
+
+        const fireRateMs = weapon.fireRate || 180;
+        const fireRateFrames = Math.max(6, Math.round(fireRateMs / 16.67));
+        this.burstDelayMax = Math.max(3, Math.min(18, Math.round(fireRateFrames * 0.7)));
+        this.burstCooldownMax = Math.max(25, Math.min(220, Math.round(fireRateFrames * 1.8)));
+
+        const singleShotTypes = new Set(['rocket', 'grenade', 'black_hole_projectile', 'teleport', 'laser_beam', 'boomerang']);
+        if (singleShotTypes.has(weapon.bulletType) || (weapon.pelletCount || 1) > 1) {
+            this.burstSize = 1;
+        } else {
+            this.burstSize = fireRateFrames <= 7 ? 4 : (fireRateFrames <= 14 ? 3 : 2);
+        }
+
+        if (weapon.bulletType === 'laser_beam') {
+            this.shootRange = weapon.laserMaxRange || 600;
+        } else {
+            const bulletLife = weapon.bulletLife || 45;
+            const bulletSpeed = weapon.bulletSpeed || 10;
+            this.shootRange = Math.max(140, Math.min(700, bulletLife * bulletSpeed));
+        }
     }
 
     update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
@@ -112,16 +161,15 @@ export class Soldier extends Enemy {
         this.handSystem.triggerShoot();
 
         const muzzle = this.handSystem.getMuzzleWorldPosition();
-        const spreadAngle = muzzle.angle + (Math.random() - 0.5) * this.spread * 2;
-
-        combatSystem.spawnEnemyBullet({
-            x: muzzle.x,
-            y: muzzle.y,
-            angle: spreadAngle,
-            damage: this.damage,
-            speed: 9
+        const aimJitter = (Math.random() - 0.5) * this.spread * 0.5;
+        const weapon = this.currentWeapon || WEAPONS[this.weaponConfigId] || WEAPONS.smg;
+        const fired = combatSystem.spawnEnemyWeaponShot({
+            shooter: this,
+            weapon,
+            muzzle,
+            aimAngleOverride: muzzle.angle + aimJitter
         });
-        return true;
+        return !!fired;
     }
 
     moveTowards(target, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver) {

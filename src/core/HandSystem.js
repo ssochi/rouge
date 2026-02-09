@@ -7,6 +7,7 @@
 
 import { Assets } from '../graphics/Assets.js';
 import { WEAPONS, WeaponType } from '../assets/weapons/WeaponData.js';
+import { createWeaponAmmoState } from './systems/WeaponInstanceUtils.js';
 
 export class HandSystem {
     constructor(player) {
@@ -28,29 +29,59 @@ export class HandSystem {
         this.flashTimer = 0;
 
         // Ammo & Reload State
-        this.weaponStates = new Map();
+        this.currentWeaponState = createWeaponAmmoState(this.currentWeaponId);
+        this.currentWeaponInstanceId = null;
+        this.currentWeaponItemId = null;
+        this.onStateCommit = null;
         this.isReloading = false;
         this.reloadTimer = 0;
         this.reloadDuration = 0;
-        
-        // Init state for default weapon
-        this.initWeaponState(this.currentWeaponId);
     }
 
-    initWeaponState(weaponKey) {
-        if (!this.weaponStates.has(weaponKey) && WEAPONS[weaponKey]) {
-            const data = WEAPONS[weaponKey];
-            this.weaponStates.set(weaponKey, {
-                currentAmmo: data.magazineSize,
-                reserveAmmo: data.maxReserve,
-                maxAmmo: data.magazineSize,
-                maxReserve: data.maxReserve
-            });
+    bindInstanceSync(syncFn) {
+        this.onStateCommit = typeof syncFn === 'function' ? syncFn : null;
+    }
+
+    _cloneAmmoState(state) {
+        if (!state) return null;
+        return {
+            currentAmmo: Number.isFinite(state.currentAmmo) ? state.currentAmmo : 0,
+            reserveAmmo: Number.isFinite(state.reserveAmmo) ? state.reserveAmmo : 0,
+            maxAmmo: Number.isFinite(state.maxAmmo) ? state.maxAmmo : 0,
+            maxReserve: Number.isFinite(state.maxReserve) ? state.maxReserve : 0
+        };
+    }
+
+    _commitCurrentWeaponState() {
+        if (!this.onStateCommit) return;
+        if (!this.currentWeaponItemId || !this.currentWeaponInstanceId || !this.currentWeaponState) return;
+
+        this.onStateCommit({
+            itemId: this.currentWeaponItemId,
+            weaponInstanceId: this.currentWeaponInstanceId,
+            ammo: this._cloneAmmoState(this.currentWeaponState)
+        });
+    }
+
+    _loadAmmoStateFromInstance(instanceData, weaponKey) {
+        const fallback = createWeaponAmmoState(weaponKey);
+        if (!instanceData || !instanceData.ammo) {
+            return fallback;
         }
+
+        const next = this._cloneAmmoState(instanceData.ammo) || fallback;
+        if (!next) return null;
+
+        // Keep max bounds aligned with weapon definition in case config changed.
+        next.maxAmmo = fallback ? fallback.maxAmmo : next.maxAmmo;
+        next.maxReserve = fallback ? fallback.maxReserve : next.maxReserve;
+        next.currentAmmo = Math.max(0, Math.min(next.currentAmmo, next.maxAmmo));
+        next.reserveAmmo = Math.max(0, Math.min(next.reserveAmmo, next.maxReserve));
+        return next;
     }
 
     getWeaponState() {
-        return this.weaponStates.get(this.currentWeaponId);
+        return this.currentWeaponState;
     }
 
     canShoot() {
@@ -63,9 +94,7 @@ export class HandSystem {
         const state = this.getWeaponState();
         if (state && state.currentAmmo > 0) {
             state.currentAmmo--;
-            // Auto reload if empty? Handled by PlayerSystem or here?
-            // Let's keep it manual or auto-trigger in update loop if needed.
-            // For now just consume.
+            this._commitCurrentWeaponState();
         }
     }
 
@@ -122,6 +151,7 @@ export class HandSystem {
             const available = Math.min(needed, state.reserveAmmo);
             state.currentAmmo += available;
             state.reserveAmmo -= available;
+            this._commitCurrentWeaponState();
         }
     }
 
@@ -143,21 +173,27 @@ export class HandSystem {
     }
 
     // Switch weapon
-    setWeapon(weaponKey) {
-        if (WEAPONS[weaponKey]) {
-            // Cancel reload if switching?
-            if (this.isReloading) {
-                this.isReloading = false;
-                this.reloadTimer = 0;
-            }
+    setWeapon(weaponKey, weaponInstanceData = null, itemId = null) {
+        if (!WEAPONS[weaponKey]) return;
 
-            this.currentWeaponId = weaponKey;
-            this.currentWeapon = WEAPONS[weaponKey];
-            this.orbitRadius = this.currentWeapon.orbitRadius;
-            
-            // Ensure state exists
-            this.initWeaponState(weaponKey);
+        // Persist current equipped weapon ammo before switching away.
+        this._commitCurrentWeaponState();
+
+        if (this.isReloading) {
+            this.isReloading = false;
+            this.reloadTimer = 0;
         }
+
+        this.currentWeaponId = weaponKey;
+        this.currentWeapon = WEAPONS[weaponKey];
+        this.orbitRadius = this.currentWeapon.orbitRadius;
+
+        this.currentWeaponState = this._loadAmmoStateFromInstance(weaponInstanceData, weaponKey);
+        this.currentWeaponInstanceId = weaponInstanceData?.weaponInstanceId || null;
+        this.currentWeaponItemId = itemId || null;
+
+        // Keep selected slot and in-hand state aligned immediately.
+        this._commitCurrentWeaponState();
     }
 
     getMuzzleWorldPosition(now) {

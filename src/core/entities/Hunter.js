@@ -1,12 +1,14 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
 import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
+import { WEAPONS } from '../../assets/weapons/WeaponData.js';
+import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
 
 export class Hunter extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 20, 40, 1.2); // Hitbox 20x20, HP 40, Speed 1.2 (Faster than zombie)
         
-        this.handSystem = new EnemyHandSystem(this);
+        this.handSystem = new EnemyHandSystem(this, 'default_pistol');
         
         // AI Config
         this.visionRange = 400;
@@ -15,8 +17,49 @@ export class Hunter extends Enemy {
         
         this.attackCooldown = 0;
         this.fireRate = 120; // 2 seconds
+        this.shotDamage = 10;
+        this.shotSpeed = 8;
+        this.currentWeapon = WEAPONS.default_pistol;
+
+        this.isNonZombieEnemy = true;
+        this.canOpenDoors = true;
+        this.dropWeaponChance = 0.3;
+        this.weaponConfigId = 'default_pistol';
+        this.weaponItemId = weaponItemIdFromConfigId(this.weaponConfigId);
+        this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId: this.weaponConfigId });
+
+        this.setCombatWeapon(this.weaponConfigId);
         
         this.state = 'idle'; // idle, chase, combat, flee
+    }
+
+    setCombatWeapon(weaponConfigId) {
+        if (!weaponConfigId || !WEAPONS[weaponConfigId]) return;
+        const weapon = WEAPONS[weaponConfigId];
+
+        this.weaponConfigId = weaponConfigId;
+        this.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+        this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
+        this.currentWeapon = weapon;
+        this.handSystem.setWeapon(weaponConfigId);
+
+        this.shotDamage = weapon.damage || 10;
+        this.shotSpeed = weapon.bulletSpeed || 10;
+        this.fireRate = Math.max(6, Math.round((weapon.fireRate || 300) / 16.67));
+
+        if (weapon.bulletType === 'laser_beam') {
+            this.shootRange = weapon.laserMaxRange || 600;
+        } else {
+            const bulletLife = weapon.bulletLife || 50;
+            const bulletSpeed = weapon.bulletSpeed || 10;
+            this.shootRange = Math.max(140, Math.min(700, bulletLife * bulletSpeed));
+        }
+
+        if (weapon.bulletType === 'rocket' || weapon.bulletType === 'grenade') {
+            this.minRange = 140;
+        } else {
+            this.minRange = 100;
+        }
     }
 
     update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
@@ -155,14 +198,11 @@ export class Hunter extends Enemy {
         this.handSystem.triggerShoot();
 
         const muzzle = this.handSystem.getMuzzleWorldPosition();
-        
-        // Call combat system to spawn enemy bullet
-        combatSystem.spawnEnemyBullet({
-            x: muzzle.x,
-            y: muzzle.y,
-            angle: muzzle.angle,
-            damage: 10,
-            speed: 8
+        const weapon = this.currentWeapon || WEAPONS[this.weaponConfigId] || WEAPONS.default_pistol;
+        combatSystem.spawnEnemyWeaponShot({
+            shooter: this,
+            weapon,
+            muzzle
         });
     }
 

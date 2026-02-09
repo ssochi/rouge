@@ -15,6 +15,11 @@ import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
+import {
+    cloneWeaponInstanceData,
+    createWeaponInstanceData,
+    weaponItemIdFromConfigId
+} from './WeaponInstanceUtils.js';
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
@@ -34,6 +39,8 @@ export class WorldSystem {
         this.floorMapWidth = 0;
         this.floorMapHeight = 0;
         this.floorCanvas = null;
+        this.generatedLayoutMeta = null;
+        this.soldierWeaponPool = null;
     }
 
     loadMap(mapType) {
@@ -49,6 +56,7 @@ export class WorldSystem {
         this.floorMapWidth = 0;
         this.floorMapHeight = 0;
         this.floorCanvas = null;
+        this.generatedLayoutMeta = null;
         
         // Reset player state if needed (position is handled per map)
         
@@ -174,6 +182,7 @@ export class WorldSystem {
             layout.breakables.forEach(def => {
                 this.breakableObjects.push(new BreakableObject(def.x, def.y, def.type));
             });
+            this.generatedLayoutMeta = layout.meta || null;
 
             if (layout.spawn) {
                 this.player.x = layout.spawn.x;
@@ -194,10 +203,14 @@ export class WorldSystem {
         }
 
         this.initConstructionFallbackLayout();
+        this.generatedLayoutMeta = null;
         return false;
     }
 
     spawnGameEncounters() {
+        const nonZombieIndoorRatio = 0.7;
+        const indoorPool = this._buildIndoorSpawnPool();
+
         // Spawn Zombies
         for (let i = 0; i < 40; i++) {
             this.spawnEnemy('zombie');
@@ -215,12 +228,12 @@ export class WorldSystem {
 
         // Spawn Hunters
         for (let i = 0; i < 10; i++) {
-            this.spawnEnemy('hunter');
+            this.spawnEnemyWithIndoorPreference('hunter', indoorPool, nonZombieIndoorRatio);
         }
 
         // Spawn Soldiers
         for (let i = 0; i < 6; i++) {
-            this.spawnEnemy('soldier');
+            this.spawnEnemyWithIndoorPreference('soldier', indoorPool, nonZombieIndoorRatio);
         }
     }
 
@@ -238,6 +251,13 @@ export class WorldSystem {
     }
 
     initConstructionFallbackLayout() {
+        const S = FLOOR_TILES_PER_CELL;
+        this.floorMapWidth = MAP_WIDTH * S;
+        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
+        this.floorMap.fill(FLOOR_TYPES.GRASS);
+        this.buildFloorCanvas();
+
         const houseTileX = 12;
         const houseTileY = 10;
         const houseW = 12;
@@ -469,17 +489,6 @@ export class WorldSystem {
         // No reserved portal area is needed here.
         this.applyGeneratedLayout({ reservedRects: [] });
         this.spawnGameEncounters();
-
-        const minX = TILE_SIZE * 2;
-        const maxX = (MAP_WIDTH - 3) * TILE_SIZE;
-        const minY = TILE_SIZE * 2;
-        const maxY = (MAP_HEIGHT - 3) * TILE_SIZE;
-        const drop1X = Math.max(minX, Math.min(maxX, this.player.x + TILE_SIZE * 2));
-        const drop1Y = Math.max(minY, Math.min(maxY, this.player.y + TILE_SIZE * 1));
-        const drop2X = Math.max(minX, Math.min(maxX, this.player.x + TILE_SIZE * 4));
-        const drop2Y = Math.max(minY, Math.min(maxY, this.player.y - TILE_SIZE * 1));
-        this.droppedItems.push(new DroppedItem(drop1X, drop1Y, 'weapon:rifle', 1));
-        this.droppedItems.push(new DroppedItem(drop2X, drop2Y, 'weapon:rifle', 1));
     }
 
     updatePortals() {
@@ -491,21 +500,233 @@ export class WorldSystem {
         });
     }
 
-    spawnEnemy(type = 'zombie') {
-        const ex = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2) * TILE_SIZE;
-        const ey = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2) * TILE_SIZE;
+    _shuffleInPlace(list) {
+        for (let i = list.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = list[i];
+            list[i] = list[j];
+            list[j] = t;
+        }
+        return list;
+    }
+
+    _tileToWorldCenter(tileX, tileY) {
+        return {
+            x: tileX * TILE_SIZE + TILE_SIZE / 2,
+            y: tileY * TILE_SIZE + TILE_SIZE / 2
+        };
+    }
+
+    _buildIndoorSpawnPool() {
+        const raw = this.generatedLayoutMeta?.indoorSpawnTiles || [];
+        const pool = [];
+        const used = new Set();
+        for (const tile of raw) {
+            if (!tile) continue;
+            const tx = tile.x;
+            const ty = tile.y;
+            if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
+            if (tx < 2 || tx > MAP_WIDTH - 3 || ty < 2 || ty > MAP_HEIGHT - 3) continue;
+            const key = `${tx},${ty}`;
+            if (used.has(key)) continue;
+            used.add(key);
+            pool.push({ x: tx, y: ty });
+        }
+        return this._shuffleInPlace(pool);
+    }
+
+    _pickRandomSpawnPoint() {
+        const tx = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2);
+        const ty = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2);
+        return this._tileToWorldCenter(tx, ty);
+    }
+
+    _createEnemyByType(type, x, y) {
+        if (type === 'hunter') return new Hunter(x, y);
+        if (type === 'soldier') return new Soldier(x, y);
+        if (type === 'zombie_female') return new ZombieFemale(x, y);
+        if (type === 'zombie_brute') return new ZombieBrute(x, y);
+        return new Zombie(x, y);
+    }
+
+    _getSoldierWeaponPool() {
+        if (Array.isArray(this.soldierWeaponPool) && this.soldierWeaponPool.length > 0) {
+            return this.soldierWeaponPool;
+        }
+
+        this.soldierWeaponPool = Object.keys(WEAPONS).filter(id => id !== 'hammer' && id !== 'boomerang');
+        if (this.soldierWeaponPool.length === 0) {
+            this.soldierWeaponPool = ['smg'];
+        }
+        return this.soldierWeaponPool;
+    }
+
+    _chooseSoldierWeaponConfigId() {
+        const pool = this._getSoldierWeaponPool();
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    _isVehicleSpawnRectWithinBounds(rect) {
+        const worldWidth = MAP_WIDTH * TILE_SIZE;
+        const worldHeight = MAP_HEIGHT * TILE_SIZE;
+        const margin = TILE_SIZE;
+
+        return (
+            rect.x >= margin &&
+            rect.y >= margin &&
+            rect.x + rect.width <= worldWidth - margin &&
+            rect.y + rect.height <= worldHeight - margin
+        );
+    }
+
+    _isVehicleSpawnPositionAvailable(vehicle, x, y) {
+        if (!vehicle) return false;
+
+        const hw = vehicle.hitbox.width / 2;
+        const hh = vehicle.hitbox.height / 2;
+        const rect = {
+            x: x - hw,
+            y: y - hh,
+            width: hw * 2,
+            height: hh * 2
+        };
+
+        if (!this._isVehicleSpawnRectWithinBounds(rect)) return false;
+        if (this.isRectBlocked(rect)) return false;
+
+        for (const other of this.vehicles || []) {
+            if (!other || other.isDead) continue;
+            if (other.intersectsAabb && other.intersectsAabb(rect.x, rect.y, rect.width, rect.height)) {
+                return false;
+            }
+        }
+
+        const playerRect = this.getEntityMovementRect(this.player, this.player.x, this.player.y);
+        if (this.checkRectCollision(rect, playerRect)) return false;
+
+        for (const enemy of this.enemies) {
+            if (!enemy || enemy.hp <= 0) continue;
+            const enemyRect = this.getEntityMovementRect(enemy, enemy.x, enemy.y);
+            if (this.checkRectCollision(rect, enemyRect)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    spawnVehicleNearPlayer(options = {}) {
+        if (!this.vehicles || !this.player) return null;
+
+        const px = this.player.x;
+        const py = this.player.y;
+        if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+
+        const minRadius = Math.max(48, Number.isFinite(options.minRadius) ? options.minRadius : 72);
+        const maxRadius = Math.max(minRadius, Number.isFinite(options.maxRadius) ? options.maxRadius : 220);
+        const radiusStep = Math.max(12, Number.isFinite(options.radiusStep) ? options.radiusStep : 28);
+        const angleStep = Math.max(Math.PI / 18, Number.isFinite(options.angleStep) ? options.angleStep : (Math.PI / 6));
+        const typePool = Array.isArray(options.types) && options.types.length > 0
+            ? options.types
+            : ['suv', 'truck', 'police'];
+
+        for (let radius = minRadius; radius <= maxRadius; radius += radiusStep) {
+            const angleOffset = Math.random() * Math.PI * 2;
+            const samples = Math.max(12, Math.ceil((Math.PI * 2) / angleStep));
+
+            for (let i = 0; i < samples; i++) {
+                const angle = angleOffset + i * angleStep;
+                const x = px + Math.cos(angle) * radius;
+                const y = py + Math.sin(angle) * radius;
+                const type = typePool[Math.floor(Math.random() * typePool.length)];
+                const vehicle = new Vehicle(x, y, type);
+
+                if (!this._isVehicleSpawnPositionAvailable(vehicle, x, y)) continue;
+
+                this.vehicles.push(vehicle);
+                return vehicle;
+            }
+        }
+
+        return null;
+    }
+
+    _setupEnemyLoadout(enemy, type, options = {}) {
+        if (!enemy) return;
+
+        const nonZombie = type === 'hunter' || type === 'soldier';
+        if (nonZombie) {
+            enemy.isNonZombieEnemy = true;
+            enemy.canOpenDoors = true;
+            if (!Number.isFinite(enemy.dropWeaponChance)) {
+                enemy.dropWeaponChance = 0.3;
+            }
+        }
 
         if (type === 'hunter') {
-            this.enemies.push(new Hunter(ex, ey));
-        } else if (type === 'soldier') {
-            this.enemies.push(new Soldier(ex, ey));
-        } else if (type === 'zombie_female') {
-            this.enemies.push(new ZombieFemale(ex, ey));
-        } else if (type === 'zombie_brute') {
-            this.enemies.push(new ZombieBrute(ex, ey));
-        } else {
-            this.enemies.push(new Zombie(ex, ey));
+            const weaponConfigId = options.weaponConfigId || 'default_pistol';
+            if (enemy.setCombatWeapon) {
+                enemy.setCombatWeapon(weaponConfigId);
+            } else {
+                enemy.weaponConfigId = weaponConfigId;
+                enemy.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+                enemy.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
+            }
         }
+
+        if (type === 'soldier') {
+            const weaponConfigId = options.weaponConfigId || this._chooseSoldierWeaponConfigId();
+            if (enemy.setCombatWeapon) {
+                enemy.setCombatWeapon(weaponConfigId);
+            } else {
+                enemy.weaponConfigId = weaponConfigId;
+                enemy.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+                enemy.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
+            }
+        }
+    }
+
+    spawnEnemyWithIndoorPreference(type, indoorPool, indoorRatio = 0.7) {
+        const wantIndoor = Math.random() < indoorRatio;
+        if (wantIndoor && Array.isArray(indoorPool)) {
+            while (indoorPool.length > 0) {
+                const tile = indoorPool.pop();
+                const spawned = this.spawnEnemy(type, { tileX: tile.x, tileY: tile.y, strict: true });
+                if (spawned) {
+                    return spawned;
+                }
+            }
+        }
+
+        return this.spawnEnemy(type);
+    }
+
+    spawnEnemy(type = 'zombie', options = {}) {
+        const strict = !!options.strict;
+        const maxAttempts = strict ? 1 : 24;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            let spawnPos = null;
+            if (attempt === 0 && Number.isFinite(options.x) && Number.isFinite(options.y)) {
+                spawnPos = { x: options.x, y: options.y };
+            } else if (attempt === 0 && Number.isFinite(options.tileX) && Number.isFinite(options.tileY)) {
+                spawnPos = this._tileToWorldCenter(options.tileX, options.tileY);
+            } else {
+                spawnPos = this._pickRandomSpawnPoint();
+            }
+
+            const enemy = this._createEnemyByType(type, spawnPos.x, spawnPos.y);
+            this._setupEnemyLoadout(enemy, type, options);
+
+            if (this.isEntityBlockedAt(enemy, enemy.x, enemy.y)) {
+                continue;
+            }
+
+            this.enemies.push(enemy);
+            return enemy;
+        }
+
+        return null;
     }
 
     checkRectCollision(rect1, rect2) {
@@ -673,6 +894,7 @@ export class WorldSystem {
         
         for (const obj of this.breakableObjects) {
             if (obj.isBroken) continue;
+            if (this._isDoorObject(obj) && obj.isOpen) continue;
             const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
 
             for (const hitbox of hitboxes) {
@@ -879,6 +1101,26 @@ export class WorldSystem {
         }
     }
 
+    _dropEnemyWeapon(enemy) {
+        if (!enemy || !enemy.isNonZombieEnemy) return;
+
+        const dropChance = Number.isFinite(enemy.dropWeaponChance) ? enemy.dropWeaponChance : 0.3;
+        if (Math.random() > dropChance) return;
+
+        const weaponConfigId = enemy.weaponConfigId || 'default_pistol';
+        const weaponItemId = enemy.weaponItemId || weaponItemIdFromConfigId(weaponConfigId);
+        if (!weaponItemId) return;
+
+        let instanceData = cloneWeaponInstanceData(enemy.weaponInstanceData);
+        if (!instanceData) {
+            instanceData = createWeaponInstanceData({ weaponConfigId });
+        }
+
+        const dropX = enemy.x + (Math.random() - 0.5) * 20;
+        const dropY = enemy.y + (Math.random() - 0.5) * 20;
+        this.droppedItems.push(new DroppedItem(dropX, dropY, weaponItemId, 1, instanceData));
+    }
+
     _updateEnemyBreachBehavior(enemy) {
         if (!enemy || enemy.hp <= 0) return false;
 
@@ -909,8 +1151,14 @@ export class WorldSystem {
             enemy.state = 'attack';
 
             if (enemy._breachAttackCooldown <= 0) {
-                this._damageObstacleFromEnemy(enemy, target.object);
-                enemy._breachAttackCooldown = this._isDoorObject(target.object) ? 20 : 26;
+                const isDoor = this._isDoorObject(target.object);
+                if (isDoor && enemy.canOpenDoors && target.object.interact && !target.object.isOpen) {
+                    target.object.interact();
+                    enemy._breachAttackCooldown = 10;
+                } else {
+                    this._damageObstacleFromEnemy(enemy, target.object);
+                    enemy._breachAttackCooldown = isDoor ? 20 : 26;
+                }
             }
             return true;
         }
@@ -938,6 +1186,7 @@ export class WorldSystem {
         // Filter dead enemies and remove them from the array
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             if (this.enemies[i].hp <= 0) {
+                this._dropEnemyWeapon(this.enemies[i]);
                 this.enemies.splice(i, 1);
             }
         }

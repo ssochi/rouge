@@ -61,7 +61,15 @@ export class Game {
             facingRight: true,
             animationTimer: 0,
             knockbackX: 0,
-            knockbackY: 0
+            knockbackY: 0,
+            burnTimer: 0,
+            burnDamage: 0,
+            burnTickInterval: 20,
+            burnTickCounter: 0,
+            slowTimer: 0,
+            slowAmount: 0,
+            freezeStacks: 0,
+            frozenTimer: 0
         };
         
         this.player.takeDamage = (amount, knockback) => {
@@ -156,21 +164,6 @@ export class Game {
 
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
-        this.inventorySystem.add('weapon:rifle', 1);
-        this.inventorySystem.add('weapon:rocket_launcher', 1);
-        this.inventorySystem.add('weapon:smg', 1);
-        this.inventorySystem.add('weapon:shotgun', 1);
-        this.inventorySystem.add('weapon:sniper', 1);
-        this.inventorySystem.add('weapon:crossbow', 1);
-        this.inventorySystem.add('weapon:grenade_launcher', 1);
-        this.inventorySystem.add('weapon:laser_gun', 1);
-        this.inventorySystem.add('weapon:flamethrower', 1);
-        this.inventorySystem.add('weapon:black_hole_gun', 1);
-        this.inventorySystem.add('weapon:teleport_gun', 1);
-        this.inventorySystem.add('weapon:lightning_gun', 1);
-        this.inventorySystem.add('weapon:freeze_ray', 1);
-        this.inventorySystem.add('weapon:ricochet_gun', 1);
-        this.inventorySystem.add('weapon:boomerang', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -202,6 +195,7 @@ export class Game {
         this.bPressed = false;
 
         this.worldSystem.loadMap('hub'); // Start in Hub
+        this.playerSystem.updateEquippedItem();
         
         const cell = this.navGrid.getCell(this.player.x, this.player.y);
         this.flowPlayerCellX = cell.x;

@@ -85,11 +85,11 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
 
 export const DEFAULT_GENERATION_CONFIG = Object.freeze({
     generation: {
-        globalAttempts: 24
+        globalAttempts: 240
     },
     buildings: {
-        minCount: 2,
-        maxCount: 4,
+        minCount: 6,
+        maxCount: 12,
         minWidth: 10,
         maxWidth: 16,
         minHeight: 8,
@@ -114,6 +114,35 @@ export const DEFAULT_GENERATION_CONFIG = Object.freeze({
         roomPlacementAttempts: 8,
         doorClearanceDepth: 2,
         minWalkableRatio: 0.35
+    },
+    semantic: {
+        // Per-building semantic retries before the whole attempt is abandoned.
+        maxSemanticAttemptsPerBuilding: 8,
+        // Interior area thresholds (excluding outer walls) for tiering.
+        tierThresholds: {
+            smallMaxInteriorArea: 70,
+            mediumMaxInteriorArea: 115
+        },
+        // Required semantic roles by building tier.
+        tierRequiredRoles: {
+            small: ['living_room', 'bedroom'],
+            medium: ['living_room', 'bedroom'],
+            large: ['living_room', 'bedroom', 'study']
+        },
+        // Preferred roles are attempted but non-fatal for a single building.
+        tierPreferredRoles: {
+            small: ['study'],
+            medium: ['study'],
+            large: []
+        },
+        // Map-level semantic quality guarantees.
+        globalRoleQuota: {
+            living_room: { minCount: 2, minRatio: 0.95 },
+            bedroom: { minCount: 2, minRatio: 0.95 },
+            study: { minCount: 2, minRatio: 0.35 }
+        },
+        // Candidate semantics that can be promoted to satisfy global quota.
+        promotionSourceSemantics: ['storage', 'corridor', 'foyer']
     },
     outdoor: {
         treeChance: 0.06,

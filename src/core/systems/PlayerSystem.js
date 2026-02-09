@@ -13,6 +13,15 @@ export class PlayerSystem {
         this.inventorySystem = inventorySystem;
         this.buildSystem = buildSystem;
         this.mousePressed = false;
+
+        if (this.handSystem && this.handSystem.bindInstanceSync) {
+            this.handSystem.bindInstanceSync((payload) => this.syncEquippedWeaponInstance(payload));
+        }
+    }
+
+    syncEquippedWeaponInstance(payload) {
+        if (!this.inventorySystem || !payload) return;
+        this.inventorySystem.updateWeaponInstanceState(payload);
     }
 
     updateDroppedItems() {
@@ -237,6 +246,7 @@ export class PlayerSystem {
     updatePlayerMovement() {
         const keys = this.input.keys;
         const startState = this.player.state;
+        const effectiveSpeed = this.getEffectivePlayerSpeed();
 
         if (Math.abs(this.player.knockbackX) > 0.1 || Math.abs(this.player.knockbackY) > 0.1) {
             const nextX = this.player.x + this.player.knockbackX;
@@ -255,6 +265,13 @@ export class PlayerSystem {
         }
 
         if (this.player.state === 'roll') {
+            if (effectiveSpeed <= 0) {
+                this.player.state = 'idle';
+                this.player.rollDuration = 0;
+                this.player.rollCooldown = Math.max(this.player.rollCooldown || 0, 10);
+                return;
+            }
+
             this.player.rollDuration--;
             if (this.player.rollDuration <= 0) {
                 this.player.state = 'idle';
@@ -281,7 +298,7 @@ export class PlayerSystem {
 
         const isMoving = dx !== 0 || dy !== 0;
 
-        if (keys.space && this.player.rollCooldown <= 0 && isMoving) {
+        if (keys.space && this.player.rollCooldown <= 0 && isMoving && effectiveSpeed > 0) {
             this.player.state = 'roll';
             this.player.rollDuration = 15;
             this.player.angle = Math.atan2(dy, dx);
@@ -289,13 +306,13 @@ export class PlayerSystem {
             return;
         }
 
-        if (isMoving) {
+        if (isMoving && effectiveSpeed > 0) {
             this.player.state = 'run';
             const length = Math.sqrt(dx * dx + dy * dy);
             dx /= length;
             dy /= length;
-            const nextX = this.player.x + dx * this.player.speed;
-            const nextY = this.player.y + dy * this.player.speed;
+            const nextX = this.player.x + dx * effectiveSpeed;
+            const nextY = this.player.y + dy * effectiveSpeed;
             this.resolveMove(nextX, nextY);
         } else {
             this.player.state = 'idle';
@@ -306,6 +323,14 @@ export class PlayerSystem {
         } else {
             this.player.animationTimer++;
         }
+    }
+
+    getEffectivePlayerSpeed() {
+        if (this.player.frozenTimer > 0) return 0;
+        if (this.player.slowTimer > 0) {
+            return this.player.speed * Math.max(0, 1 - (this.player.slowAmount || 0));
+        }
+        return this.player.speed;
     }
     
     resolveMove(nextX, nextY) {
@@ -350,15 +375,17 @@ export class PlayerSystem {
 
     updateEquippedItem() {
         if (!this.inventorySystem) return;
+        const selectedIndex = this.inventorySystem.getSelectedSlotIndex();
         const item = this.inventorySystem.getSelectedItem();
         
         if (!item || !item.itemId) {
-            this.handSystem.setWeapon('default_pistol');
+            this.handSystem.setWeapon('hammer');
             return;
         }
         
         if (item.def.type === 'weapon') {
-            this.handSystem.setWeapon(item.def.data.weaponConfigId);
+            const instanceData = this.inventorySystem.ensureWeaponInstanceForSlot(selectedIndex);
+            this.handSystem.setWeapon(item.def.data.weaponConfigId, instanceData, item.itemId);
         } else if (item.def.type === 'placeable') {
             this.handSystem.setWeapon('hammer');
         }
@@ -398,6 +425,16 @@ export class PlayerSystem {
             this.handSystem.startReload();
         } else if (!keys.r) {
             this.player.rPressed = false;
+        }
+
+        // Spawn nearby vehicle (O)
+        if (keys.o && !this.player.oPressed) {
+            this.player.oPressed = true;
+            if (this.worldSystem && this.worldSystem.spawnVehicleNearPlayer) {
+                this.worldSystem.spawnVehicleNearPlayer();
+            }
+        } else if (!keys.o) {
+            this.player.oPressed = false;
         }
 
         if (mouse.down) {

@@ -2,6 +2,7 @@ import { ParticleSpawner } from './ParticleSpawner.js';
 import { StatusEffectSystem } from './StatusEffectSystem.js';
 import { BulletSystem } from './BulletSystem.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
+import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 
 export class CombatSystem {
     constructor(deps) {
@@ -21,6 +22,21 @@ export class CombatSystem {
         this.lastShotTime = 0;
     }
 
+    _isShootBlockerObject(obj) {
+        if (!obj || obj.isBroken) return false;
+
+        const type = obj.type;
+        const baseType = obj.baseType;
+        const isWall = type === 'wall' || type === 'wall_h' || type === 'wall_v';
+        const isDoor = type === 'door_h' || type === 'door_v' || baseType === 'door_h' || baseType === 'door_v';
+
+        if (isWall) return true;
+        if (isDoor) {
+            return !obj.isOpen;
+        }
+        return false;
+    }
+
     _isSegmentBlocked(start, end) {
         const walls = this.walls || [];
         const breakableObjects = this.breakableObjects || [];
@@ -32,7 +48,7 @@ export class CombatSystem {
         }
 
         for (const obj of breakableObjects) {
-            if (!obj || obj.isBroken) continue;
+            if (!this._isShootBlockerObject(obj)) continue;
             const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
             for (const hb of hitboxes) {
                 if (CollisionUtils.lineIntersectsRect(start, end, hb)) {
@@ -84,6 +100,137 @@ export class CombatSystem {
         }
 
         return true;
+    }
+
+    _pushWeaponProjectiles({ weapon, muzzle, source = 'player', owner = null, team = null, aimAngleOverride = null }) {
+        if (!weapon || !muzzle) return 0;
+
+        const pellets = weapon.pelletCount || 1;
+        const spreadRad = (weapon.spread || 0) * Math.PI / 180;
+        const isFlame = weapon.bulletType === 'flame';
+        const isIceShard = weapon.bulletType === 'ice_shard';
+        const baseAngle = Number.isFinite(aimAngleOverride) ? aimAngleOverride : muzzle.angle;
+        let created = 0;
+
+        for (let p = 0; p < pellets; p++) {
+            // Flame/Ice always applies spread even with pelletCount=1
+            const offsetAngle = (pellets > 1 || isFlame || isIceShard) ? (Math.random() - 0.5) * spreadRad : 0;
+            const finalAngle = baseAngle + offsetAngle;
+
+            const isShotgun = pellets > 1;
+            const speedMul = isShotgun ? 0.8 + Math.random() * 0.4 : ((isFlame || isIceShard) ? 0.7 + Math.random() * 0.6 : 1);
+            const posOffset = isShotgun ? (Math.random() - 0.5) * 4 : 0;
+            const lifeMul = isShotgun ? 0.8 + Math.random() * 0.4 : 1;
+            const sizeVar = (isShotgun || isFlame || isIceShard) ? Math.floor(Math.random() * 4) - 2 : 0;
+
+            const bullet = {
+                x: muzzle.x + Math.cos(finalAngle + Math.PI / 2) * posOffset,
+                y: muzzle.y + Math.sin(finalAngle + Math.PI / 2) * posOffset,
+                vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
+                vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
+                life: Math.round((weapon.bulletLife || 60) * lifeMul),
+                maxLife: weapon.bulletLife || 60,
+                damage: weapon.damage || 10,
+                color: weapon.bulletColor || '#f1c40f',
+                size: Math.max(1, (weapon.bulletSize || 5) + sizeVar),
+                type: weapon.bulletType || 'standard',
+                blastRadius: weapon.blastRadius || 0,
+                knockback: weapon.knockback || 0,
+                piercing: weapon.piercing || 0,
+                gravity: weapon.gravity || 0,
+                z: weapon.initialZ || 0,
+                vz: weapon.vzInitial || 0,
+                gravityZ: weapon.gravityZ || 0,
+                hitList: [],
+                source,
+                owner,
+                team
+            };
+
+            // Flame: carry burn params
+            if (isFlame) {
+                bullet.burnDamage = weapon.burnDamage || 2;
+                bullet.burnDuration = weapon.burnDuration || 180;
+                bullet.burnTickInterval = weapon.burnTickInterval || 20;
+            }
+
+            // Black hole projectile: carry black hole params
+            if (weapon.bulletType === 'black_hole_projectile') {
+                bullet.blackHoleDuration = weapon.blackHoleDuration || 180;
+                bullet.blackHoleRadius = weapon.blackHoleRadius || 100;
+                bullet.blackHoleDamageRadius = weapon.blackHoleDamageRadius || 40;
+                bullet.blackHoleDamage = weapon.blackHoleDamage || 5;
+                bullet.blackHoleTickInterval = weapon.blackHoleTickInterval || 15;
+                bullet.blackHolePullForce = weapon.blackHolePullForce || 2;
+            }
+
+            // Lightning: carry chain params
+            if (weapon.bulletType === 'lightning') {
+                bullet.chainCount = weapon.chainCount || 3;
+                bullet.chainRange = weapon.chainRange || 120;
+                bullet.chainDamageMultiplier = weapon.chainDamageMultiplier || 0.6;
+            }
+
+            // Ice shard: carry slow/freeze params
+            if (isIceShard) {
+                bullet.slowAmount = weapon.slowAmount || 0.5;
+                bullet.slowDuration = weapon.slowDuration || 90;
+                bullet.freezeThreshold = weapon.freezeThreshold || 5;
+                bullet.freezeDuration = weapon.freezeDuration || 120;
+                bullet.frozenDamageMultiplier = weapon.frozenDamageMultiplier || 1.5;
+            }
+
+            // Ricochet: carry bounce params
+            if (weapon.bulletType === 'ricochet') {
+                bullet.bounceCount = weapon.maxBounces || 3;
+                bullet.maxBounces = weapon.maxBounces || 3;
+            }
+
+            // Boomerang: carry return params
+            if (weapon.bulletType === 'boomerang') {
+                bullet.phase = 'outgoing';
+                bullet.distanceTraveled = 0;
+                bullet.startX = muzzle.x;
+                bullet.startY = muzzle.y;
+                bullet.maxDistance = weapon.maxDistance || 200;
+                bullet.returnAccel = weapon.returnAccel || 0.3;
+                bullet.catchRadius = weapon.catchRadius || 16;
+            }
+
+            this.bullets.push(bullet);
+            created++;
+        }
+
+        return created;
+    }
+
+    spawnEnemyWeaponShot({ shooter, weapon, muzzle, aimAngleOverride = null }) {
+        if (!shooter || !muzzle || !weapon) return false;
+
+        const resolvedWeapon = typeof weapon === 'string'
+            ? WEAPONS[weapon]
+            : weapon;
+        if (!resolvedWeapon) return false;
+
+        if (resolvedWeapon.bulletType === 'laser_beam') {
+            this.bulletSystem.fireLaserBeam(resolvedWeapon, muzzle, {
+                source: 'enemy',
+                shooter,
+                friendlyFire: true
+            });
+            return true;
+        }
+
+        const created = this._pushWeaponProjectiles({
+            weapon: resolvedWeapon,
+            muzzle,
+            source: 'enemy',
+            owner: shooter,
+            team: 'enemy',
+            aimAngleOverride
+        });
+
+        return created > 0;
     }
 
     tryShoot() {

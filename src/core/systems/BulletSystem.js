@@ -15,7 +15,92 @@ export class BulletSystem {
         this.statusEffects = statusEffects;
     }
 
-    fireLaserBeam(weapon, muzzle) {
+    _getPlayerHurtbox() {
+        return this.player.getBulletHurtbox
+            ? this.player.getBulletHurtbox()
+            : {
+                x: this.player.x - (this.player.width || 24) / 2,
+                y: this.player.y - (this.player.height || 24) / 2,
+                width: this.player.width || 24,
+                height: this.player.height || 24
+            };
+    }
+
+    _applyIceShardToPlayer(bullet) {
+        const p = this.player;
+        p.freezeStacks = (p.freezeStacks || 0) + 1;
+        const threshold = bullet.freezeThreshold || 5;
+        p.slowTimer = bullet.slowDuration || 90;
+        p.slowAmount = Math.min(1.0, p.freezeStacks / threshold);
+
+        if (p.freezeStacks >= threshold) {
+            p.frozenTimer = bullet.freezeDuration || 120;
+            p.freezeStacks = 0;
+            p.slowTimer = 0;
+            p.slowAmount = 0;
+            for (let k = 0; k < 8; k++) {
+                const a = Math.random() * Math.PI * 2;
+                this.particles.push({
+                    x: p.x + Math.cos(a) * 10,
+                    y: p.y + Math.sin(a) * 10,
+                    vx: Math.cos(a) * 2.5,
+                    vy: Math.sin(a) * 2.5,
+                    life: 25,
+                    color: '#dfe6e9',
+                    size: Math.random() * 4 + 2,
+                    friction: 0.88
+                });
+            }
+        }
+    }
+
+    _applyEnemyBulletStatusToPlayer(bullet) {
+        const p = this.player;
+        if (bullet.type === 'flame' && bullet.burnDamage) {
+            if (!p.burnTimer || p.burnTimer <= 0) {
+                p.burnTimer = bullet.burnDuration;
+                p.burnDamage = bullet.burnDamage;
+                p.burnTickInterval = bullet.burnTickInterval;
+                p.burnTickCounter = 0;
+            } else {
+                p.burnTimer = Math.max(p.burnTimer, bullet.burnDuration || 0);
+            }
+        }
+
+        if (bullet.type === 'ice_shard') {
+            this._applyIceShardToPlayer(bullet);
+        }
+
+        if (bullet.type === 'lightning' && bullet.chainCount > 0) {
+            this.statusEffects.chainLightning(this.player, bullet);
+        }
+    }
+
+    _handleEnemyBulletHitPlayer(bullet, angle) {
+        const p = this.player;
+        let damage = bullet.damage;
+        if (p.frozenTimer > 0 && bullet.type !== 'ice_shard') {
+            damage = Math.floor(damage * 1.5);
+        }
+
+        const force = 4;
+        if (p.takeDamage) {
+            p.takeDamage(damage, {
+                x: Math.cos(angle) * force,
+                y: Math.sin(angle) * force
+            });
+        } else {
+            p.hp -= damage;
+        }
+
+        this._applyEnemyBulletStatusToPlayer(bullet);
+        this.particleSpawner.spawnBloodSplatter(p.x, p.y, angle);
+    }
+
+    fireLaserBeam(weapon, muzzle, options = {}) {
+        const source = options.source || 'player';
+        const shooter = options.shooter || null;
+        const friendlyFire = options.friendlyFire === true;
         const dir = { x: Math.cos(muzzle.angle), y: Math.sin(muzzle.angle) };
         const maxRange = weapon.laserMaxRange || 600;
         let beamDist = maxRange;
@@ -57,27 +142,67 @@ export class BulletSystem {
             }
         }
 
-        // Damage all enemies along the beam
+        // Damage entities along the beam
         const beamEnd = { x: muzzle.x + dir.x * beamDist, y: muzzle.y + dir.y * beamDist };
         const beamP1 = { x: muzzle.x, y: muzzle.y };
-        for (const e of this.enemies) {
-            const eRect = e.getBulletHurtbox
-                ? e.getBulletHurtbox()
-                : { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
-            if (CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) {
-                const force = 2;
-                if (e.takeDamage) {
-                    e.takeDamage(weapon.damage, {
-                        x: Math.cos(muzzle.angle) * force,
-                        y: Math.sin(muzzle.angle) * force
-                    });
-                } else {
-                    e.hp -= weapon.damage;
+
+        if (source === 'player') {
+            for (const e of this.enemies) {
+                const eRect = e.getBulletHurtbox
+                    ? e.getBulletHurtbox()
+                    : { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                if (CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) {
+                    const force = 2;
+                    if (e.takeDamage) {
+                        e.takeDamage(weapon.damage, {
+                            x: Math.cos(muzzle.angle) * force,
+                            y: Math.sin(muzzle.angle) * force
+                        });
+                    } else {
+                        e.hp -= weapon.damage;
+                    }
+                    if (e.hp <= 0) {
+                        this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                    } else {
+                        this.particleSpawner.spawnBloodSplatter(e.x, e.y, muzzle.angle);
+                    }
                 }
-                if (e.hp <= 0) {
-                    this.particleSpawner.spawnBloodExplosion(e.x, e.y);
-                } else {
-                    this.particleSpawner.spawnBloodSplatter(e.x, e.y, muzzle.angle);
+            }
+        } else if (source === 'enemy') {
+            if (this.player && this.player.state !== 'driving') {
+                const pRect = this._getPlayerHurtbox();
+                if (CollisionUtils.lineIntersectsRect(beamP1, beamEnd, pRect)) {
+                    this._handleEnemyBulletHitPlayer({
+                        ...weapon,
+                        type: weapon.bulletType || 'standard',
+                        damage: weapon.damage || 10
+                    }, muzzle.angle);
+                }
+            }
+
+            if (friendlyFire) {
+                for (const e of this.enemies) {
+                    if (!e || e.hp <= 0 || e === shooter) continue;
+                    const eRect = e.getBulletHurtbox
+                        ? e.getBulletHurtbox()
+                        : { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                    if (!CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) continue;
+
+                    const force = 2;
+                    if (e.takeDamage) {
+                        e.takeDamage(weapon.damage || 10, {
+                            x: Math.cos(muzzle.angle) * force,
+                            y: Math.sin(muzzle.angle) * force
+                        });
+                    } else {
+                        e.hp -= weapon.damage || 10;
+                    }
+
+                    if (e.hp <= 0) {
+                        this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                    } else {
+                        this.particleSpawner.spawnBloodSplatter(e.x, e.y, muzzle.angle);
+                    }
                 }
             }
         }
@@ -228,8 +353,16 @@ export class BulletSystem {
                         b.hitList = []; // Reset to allow hitting on return
                     }
                 } else if (b.phase === 'returning') {
-                    const dx = this.player.x - b.x;
-                    const dy = this.player.y - b.y;
+                    const returnTarget = (b.source === 'enemy' && b.owner && b.owner.hp > 0)
+                        ? b.owner
+                        : this.player;
+                    if (!returnTarget) {
+                        b.life = 0;
+                        continue;
+                    }
+
+                    const dx = returnTarget.x - b.x;
+                    const dy = returnTarget.y - b.y;
                     const angle = Math.atan2(dy, dx);
                     b.vx += Math.cos(angle) * b.returnAccel;
                     b.vy += Math.sin(angle) * b.returnAccel;
@@ -240,7 +373,7 @@ export class BulletSystem {
                     }
                     // Check catch by player
                     const distToPlayer = Math.sqrt(
-                        (this.player.x - b.x) ** 2 + (this.player.y - b.y) ** 2
+                        (returnTarget.x - b.x) ** 2 + (returnTarget.y - b.y) ** 2
                     );
                     if (distToPlayer < (b.catchRadius || 16)) {
                         b.life = 0; // Will be removed as expired
@@ -577,36 +710,69 @@ export class BulletSystem {
                             height: p.height || 24
                         };
 
-                    if (CollisionUtils.lineIntersectsRect(p1, p2, pRect)) {
-
-                        hit = true;
+                    const alreadyHitPlayer = Array.isArray(b.hitList) && b.hitList.includes(p);
+                    if (!alreadyHitPlayer && CollisionUtils.lineIntersectsRect(p1, p2, pRect)) {
                         const angle = Math.atan2(b.vy, b.vx);
-                        const force = 4;
-                        if (p.takeDamage) {
-                            p.takeDamage(b.damage, {
-                                x: Math.cos(angle) * force,
-                                y: Math.sin(angle) * force
-                            });
+                        if (b.type !== 'rocket' && b.type !== 'grenade') {
+                            this._handleEnemyBulletHitPlayer(b, angle);
                         }
-                        this.particleSpawner.spawnBloodSplatter(p.x, p.y, angle);
+
+                        if (b.piercing > 0) {
+                            if (!Array.isArray(b.hitList)) b.hitList = [];
+                            b.hitList.push(p);
+                            b.piercing--;
+                            b.damage *= 0.6;
+                        } else if (b.type === 'boomerang') {
+                            if (!Array.isArray(b.hitList)) b.hitList = [];
+                            b.hitList.push(p);
+                        } else if (b.type === 'ricochet' && b.bounceCount > 0) {
+                            if (!Array.isArray(b.hitList)) b.hitList = [];
+                            b.hitList.push(p);
+                            const nx = b.x - p.x;
+                            const ny = b.y - p.y;
+                            const nd = Math.sqrt(nx * nx + ny * ny) || 1;
+                            const nnx = nx / nd;
+                            const nny = ny / nd;
+                            const dot = b.vx * nnx + b.vy * nny;
+                            b.vx = b.vx - 2 * dot * nnx;
+                            b.vy = b.vy - 2 * dot * nny;
+                            b.bounceCount--;
+                            for (let s = 0; s < 3; s++) {
+                                this.particles.push({
+                                    x: b.x, y: b.y,
+                                    vx: (Math.random() - 0.5) * 3,
+                                    vy: (Math.random() - 0.5) * 3,
+                                    life: 15,
+                                    color: '#e74c3c',
+                                    size: Math.random() * 3 + 2,
+                                    friction: 0.85
+                                });
+                            }
+                        } else {
+                            hit = true;
+                        }
                     }
                 }
             }
 
             }
             const expired = b.life <= 0;
-            if (hit || expired) {
-                if (hit && b.type === 'rocket') {
-                    this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
-                } else if (b.type === 'grenade') {
-                    this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
-                } else if (b.type === 'black_hole_projectile') {
-                    this.statusEffects.spawnBlackHole(b);
-                } else if (b.type === 'teleport' && b.source === 'player') {
-                    this.statusEffects.teleportPlayer(b);
+                if (hit || expired) {
+                    if (hit && b.type === 'rocket') {
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
+                    } else if (b.type === 'grenade') {
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
+                    } else if (b.type === 'black_hole_projectile') {
+                        this.statusEffects.spawnBlackHole(b);
+                    } else if (b.type === 'teleport') {
+                        if (b.source === 'player') {
+                            this.statusEffects.teleportPlayer(b);
+                        } else if (b.source === 'enemy' && b.owner && b.owner.hp > 0) {
+                            this.statusEffects.teleportEntity(b.owner, b);
+                        }
+                    }
+                    this.bullets.splice(i, 1);
                 }
-                this.bullets.splice(i, 1);
-            }
         }
     }
 }
