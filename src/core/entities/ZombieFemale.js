@@ -12,6 +12,24 @@ export class ZombieFemale extends Enemy {
         this.isAttacking = false;
         this.attackTimer = 0;
         this.attackDuration = 35; // Slightly faster attack than male
+
+        // Sprint ability (cooldown-based)
+        this.isSprinting = false;
+        this.sprintTimer = 0;
+        this.sprintDuration = 180; // 3 seconds at 60fps
+        this.sprintCooldown = 0;
+        this.sprintCooldownMax = 3600; // 1 minute at 60fps
+        this.sprintTriggerDistance = 200;
+
+        // Sprint VFX
+        this.afterimages = []; // [{x, y, facingRight, alpha, frameIndex}]
+        this.sprintParticles = []; // dust + speed lines
+    }
+
+    getEffectiveSpeed() {
+        const base = super.getEffectiveSpeed();
+        if (this.isSprinting) return base * 2;
+        return base;
     }
 
     update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
@@ -20,6 +38,19 @@ export class ZombieFemale extends Enemy {
         super.update(player, walls, wallQuery);
 
         if (this.frozenTimer > 0) return;
+
+        // Sprint ability update
+        if (this.sprintCooldown > 0) this.sprintCooldown--;
+        if (this.isSprinting) {
+            this.sprintTimer++;
+            if (this.sprintTimer >= this.sprintDuration) {
+                this.isSprinting = false;
+                this.sprintCooldown = this.sprintCooldownMax;
+            }
+        }
+
+        // Update VFX particles
+        this.updateSprintVFX();
 
         // Attack Logic
         if (this.isAttacking) {
@@ -45,6 +76,12 @@ export class ZombieFemale extends Enemy {
 
         if (dx > 0) this.facingRight = true;
         else this.facingRight = false;
+
+        // Trigger sprint when close enough (cooldown-based)
+        if (this.sprintCooldown <= 0 && !this.isSprinting && dist < this.sprintTriggerDistance && dist > this.attackRange) {
+            this.isSprinting = true;
+            this.sprintTimer = 0;
+        }
 
         if (dist < 600) {
             if (dist < this.attackRange && this.attackCooldown <= 0) {
@@ -144,8 +181,77 @@ export class ZombieFemale extends Enemy {
         }
     }
 
+    updateSprintVFX() {
+        // Update afterimages
+        for (let i = this.afterimages.length - 1; i >= 0; i--) {
+            this.afterimages[i].alpha -= 0.08;
+            if (this.afterimages[i].alpha <= 0) {
+                this.afterimages.splice(i, 1);
+            }
+        }
+
+        // Update particles
+        for (let i = this.sprintParticles.length - 1; i >= 0; i--) {
+            const p = this.sprintParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            if (p.life <= 0) {
+                this.sprintParticles.splice(i, 1);
+            }
+        }
+
+        // Spawn new VFX while sprinting
+        if (this.isSprinting && this.state === 'run') {
+            // Afterimage every 4 frames
+            if (this.sprintTimer % 4 === 0) {
+                const frames = Assets.zombieFemale.run;
+                const animSpeed = 3;
+                const frameIndex = Math.floor(this.animationTimer / animSpeed) % frames.length;
+                this.afterimages.push({
+                    x: this.x,
+                    y: this.y,
+                    facingRight: this.facingRight,
+                    alpha: 0.5,
+                    frameIndex
+                });
+            }
+
+            // Dust particles at feet every 3 frames
+            if (this.sprintTimer % 3 === 0) {
+                const dir = this.facingRight ? -1 : 1;
+                this.sprintParticles.push({
+                    x: this.x + dir * (3 + Math.random() * 4),
+                    y: this.y + 10 + Math.random() * 4,
+                    vx: dir * (0.3 + Math.random() * 0.5),
+                    vy: -(0.2 + Math.random() * 0.4),
+                    size: 1 + Math.random() * 2,
+                    life: 12 + Math.floor(Math.random() * 8),
+                    type: 'dust'
+                });
+            }
+
+            // Speed lines every 5 frames
+            if (this.sprintTimer % 5 === 0) {
+                const dir = this.facingRight ? -1 : 1;
+                this.sprintParticles.push({
+                    x: this.x + dir * (6 + Math.random() * 8),
+                    y: this.y - 6 + Math.random() * 16,
+                    vx: dir * (1.0 + Math.random() * 0.8),
+                    vy: 0,
+                    length: 4 + Math.random() * 6,
+                    life: 8 + Math.floor(Math.random() * 4),
+                    type: 'line'
+                });
+            }
+        }
+    }
+
     draw(ctx) {
         if (this.hp <= 0) return;
+
+        // Draw afterimages (behind the main sprite)
+        this.drawAfterimages(ctx);
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
@@ -171,13 +277,23 @@ export class ZombieFemale extends Enemy {
             );
         } else if (this.state === 'run') {
             frames = Assets.zombieFemale.run;
-            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
+            const animSpeed = this.isSprinting ? 3 : 5;
+            frameIndex = Math.floor(this.animationTimer / animSpeed) % frames.length;
         } else {
             frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
         }
 
         if (frames) {
             ctx.drawImage(frames[frameIndex], -16, -16);
+        }
+
+        // Sprint tint overlay
+        if (this.isSprinting && frames) {
+            ctx.save();
+            ctx.globalAlpha = 0.15 + Math.sin(this.sprintTimer * 0.3) * 0.1;
+            ctx.filter = 'brightness(150%) sepia(80%) saturate(300%) hue-rotate(-10deg)';
+            ctx.drawImage(frames[frameIndex], -16, -16);
+            ctx.restore();
         }
 
         if (this.hitFlashTimer > 0) {
@@ -191,7 +307,51 @@ export class ZombieFemale extends Enemy {
 
         ctx.restore();
 
+        // Draw particles (in front)
+        this.drawSprintParticles(ctx);
+
         this.drawHpBar(ctx);
+    }
+
+    drawAfterimages(ctx) {
+        const frames = Assets.zombieFemale.run;
+        if (!frames) return;
+
+        for (const img of this.afterimages) {
+            ctx.save();
+            ctx.translate(Math.floor(img.x), Math.floor(img.y));
+            if (img.facingRight) ctx.scale(-1, 1);
+            ctx.globalAlpha = img.alpha;
+            ctx.filter = 'brightness(60%) sepia(100%) saturate(500%) hue-rotate(-30deg)';
+            const fi = Math.min(img.frameIndex, frames.length - 1);
+            ctx.drawImage(frames[fi], -16, -16);
+            ctx.restore();
+        }
+    }
+
+    drawSprintParticles(ctx) {
+        for (const p of this.sprintParticles) {
+            const alpha = Math.min(1, p.life / 8);
+            if (p.type === 'dust') {
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.6;
+                ctx.fillStyle = '#b8a88a';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            } else if (p.type === 'line') {
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.5;
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(Math.floor(p.x), Math.floor(p.y));
+                ctx.lineTo(Math.floor(p.x - p.length * Math.sign(p.vx)), Math.floor(p.y));
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
     }
 
     drawHpBar(ctx) {
