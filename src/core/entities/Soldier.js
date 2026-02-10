@@ -3,6 +3,7 @@ import { Assets } from '../../graphics/Assets.js';
 import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
+import { EnemyWeaponController } from '../systems/EnemyWeaponController.js';
 
 export class Soldier extends Enemy {
     constructor(x, y) {
@@ -13,7 +14,6 @@ export class Soldier extends Enemy {
         // AI Config
         this.visionRange = 350;
         this.shootRange = 200;
-        this.minRange = 70;
 
         // Burst-fire system
         this.burstRemaining = 0;       // Shots left in current burst
@@ -38,6 +38,12 @@ export class Soldier extends Enemy {
         this.weaponConfigId = 'smg';
         this.weaponItemId = weaponItemIdFromConfigId(this.weaponConfigId);
         this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId: this.weaponConfigId });
+        this.weaponController = new EnemyWeaponController({
+            owner: this,
+            handSystem: this.handSystem,
+            weaponConfigId: this.weaponConfigId,
+            weaponInstanceData: this.weaponInstanceData
+        });
 
         this.setCombatWeapon(this.weaponConfigId);
 
@@ -53,6 +59,7 @@ export class Soldier extends Enemy {
         this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
         this.currentWeapon = weapon;
         this.handSystem.setWeapon(weaponConfigId);
+        this.weaponController.setWeapon(weaponConfigId, this.weaponInstanceData);
 
         this.damage = weapon.damage || 8;
         this.shotSpeed = weapon.bulletSpeed || 10;
@@ -61,8 +68,8 @@ export class Soldier extends Enemy {
 
         const fireRateMs = weapon.fireRate || 180;
         const fireRateFrames = Math.max(6, Math.round(fireRateMs / 16.67));
-        this.burstDelayMax = Math.max(3, Math.min(18, Math.round(fireRateFrames * 0.7)));
-        this.burstCooldownMax = Math.max(25, Math.min(220, Math.round(fireRateFrames * 1.8)));
+        this.burstDelayMax = Math.max(3, fireRateFrames);
+        this.burstCooldownMax = Math.max(25, Math.round(fireRateFrames * 1.8));
 
         const singleShotTypes = new Set(['rocket', 'grenade', 'black_hole_projectile', 'teleport', 'laser_beam', 'boomerang']);
         if (singleShotTypes.has(weapon.bulletType) || (weapon.pelletCount || 1) > 1) {
@@ -85,6 +92,10 @@ export class Soldier extends Enemy {
 
         super.update(player, walls, wallQuery);
 
+        if (this.weaponController) {
+            this.weaponController.update();
+        }
+
         if (this.frozenTimer > 0) return;
 
         // Update Aim
@@ -104,10 +115,14 @@ export class Soldier extends Enemy {
 
         // Continue burst (fire remaining shots)
         if (this.burstRemaining > 0 && this.burstDelay <= 0) {
-            const fired = this.fireOneBullet(combatSystem, player);
-            if (!fired) {
-                this.burstRemaining = 0;
-                this.burstCooldown = Math.max(this.burstCooldown, 30);
+            const shot = this.fireOneBullet(combatSystem, player);
+            if (!shot.fired) {
+                if (shot.reason === 'cooldown') {
+                    this.burstDelay = 1;
+                } else {
+                    this.burstRemaining = 0;
+                    this.burstCooldown = Math.max(this.burstCooldown, shot.reason === 'blocked' ? 10 : 30);
+                }
             } else {
                 this.burstRemaining--;
                 if (this.burstRemaining > 0) {
@@ -121,19 +136,26 @@ export class Soldier extends Enemy {
         // AI Logic
         if (dist < this.visionRange) {
             if (dist < this.shootRange) {
-                this.state = 'combat';
+                const muzzle = this.handSystem.getMuzzleWorldPosition();
+                const canShoot = !combatSystem || !combatSystem.canShootFrom
+                    ? true
+                    : combatSystem.canShootFrom(this, muzzle, player);
 
-                if (dist < this.minRange) {
-                    // Back off
-                    this.moveAwayFrom(player, walls, wallQuery, moveResolver);
+                if (!canShoot) {
+                    this.state = 'run';
+                    this.burstRemaining = 0;
+                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
                 } else {
-                    // Strafe while shooting
+                    this.state = 'combat';
                     this.strafeMove(player, walls, wallQuery, moveResolver);
-                }
 
-                // Start new burst
-                if (this.burstCooldown <= 0 && this.burstRemaining <= 0) {
-                    this.startBurst();
+                    // Start new burst only when shooter can actually engage.
+                    if (this.burstCooldown <= 0 &&
+                        this.burstRemaining <= 0 &&
+                        this.weaponController &&
+                        !this.weaponController.isReloading) {
+                        this.startBurst();
+                    }
                 }
             } else {
                 // Chase
@@ -151,25 +173,14 @@ export class Soldier extends Enemy {
     }
 
     fireOneBullet(combatSystem, target = null) {
-        if (!combatSystem) return false;
-
-        const preMuzzle = this.handSystem.getMuzzleWorldPosition();
-        if (combatSystem.canShootFrom && !combatSystem.canShootFrom(this, preMuzzle, target)) {
-            return false;
-        }
-
-        this.handSystem.triggerShoot();
-
-        const muzzle = this.handSystem.getMuzzleWorldPosition();
+        if (!this.weaponController) return { fired: false, reason: 'invalid' };
         const aimJitter = (Math.random() - 0.5) * this.spread * 0.5;
-        const weapon = this.currentWeapon || WEAPONS[this.weaponConfigId] || WEAPONS.smg;
-        const fired = combatSystem.spawnEnemyWeaponShot({
+        return this.weaponController.tryFire({
+            combatSystem,
             shooter: this,
-            weapon,
-            muzzle,
-            aimAngleOverride: muzzle.angle + aimJitter
+            target,
+            aimAngleOverride: this.handSystem.angle + aimJitter
         });
-        return !!fired;
     }
 
     moveTowards(target, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver) {
@@ -201,26 +212,6 @@ export class Soldier extends Enemy {
 
         const nextX = this.x + vx * this.getEffectiveSpeed();
         const nextY = this.y + vy * this.getEffectiveSpeed();
-        if (moveResolver) {
-            moveResolver(this, nextX, nextY, vx, vy);
-        } else {
-            this.resolveWallCollision(nextX, nextY, walls, wallQuery);
-        }
-    }
-
-    moveAwayFrom(target, walls, wallQuery, moveResolver) {
-        const dx = this.x - target.x;
-        const dy = this.y - target.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        let vx = 0, vy = 0;
-        if (dist > 0) {
-            vx = dx / dist;
-            vy = dy / dist;
-        }
-
-        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.7;
-        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.7;
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {
@@ -300,7 +291,46 @@ export class Soldier extends Enemy {
         // Draw Hand System (in World Space)
         this.handSystem.draw(ctx);
 
+        this.drawReloadBar(ctx);
         this.drawHpBar(ctx);
+    }
+
+    drawReloadBar(ctx) {
+        if (!this.weaponController || !this.weaponController.isReloading) return;
+
+        const progress = this.weaponController.getReloadProgress(Date.now());
+        const y = this.hpBarTimer > 0 ? this.y - 30 : this.y - 24;
+
+        ctx.save();
+        ctx.translate(this.x, y);
+
+        const scale = 0.55;
+        ctx.scale(scale, scale);
+
+        ctx.beginPath();
+        ctx.moveTo(-12, -4);
+        ctx.lineTo(6, -4);
+        ctx.quadraticCurveTo(12, 0, 6, 4);
+        ctx.lineTo(-12, 4);
+        ctx.lineTo(-12, -4);
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.clip();
+
+        const totalWidth = 24;
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(-12, -4, totalWidth * progress, 8);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(-12, -2, totalWidth, 2);
+
+        ctx.restore();
     }
 
     drawHpBar(ctx) {

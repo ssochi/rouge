@@ -29,6 +29,7 @@
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
       - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用）。
+      - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
       - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧）。
@@ -63,6 +64,9 @@
 - `CombatSystem.tryShoot()` 支持多弹丸散射（`pelletCount` + `spread`），散弹枪弹丸具有速度、位置、生命周期和大小的随机偏差。
 - `CombatSystem.canShootFrom()` 在开火前统一做线段阻挡校验：先校验“身体中心 -> 枪口”是否穿过墙体/门（仅墙与门参与该校验），避免手臂或枪口穿墙开火；敌人额外校验“枪口 -> 目标”是否被墙体/门阻挡，阻挡时不发射子弹。
 - 玩家武器弹药按**武器实例**存储（`instanceData.weaponInstanceId + ammo`），不再按武器类型共享；同型号两把枪的弹夹/备弹互不影响。
+- `Hunter` / `Soldier` 的实际开火由 `EnemyWeaponController` 驱动：严格使用武器 `fireRate/magazineSize/maxReserve/reloadTime`，并在敌人实例上回写弹药状态。
+- 远程敌人当 `canShootFrom()` 失败时会转入追击绕路，不再隔墙盲射；同时移除了“距离近时后退”行为。
+- 远程敌人换弹时会在头顶显示换弹进度条（与血条可双行叠加显示）。
 - `CombatSystem.tryShoot()` 支持：
   - **瞬间光束**（`laser_beam`）：激光枪使用 hitscan 射线检测，瞬间伤害射线上所有敌人，光束视觉效果通过粒子系统渲染。
   - **火焰弹**（`flame`）：喷火枪发射短程火焰粒子，命中后施加燃烧 DOT（`burnDamage` + `burnDuration`）。

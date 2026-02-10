@@ -37,7 +37,12 @@ export class Game {
         this.blackHoles = [];
         // Portals are managed by WorldSystem but need to be passed to Renderer via Game reference or directly
 
-        this.navGrid = new NavigationGrid(MAP_WIDTH, MAP_HEIGHT, TILE_SIZE);
+        const NAV_GRID_SIZE = 8;
+        this.navGrid = new NavigationGrid(
+            MAP_WIDTH * TILE_SIZE / NAV_GRID_SIZE,
+            MAP_HEIGHT * TILE_SIZE / NAV_GRID_SIZE,
+            NAV_GRID_SIZE
+        );
         this.flowPlayerCellX = -1;
         this.flowPlayerCellY = -1;
         this.frameCount = 0;

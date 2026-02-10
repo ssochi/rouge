@@ -408,10 +408,20 @@ export class PlayerSystem {
         const removed = this.inventorySystem.remove(slotIndex, 1);
         if (removed <= 0) return false;
 
-        const healAmount = Math.max(0, Number(item.def?.data?.healAmount) || 0);
-        const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
-        const currentHp = Number.isFinite(this.player.hp) ? this.player.hp : maxHp;
-        this.player.hp = Math.min(maxHp, currentHp + healAmount);
+        const data = item.def?.data || {};
+
+        // Max HP boost (e.g. recovery needle: +50% max HP then full heal)
+        if (data.maxHpBoostPercent) {
+            const boost = Math.max(0, Number(data.maxHpBoostPercent) || 0);
+            const oldMax = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
+            this.player.maxHp = Math.round(oldMax * (1 + boost / 100));
+            this.player.hp = this.player.maxHp;
+        } else {
+            const healAmount = Math.max(0, Number(data.healAmount) || 0);
+            const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
+            const currentHp = Number.isFinite(this.player.hp) ? this.player.hp : maxHp;
+            this.player.hp = Math.min(maxHp, currentHp + healAmount);
+        }
 
         this.updateEquippedItem();
         return true;

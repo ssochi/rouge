@@ -121,6 +121,36 @@ export const WEAPONS = {
         maxReserve: 0,
         isUtility: true
     },
+    medkit: {
+        name: "Medkit",
+        type: WeaponType.PISTOL,
+        sprite: "medkit",
+        drawOffset: { x: -5, y: -8 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 }
+        },
+        orbitRadius: 16,
+        fireRate: 0,
+        magazineSize: 0,
+        maxReserve: 0,
+        isUtility: true
+    },
+    hamburger: {
+        name: "Hamburger",
+        type: WeaponType.PISTOL,
+        sprite: "hamburger",
+        drawOffset: { x: -5, y: -8 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 }
+        },
+        orbitRadius: 16,
+        fireRate: 0,
+        magazineSize: 0,
+        maxReserve: 0,
+        isUtility: true
+    },
     shotgun: {
         name: "Shotgun",
         type: WeaponType.RIFLE,

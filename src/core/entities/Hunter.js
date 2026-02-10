@@ -3,22 +3,17 @@ import { Assets } from '../../graphics/Assets.js';
 import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
+import { EnemyWeaponController } from '../systems/EnemyWeaponController.js';
 
 export class Hunter extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 20, 40, 1.2); // Hitbox 20x20, HP 40, Speed 1.2 (Faster than zombie)
-        
+
         this.handSystem = new EnemyHandSystem(this, 'default_pistol');
-        
+
         // AI Config
         this.visionRange = 400;
         this.shootRange = 250;
-        this.minRange = 100; // Too close, back off
-        
-        this.attackCooldown = 0;
-        this.fireRate = 120; // 2 seconds
-        this.shotDamage = 10;
-        this.shotSpeed = 8;
         this.currentWeapon = WEAPONS.default_pistol;
 
         this.isNonZombieEnemy = true;
@@ -27,10 +22,17 @@ export class Hunter extends Enemy {
         this.weaponConfigId = 'default_pistol';
         this.weaponItemId = weaponItemIdFromConfigId(this.weaponConfigId);
         this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId: this.weaponConfigId });
+        this.weaponController = new EnemyWeaponController({
+            owner: this,
+            handSystem: this.handSystem,
+            weaponConfigId: this.weaponConfigId,
+            weaponInstanceData: this.weaponInstanceData
+        });
+        this.fireIntervalMultiplier = 2;
 
         this.setCombatWeapon(this.weaponConfigId);
-        
-        this.state = 'idle'; // idle, chase, combat, flee
+
+        this.state = 'idle'; // idle, run, combat
     }
 
     setCombatWeapon(weaponConfigId) {
@@ -42,10 +44,7 @@ export class Hunter extends Enemy {
         this.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
         this.currentWeapon = weapon;
         this.handSystem.setWeapon(weaponConfigId);
-
-        this.shotDamage = weapon.damage || 10;
-        this.shotSpeed = weapon.bulletSpeed || 10;
-        this.fireRate = Math.max(6, Math.round((weapon.fireRate || 300) / 16.67));
+        this.weaponController.setWeapon(weaponConfigId, this.weaponInstanceData);
 
         if (weapon.bulletType === 'laser_beam') {
             this.shootRange = weapon.laserMaxRange || 600;
@@ -54,18 +53,16 @@ export class Hunter extends Enemy {
             const bulletSpeed = weapon.bulletSpeed || 10;
             this.shootRange = Math.max(140, Math.min(700, bulletLife * bulletSpeed));
         }
-
-        if (weapon.bulletType === 'rocket' || weapon.bulletType === 'grenade') {
-            this.minRange = 140;
-        } else {
-            this.minRange = 100;
-        }
     }
 
     update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
         if (this.hp <= 0) return;
 
         super.update(player, walls, wallQuery);
+
+        if (this.weaponController) {
+            this.weaponController.update();
+        }
 
         if (this.frozenTimer > 0) return;
 
@@ -79,50 +76,28 @@ export class Hunter extends Enemy {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        // Cooldown
-        if (this.attackCooldown > 0) this.attackCooldown--;
 
         // AI Logic
         if (dist < this.visionRange) {
-            // Can see player
             if (dist < this.shootRange) {
-                // Combat State
                 this.state = 'combat';
                 const muzzle = this.handSystem.getMuzzleWorldPosition();
                 const canShoot = !combatSystem || !combatSystem.canShootFrom
                     ? true
                     : combatSystem.canShootFrom(this, muzzle, player);
-                
-                // Behavior: 
-                // 1. If too close, back off
-                // 2. If in range, stop and shoot
-                // 3. Strafe? (Advanced)
-                
-                if (dist < this.minRange) {
-                    // Back off
-                    this.moveAwayFrom(player, walls, wallQuery, getNavDirection, moveResolver);
-                } else if (!canShoot) {
-                    // Reposition when line of fire is blocked (e.g. muzzle clipping walls)
+
+                if (!canShoot) {
+                    // LOS blocked: chase/reposition and do not shoot.
+                    this.state = 'run';
                     this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
                 } else {
-                    // Stand ground and shoot
-                    // Maybe small random movement to not be a sitting duck
-                    // But for now, stop to shoot accuracy
-                }
-                
-                // Shoot Logic
-                if (this.attackCooldown <= 0 && canShoot) {
                     this.shoot(combatSystem, player);
                 }
-                
             } else {
-                // Chase State
                 this.state = 'run';
                 this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
             }
         } else {
-            // Idle State
             this.state = 'idle';
         }
     }
@@ -166,43 +141,13 @@ export class Hunter extends Enemy {
         }
     }
 
-    moveAwayFrom(target, walls, wallQuery, getNavDirection, moveResolver) {
-        const dx = this.x - target.x;
-        const dy = this.y - target.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        let vx = 0, vy = 0;
-        if (dist > 0) {
-            vx = (dx / dist);
-            vy = (dy / dist);
-        }
-        
-        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.8; // Back off slightly slower
-        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.8;
-        if (moveResolver) {
-            moveResolver(this, nextX, nextY, vx, vy);
-        } else {
-            this.resolveWallCollision(nextX, nextY, walls, wallQuery);
-        }
-    }
-
     shoot(combatSystem, target = null) {
-        if (!combatSystem) return;
-
-        const preMuzzle = this.handSystem.getMuzzleWorldPosition();
-        if (combatSystem.canShootFrom && !combatSystem.canShootFrom(this, preMuzzle, target)) {
-            return;
-        }
-
-        this.attackCooldown = this.fireRate;
-        this.handSystem.triggerShoot();
-
-        const muzzle = this.handSystem.getMuzzleWorldPosition();
-        const weapon = this.currentWeapon || WEAPONS[this.weaponConfigId] || WEAPONS.default_pistol;
-        combatSystem.spawnEnemyWeaponShot({
+        if (!this.weaponController) return { fired: false, reason: 'invalid' };
+        return this.weaponController.tryFire({
+            combatSystem,
             shooter: this,
-            weapon,
-            muzzle
+            target,
+            fireIntervalMultiplier: this.fireIntervalMultiplier
         });
     }
 
@@ -224,8 +169,7 @@ export class Hunter extends Enemy {
 
         // Sprite
         let frames = Assets.hunter.idle;
-        if (this.state === 'run' || (this.state === 'combat' && this.speed > 0.1)) { // Check actual movement?
-             // If backing off, run animation
+        if (this.state === 'run') {
              frames = Assets.hunter.run;
         }
         
@@ -251,8 +195,47 @@ export class Hunter extends Enemy {
         
         // Draw Hand System (in World Space)
         this.handSystem.draw(ctx);
-        
+
+        this.drawReloadBar(ctx);
         this.drawHpBar(ctx);
+    }
+
+    drawReloadBar(ctx) {
+        if (!this.weaponController || !this.weaponController.isReloading) return;
+
+        const progress = this.weaponController.getReloadProgress(Date.now());
+        const y = this.hpBarTimer > 0 ? this.y - 30 : this.y - 24;
+
+        ctx.save();
+        ctx.translate(this.x, y);
+
+        const scale = 0.55;
+        ctx.scale(scale, scale);
+
+        ctx.beginPath();
+        ctx.moveTo(-12, -4);
+        ctx.lineTo(6, -4);
+        ctx.quadraticCurveTo(12, 0, 6, 4);
+        ctx.lineTo(-12, 4);
+        ctx.lineTo(-12, -4);
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.clip();
+
+        const totalWidth = 24;
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(-12, -4, totalWidth * progress, 8);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(-12, -2, totalWidth, 2);
+
+        ctx.restore();
     }
 
     drawHpBar(ctx) {

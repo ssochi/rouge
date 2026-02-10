@@ -7,7 +7,7 @@ import {
     weaponConfigIdFromItemId
 } from './WeaponInstanceUtils.js';
 
-export const SLOT_COUNT = 63; // 9 Hotbar + 54 Backpack (6 rows)
+export const SLOT_COUNT = 117; // 9 Hotbar + 108 Backpack (12 rows)
 export const HOTBAR_SIZE = 9;
 
 export class InventorySystem {
@@ -174,12 +174,38 @@ export class InventorySystem {
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',
-            description: 'Left click to recover 35 HP.',
+            description: 'Left click to increase max HP by 50% and fully heal.',
             icon: 'recovery_needle',
             maxStack: 5,
             data: {
-                healAmount: 35,
+                maxHpBoostPercent: 50,
                 holdWeaponKey: 'recovery_needle'
+            }
+        });
+
+        this.registerItem({
+            id: 'consumable:medkit',
+            type: 'consumable',
+            name: 'Medkit',
+            description: 'Left click to recover 35 HP.',
+            icon: 'medkit',
+            maxStack: 5,
+            data: {
+                healAmount: 35,
+                holdWeaponKey: 'medkit'
+            }
+        });
+
+        this.registerItem({
+            id: 'consumable:hamburger',
+            type: 'consumable',
+            name: 'Hamburger',
+            description: 'Left click to recover 75 HP.',
+            icon: 'hamburger',
+            maxStack: 3,
+            data: {
+                healAmount: 75,
+                holdWeaponKey: 'hamburger'
             }
         });
 

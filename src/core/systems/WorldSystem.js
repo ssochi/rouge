@@ -22,8 +22,10 @@ import {
 } from './WeaponInstanceUtils.js';
 
 const ROOM_GUN_SPAWN_CHANCE = 0.05;
-const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.08;
-const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle']);
+const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
+const ENEMY_MEDKIT_DROP_CHANCE = 0.08;
+const ENEMY_HAMBURGER_DROP_CHANCE = 0.02;
+const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
@@ -824,6 +826,7 @@ export class WorldSystem {
         const r1h = rect1.height ?? rect1.h;
         const r2w = rect2.width ?? rect2.w;
         const r2h = rect2.height ?? rect2.h;
+        if (r1w <= 0 || r1h <= 0 || r2w <= 0 || r2h <= 0) return false;
         return (rect1.x < rect2.x + r2w &&
                 rect1.x + r1w > rect2.x &&
                 rect1.y < rect2.y + r2h &&
@@ -854,8 +857,10 @@ export class WorldSystem {
             }
         }
 
+        const skipOpenDoors = options.skipOpenDoors || false;
         for (const obj of this.breakableObjects) {
             if (obj.isBroken || obj === ignoreObject) continue;
+            if (skipOpenDoors && this._isDoorObject(obj) && obj.isOpen) continue;
             const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
             for (const hb of hitboxes) {
                 if (this.checkRectCollision(rect, hb)) {
@@ -982,6 +987,9 @@ export class WorldSystem {
     updateFlowField() {
         this.navGrid.buildWallGrid();
         
+        const gs = this.navGrid.gridSize;
+        const cols = this.navGrid.gridCols;
+
         for (const obj of this.breakableObjects) {
             if (obj.isBroken) continue;
             if (this._isDoorObject(obj) && obj.isOpen) continue;
@@ -990,18 +998,19 @@ export class WorldSystem {
             for (const hitbox of hitboxes) {
                 const hbWidth = hitbox.width ?? hitbox.w;
                 const hbHeight = hitbox.height ?? hitbox.h;
-                const startX = Math.floor(hitbox.x / TILE_SIZE);
-                const endX = Math.floor((hitbox.x + hbWidth - 1) / TILE_SIZE);
-                const startY = Math.floor(hitbox.y / TILE_SIZE);
-                const endY = Math.floor((hitbox.y + hbHeight - 1) / TILE_SIZE);
+                if (hbWidth <= 0 || hbHeight <= 0) continue;
+                const startX = Math.floor(hitbox.x / gs);
+                const endX = Math.floor((hitbox.x + hbWidth - 1) / gs);
+                const startY = Math.floor(hitbox.y / gs);
+                const endY = Math.floor((hitbox.y + hbHeight - 1) / gs);
 
                 for (let gx = startX; gx <= endX; gx++) {
                     for (let gy = startY; gy <= endY; gy++) {
-                        const cell = this.navGrid.getCell(gx * TILE_SIZE, gy * TILE_SIZE);
-                        const idx = cell.y * MAP_WIDTH + cell.x;
+                        const cell = this.navGrid.getCell(gx * gs, gy * gs);
+                        const idx = cell.y * cols + cell.x;
                         if (idx >= 0 && idx < this.navGrid.wallBlocked.length) {
                             this.navGrid.wallBlocked[idx] = 1;
-                            const key = cell.x + cell.y * MAP_WIDTH;
+                            const key = cell.x + cell.y * cols;
                             let list = this.navGrid.wallGrid.get(key);
                             if (!list) {
                                 list = [];
@@ -1211,16 +1220,34 @@ export class WorldSystem {
         this.droppedItems.push(new DroppedItem(dropX, dropY, weaponItemId, 1, instanceData));
     }
 
-    _dropEnemyRecoveryNeedle(enemy) {
-        if (!enemy) return;
-        if (Math.random() > ENEMY_RECOVERY_NEEDLE_DROP_CHANCE) return;
+    _getEnemyDropMultiplier(enemy) {
+        if (enemy instanceof ZombieBrute) return 2;
+        if (enemy instanceof Hunter) return 2;
+        if (enemy instanceof Soldier) return 3;
+        return 1;
+    }
 
-        const itemId = 'consumable:recovery_needle';
+    _dropEnemyConsumable(enemy, baseChance, itemId) {
+        if (!enemy) return;
+        const chance = Math.min(1, baseChance * this._getEnemyDropMultiplier(enemy));
+        if (Math.random() > chance) return;
         if (this.inventorySystem && !this.inventorySystem.getItemDef(itemId)) return;
 
         const dropX = enemy.x + (Math.random() - 0.5) * 18;
         const dropY = enemy.y + (Math.random() - 0.5) * 18;
         this.droppedItems.push(new DroppedItem(dropX, dropY, itemId, 1));
+    }
+
+    _dropEnemyRecoveryNeedle(enemy) {
+        this._dropEnemyConsumable(enemy, ENEMY_RECOVERY_NEEDLE_DROP_CHANCE, 'consumable:recovery_needle');
+    }
+
+    _dropEnemyMedkit(enemy) {
+        this._dropEnemyConsumable(enemy, ENEMY_MEDKIT_DROP_CHANCE, 'consumable:medkit');
+    }
+
+    _dropEnemyHamburger(enemy) {
+        this._dropEnemyConsumable(enemy, ENEMY_HAMBURGER_DROP_CHANCE, 'consumable:hamburger');
     }
 
     _updateEnemyBreachBehavior(enemy) {
@@ -1231,8 +1258,16 @@ export class WorldSystem {
 
         const flowDist = this.navGrid.getFlowDistance(enemy.x, enemy.y);
         const stuckFrames = enemy._movementState?.stuckFrames || 0;
-        if (flowDist >= 0 && stuckFrames < 10) {
+        const stuckThreshold = flowDist >= 0 ? 60 : 10;
+        if (flowDist >= 0 && stuckFrames < stuckThreshold) {
             return false;
+        }
+
+        // Don't breach if a reasonable flow path exists (detour < 4x direct distance)
+        if (flowDist >= 0) {
+            const directCells = Math.max(1, Math.floor(distToPlayer / this.navGrid.gridSize));
+            const ratio = flowDist / directCells;
+            if (ratio < 4) return false;
         }
 
         const target = this._pickEnemyBreachTarget(enemy);
@@ -1270,7 +1305,7 @@ export class WorldSystem {
         const speed = enemy.getEffectiveSpeed ? enemy.getEffectiveSpeed() : (enemy.speed || 1);
         const nextX = enemy.x + dirX * speed;
         const nextY = enemy.y + dirY * speed;
-        this.resolveEntityMovement(enemy, nextX, nextY, dirX, dirY);
+        this.resolveEntityMovement(enemy, nextX, nextY, dirX, dirY, { skipOpenDoors: true });
         enemy.state = 'run';
         return true;
     }
@@ -1290,6 +1325,8 @@ export class WorldSystem {
             if (this.enemies[i].hp <= 0) {
                 this._dropEnemyWeapon(this.enemies[i]);
                 this._dropEnemyRecoveryNeedle(this.enemies[i]);
+                this._dropEnemyMedkit(this.enemies[i]);
+                this._dropEnemyHamburger(this.enemies[i]);
                 this.enemies.splice(i, 1);
             }
         }
@@ -1312,7 +1349,7 @@ export class WorldSystem {
             );
         };
         const resolveEnemyMove = (enemy, nextX, nextY, intentX, intentY) => {
-            this.resolveEntityMovement(enemy, nextX, nextY, intentX, intentY);
+            this.resolveEntityMovement(enemy, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
         };
 
         // Simple Enemy-Enemy Collision Resolution (Separation)
@@ -1338,11 +1375,11 @@ export class WorldSystem {
                     const e2TargetX = e2.x - nx * push;
                     const e2TargetY = e2.y - ny * push;
 
-                    if (!this.isEntityBlockedAt(e1, e1TargetX, e1TargetY)) {
+                    if (!this.isEntityBlockedAt(e1, e1TargetX, e1TargetY, { skipOpenDoors: true })) {
                         e1.x = e1TargetX;
                         e1.y = e1TargetY;
                     }
-                    if (!this.isEntityBlockedAt(e2, e2TargetX, e2TargetY)) {
+                    if (!this.isEntityBlockedAt(e2, e2TargetX, e2TargetY, { skipOpenDoors: true })) {
                         e2.x = e2TargetX;
                         e2.y = e2TargetY;
                     }

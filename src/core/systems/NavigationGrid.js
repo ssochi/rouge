@@ -11,6 +11,9 @@ export class NavigationGrid {
         this.flowDirY = new Float32Array(this.gridCols * this.gridRows);
         this.flowPlayerCellX = -1;
         this.flowPlayerCellY = -1;
+        // Pre-allocate BFS queue to avoid per-frame allocation
+        this._queueX = new Int16Array(this.gridCols * this.gridRows);
+        this._queueY = new Int16Array(this.gridCols * this.gridRows);
     }
 
     getCell(x, y) {
@@ -87,8 +90,8 @@ export class NavigationGrid {
     updateFlowField(playerX, playerY) {
         const total = this.gridCols * this.gridRows;
         this.flowDist.fill(-1);
-        const queueX = new Int16Array(total);
-        const queueY = new Int16Array(total);
+        const queueX = this._queueX;
+        const queueY = this._queueY;
         let head = 0;
         let tail = 0;
 
@@ -96,12 +99,12 @@ export class NavigationGrid {
         this.flowPlayerCellX = cell.x;
         this.flowPlayerCellY = cell.y;
         const startIndex = cell.y * this.gridCols + cell.x;
-        if (this.wallBlocked[startIndex] === 0) {
-            this.flowDist[startIndex] = 0;
-            queueX[tail] = cell.x;
-            queueY[tail] = cell.y;
-            tail++;
-        }
+        // Always seed player cell — player is physically here even if
+        // a breakable object partially overlaps this cell
+        this.flowDist[startIndex] = 0;
+        queueX[tail] = cell.x;
+        queueY[tail] = cell.y;
+        tail++;
 
         const dirsX = [1, -1, 0, 0];
         const dirsY = [0, 0, 1, -1];
@@ -217,6 +220,9 @@ export class NavigationGrid {
         let bestDist = Number.POSITIVE_INFINITY;
         let bestDot = -Infinity;
         const lookahead = Math.max(10, Math.min(this.gridSize * 0.6, 16));
+        // Scale look-ahead and tolerance to maintain ~64px in world space
+        const flowLook = Math.max(24, this.gridSize);
+        const maxDetour = Math.max(2, Math.ceil(64 / this.gridSize));
 
         for (const cand of candidates) {
             if (!cand || (cand.x === 0 && cand.y === 0)) continue;
@@ -228,17 +234,57 @@ export class NavigationGrid {
             };
             if (this.isWallRectCollision(testRect)) continue;
 
-            const cell = this.getCell(x + cand.x * this.gridSize * 0.9, y + cand.y * this.gridSize * 0.9);
+            const cell = this.getCell(x + cand.x * flowLook, y + cand.y * flowLook);
             const idx = cell.y * this.gridCols + cell.x;
             const dist = this.flowDist[idx];
             if (dist < 0) continue;
-            if (currentDist >= 0 && dist > currentDist + 2) continue;
+            if (currentDist >= 0 && dist > currentDist + maxDetour) continue;
 
             const dot = cand.x * dx + cand.y * dy;
             if (dist < bestDist || (dist === bestDist && dot > bestDot)) {
                 bestDist = dist;
                 bestDot = dot;
                 best = cand;
+            }
+        }
+
+        // Fallback: all candidates blocked (e.g. stuck at door edge).
+        // Compute gradient from nearby flow field cells to steer toward
+        // the center of passable gaps. Use short lookahead for micro-adjustments.
+        if (best.x === 0 && best.y === 0 && currentDist >= 0) {
+            const cell = this.getCell(x, y);
+            const searchR = 3;
+            let gradX = 0, gradY = 0;
+            for (let ox = -searchR; ox <= searchR; ox++) {
+                const nx = cell.x + ox;
+                if (nx < 0 || nx >= this.gridCols) continue;
+                for (let oy = -searchR; oy <= searchR; oy++) {
+                    if (ox === 0 && oy === 0) continue;
+                    const ny = cell.y + oy;
+                    if (ny < 0 || ny >= this.gridRows) continue;
+                    const nIdx = ny * this.gridCols + nx;
+                    const nd = this.flowDist[nIdx];
+                    if (nd < 0 || nd >= currentDist) continue;
+                    const weight = currentDist - nd;
+                    const len = Math.sqrt(ox * ox + oy * oy);
+                    gradX += (ox / len) * weight;
+                    gradY += (oy / len) * weight;
+                }
+            }
+            const gradLen = Math.sqrt(gradX * gradX + gradY * gradY);
+            if (gradLen > 0) {
+                gradX /= gradLen;
+                gradY /= gradLen;
+                const shortLook = 3;
+                const testRect = {
+                    x: x + gradX * shortLook - width / 2,
+                    y: y + gradY * shortLook - height / 2,
+                    width,
+                    height
+                };
+                if (!this.isWallRectCollision(testRect)) {
+                    best = { x: gradX, y: gradY };
+                }
             }
         }
 
@@ -268,10 +314,12 @@ export class NavigationGrid {
     getNearbyEnemies(enemy) {
         const cell = this.getCell(enemy.x, enemy.y);
         const neighbors = [];
-        for (let ox = -1; ox <= 1; ox++) {
+        // Search radius in cells: cover at least 32px for separation checks
+        const range = Math.max(1, Math.ceil(32 / this.gridSize));
+        for (let ox = -range; ox <= range; ox++) {
             const nx = cell.x + ox;
             if (nx < 0 || nx >= this.gridCols) continue;
-            for (let oy = -1; oy <= 1; oy++) {
+            for (let oy = -range; oy <= range; oy++) {
                 const ny = cell.y + oy;
                 if (ny < 0 || ny >= this.gridRows) continue;
                 const key = nx + ny * this.gridCols;

@@ -22,7 +22,7 @@ export class Renderer {
         this.vehicles = vehicles || []; // Add vehicles
         this.buildSystem = buildSystem;
         this.blackHoles = blackHoles || [];
-        this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes
+        this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
 
@@ -77,7 +77,7 @@ export class Renderer {
     draw() {
         // Toggle Debug Mode
         if (this.input.keys.p && !this.pPressed) {
-            this.debugMode = (this.debugMode + 1) % 3;
+            this.debugMode = (this.debugMode + 1) % 4;
             this.pPressed = true;
         } else if (!this.input.keys.p) {
             this.pPressed = false;
@@ -777,6 +777,8 @@ export class Renderer {
             this.drawCollisionDebug(this.ctx);
         } else if (this.debugMode === 2) {
             this.drawHurtboxDebug(this.ctx);
+        } else if (this.debugMode === 3) {
+            this.drawFlowFieldDebug(this.ctx);
         }
 
         this.ctx.restore();
@@ -922,6 +924,95 @@ export class Renderer {
                 ctx.strokeRect(hb.x, hb.y, w, h);
             });
         });
+    }
+
+    drawFlowFieldDebug(ctx) {
+        const navGrid = this.worldSystem && this.worldSystem.navGrid;
+        if (!navGrid) return;
+
+        const gs = navGrid.gridSize;
+        const viewportW = this.canvas.width / this.scale;
+        const viewportH = this.canvas.height / this.scale;
+        const startCol = Math.max(0, Math.floor(this.camera.x / gs));
+        const endCol = Math.min(navGrid.gridCols - 1, Math.ceil((this.camera.x + viewportW) / gs));
+        const startRow = Math.max(0, Math.floor(this.camera.y / gs));
+        const endRow = Math.min(navGrid.gridRows - 1, Math.ceil((this.camera.y + viewportH) / gs));
+
+        // Find max reachable distance for color mapping
+        let maxDist = 1;
+        for (let gy = startRow; gy <= endRow; gy++) {
+            for (let gx = startCol; gx <= endCol; gx++) {
+                const d = navGrid.flowDist[gy * navGrid.gridCols + gx];
+                if (d > maxDist) maxDist = d;
+            }
+        }
+
+        for (let gy = startRow; gy <= endRow; gy++) {
+            for (let gx = startCol; gx <= endCol; gx++) {
+                const idx = gy * navGrid.gridCols + gx;
+                const dist = navGrid.flowDist[idx];
+                const px = gx * gs;
+                const py = gy * gs;
+
+                // Wall blocked cells
+                if (navGrid.wallBlocked[idx] === 1) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+                    ctx.fillRect(px, py, gs, gs);
+                    continue;
+                }
+
+                // Unreachable cells
+                if (dist < 0) {
+                    ctx.fillStyle = 'rgba(80, 80, 80, 0.3)';
+                    ctx.fillRect(px, py, gs, gs);
+                    continue;
+                }
+
+                // Distance heatmap: green (close) → yellow → red (far)
+                const t = Math.min(1, dist / maxDist);
+                const r = Math.floor(t < 0.5 ? t * 2 * 255 : 255);
+                const g = Math.floor(t < 0.5 ? 255 : (1 - (t - 0.5) * 2) * 255);
+                ctx.fillStyle = `rgba(${r}, ${g}, 0, 0.2)`;
+                ctx.fillRect(px, py, gs, gs);
+
+                // Draw flow direction arrow
+                const dirX = navGrid.flowDirX[idx];
+                const dirY = navGrid.flowDirY[idx];
+                if (dirX === 0 && dirY === 0) continue;
+
+                const cx = px + gs / 2;
+                const cy = py + gs / 2;
+                const arrowLen = gs * 0.35;
+                const tipX = cx + dirX * arrowLen;
+                const tipY = cy + dirY * arrowLen;
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx - dirX * arrowLen * 0.3, cy - dirY * arrowLen * 0.3);
+                ctx.lineTo(tipX, tipY);
+                ctx.stroke();
+
+                // Arrowhead
+                const headLen = 3;
+                const angle = Math.atan2(dirY, dirX);
+                ctx.beginPath();
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - Math.cos(angle - 0.5) * headLen, tipY - Math.sin(angle - 0.5) * headLen);
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - Math.cos(angle + 0.5) * headLen, tipY - Math.sin(angle + 0.5) * headLen);
+                ctx.stroke();
+            }
+        }
+
+        // Mark player cell
+        const pcx = navGrid.flowPlayerCellX;
+        const pcy = navGrid.flowPlayerCellY;
+        if (pcx >= 0 && pcy >= 0) {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pcx * gs + 1, pcy * gs + 1, gs - 2, gs - 2);
+        }
     }
 
     drawLaserSight(ctx) {

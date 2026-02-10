@@ -65,7 +65,7 @@ export class Zombie extends Enemy {
                         }
                     }
                     
-                    if (moveX === 0 && moveY === 0 && dist > 0) {
+                    if (moveX === 0 && moveY === 0 && dist > 0 && dist < this.attackRange * 1.5) {
                         moveX = dx / dist;
                         moveY = dy / dist;
                     }
