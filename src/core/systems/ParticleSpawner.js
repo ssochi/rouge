@@ -169,6 +169,10 @@ export class ParticleSpawner {
                         p.life = 0;
                     }
                 }
+            } else if (p.type === 'slash_trail') {
+                p.alpha -= p.fadeRate || 0.15;
+                p.width = (p.width || 3) * 0.9;
+                p.life--;
             } else if (p.type === 'laser_beam') {
                 p.life--;
             } else if (p.type === 'lightning_arc') {

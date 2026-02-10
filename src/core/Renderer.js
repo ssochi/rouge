@@ -480,6 +480,16 @@ export class Renderer {
                         this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                         this.ctx.fill();
                         this.ctx.restore();
+                    } else if (p.type === 'slash_trail') {
+                        this.ctx.save();
+                        this.ctx.globalAlpha = Math.max(0, p.alpha);
+                        this.ctx.strokeStyle = p.color;
+                        this.ctx.lineWidth = p.width || 3;
+                        this.ctx.lineCap = 'round';
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.originX, p.originY, p.radius, p.startAngle, p.endAngle, p.anticlockwise || false);
+                        this.ctx.stroke();
+                        this.ctx.restore();
                     } else if (p.type === 'shell' || p.type === 'debris') {
                         this.ctx.save();
                         if (p.z > 0) {

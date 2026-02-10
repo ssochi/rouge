@@ -171,6 +171,15 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:katana',
+            type: 'weapon',
+            name: 'Katana',
+            icon: 'katana',
+            maxStack: 1,
+            data: { weaponConfigId: 'katana' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',

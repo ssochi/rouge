@@ -2,7 +2,7 @@ import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 
 export class PlayerSystem {
-    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem }) {
+    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem }) {
         this.player = player;
         this.input = input;
         this.handSystem = handSystem;
@@ -12,6 +12,7 @@ export class PlayerSystem {
         this.vehicles = vehicles || [];
         this.inventorySystem = inventorySystem;
         this.buildSystem = buildSystem;
+        this.meleeSystem = meleeSystem;
         this.mousePressed = false;
 
         if (this.handSystem && this.handSystem.bindInstanceSync) {
@@ -455,10 +456,12 @@ export class PlayerSystem {
 
         this.player.angle = this.handSystem.angle;
 
-        // Reload (R)
+        // Reload (R) - not for melee weapons
         if (keys.r && !this.player.rPressed) {
             this.player.rPressed = true;
-            this.handSystem.startReload();
+            if (!(this.handSystem.currentWeapon && this.handSystem.currentWeapon.isMelee)) {
+                this.handSystem.startReload();
+            }
         } else if (!keys.r) {
             this.player.rPressed = false;
         }
@@ -488,6 +491,11 @@ export class PlayerSystem {
                 if (!this.mousePressed) {
                     this.mousePressed = true;
                     this.useSelectedConsumable(selectedItem);
+                }
+            } else if (this.handSystem.currentWeapon && this.handSystem.currentWeapon.isMelee) {
+                // Melee attack
+                if (this.meleeSystem && !this.meleeSystem.isAttacking) {
+                    this.meleeSystem.tryAttack();
                 }
             } else {
                 // Shoot Mode (Auto-fire supported by CombatSystem rate limiting)

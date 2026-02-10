@@ -36,6 +36,13 @@ export class HandSystem {
         this.isReloading = false;
         this.reloadTimer = 0;
         this.reloadDuration = 0;
+
+        // Melee system reference
+        this.meleeSystem = null;
+    }
+
+    setMeleeSystem(meleeSystem) {
+        this.meleeSystem = meleeSystem;
     }
 
     bindInstanceSync(syncFn) {
@@ -85,6 +92,7 @@ export class HandSystem {
     }
 
     canShoot() {
+        if (this.currentWeapon && this.currentWeapon.isMelee) return false;
         if (this.isReloading) return false;
         const state = this.getWeaponState();
         return state && state.currentAmmo > 0;
@@ -163,18 +171,22 @@ export class HandSystem {
 
     // Return true if hands should be drawn BEHIND player
     isBehind() {
-        // Up direction: -PI/2
-        // If angle is within roughly -PI/4 to -3PI/4, draw behind
-        // 45 deg to 135 deg (upwards)
         const PI = Math.PI;
-        // Normalize angle to -PI ... PI
-        // -PI/2 is Up.
-        return (this.angle > -PI * 0.8 && this.angle < -PI * 0.2);
+        let effectiveAngle = this.angle;
+        if (this.currentWeapon && this.currentWeapon.isMelee && this.meleeSystem && this.meleeSystem.isAttacking) {
+            effectiveAngle = this.meleeSystem.getSwingAngle();
+        }
+        return (effectiveAngle > -PI * 0.8 && effectiveAngle < -PI * 0.2);
     }
 
     // Switch weapon
     setWeapon(weaponKey, weaponInstanceData = null, itemId = null) {
         if (!WEAPONS[weaponKey]) return;
+
+        // Cancel melee attack on weapon switch
+        if (this.meleeSystem && this.meleeSystem.isAttacking) {
+            this.meleeSystem.cancelAttack();
+        }
 
         // Persist current equipped weapon ammo before switching away.
         this._commitCurrentWeaponState();
@@ -271,15 +283,22 @@ export class HandSystem {
         }
 
         // --- 2. Calculate Gun Position & Transform ---
-        const currentDist = this.orbitRadius - this.recoilOffset;
-        const gunX = Math.cos(this.angle) * currentDist;
-        const gunY = Math.sin(this.angle) * currentDist;
+        let effectiveAngle = this.angle;
+        let effectiveRadius = this.orbitRadius;
+        if (this.currentWeapon.isMelee && this.meleeSystem && this.meleeSystem.isAttacking) {
+            effectiveAngle = this.meleeSystem.getSwingAngle();
+            effectiveRadius = this.orbitRadius + 2;
+        }
+
+        const currentDist = effectiveRadius - this.recoilOffset;
+        const gunX = Math.cos(effectiveAngle) * currentDist;
+        const gunY = Math.sin(effectiveAngle) * currentDist;
 
         // Apply bobY to gun vertical position
         ctx.translate(gunX, gunY + bobY);
-        ctx.rotate(this.angle);
+        ctx.rotate(effectiveAngle);
 
-        const isFlipped = Math.abs(this.angle) > Math.PI / 2;
+        const isFlipped = Math.abs(effectiveAngle) > Math.PI / 2;
         if (isFlipped) {
             ctx.scale(1, -1);
         }
@@ -312,7 +331,7 @@ export class HandSystem {
              ctx.restore();
         }
 
-        if (this.currentWeapon.type === WeaponType.RIFLE && this.currentWeapon.hands.left && this.currentWeapon.hands.right) {
+        if ((this.currentWeapon.type === WeaponType.RIFLE || this.currentWeapon.type === WeaponType.MELEE) && this.currentWeapon.hands.left && this.currentWeapon.hands.right) {
             const left = this.currentWeapon.hands.left;
             const right = this.currentWeapon.hands.right;
             this.drawHand(ctx, right.x * gunScale, right.y * gunScale);

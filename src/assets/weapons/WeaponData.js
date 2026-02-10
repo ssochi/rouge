@@ -3,7 +3,8 @@
 
 export const WeaponType = {
     PISTOL: 'pistol', // One-handed
-    RIFLE: 'rifle'    // Two-handed
+    RIFLE: 'rifle',   // Two-handed
+    MELEE: 'melee'    // Melee weapon
 };
 
 export const WEAPONS = {
@@ -475,6 +476,33 @@ export const WEAPONS = {
         magazineSize: 8,
         maxReserve: 40,
         reloadTime: 1500
+    },
+    katana: {
+        name: "Katana",
+        type: WeaponType.MELEE,
+        sprite: "katana",
+        drawOffset: { x: -5, y: -5 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 },
+            left: { x: 3, y: 2 }
+        },
+        orbitRadius: 12,
+        isMelee: true,
+        // Melee stats
+        fireRate: 400,
+        damage: 35,
+        meleeRange: 52,
+        meleeArc: 120,
+        knockback: 6,
+        // Swing animation (frames at 60fps)
+        windupFrames: 4,
+        swingFrames: 8,
+        recoveryFrames: 6,
+        swingArcDegrees: 150,
+        // No ammo
+        magazineSize: 0,
+        maxReserve: 0
     },
     boomerang: {
         name: "Boomerang",

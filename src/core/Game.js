@@ -9,6 +9,7 @@ import { CombatSystem } from './systems/CombatSystem.js';
 import { PlayerSystem } from './systems/PlayerSystem.js';
 import { InventorySystem } from './systems/InventorySystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
+import { MeleeSystem } from './systems/MeleeSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
 
@@ -134,6 +135,17 @@ export class Game {
 
         this.buildSystem = new BuildSystem(this);
 
+        this.meleeSystem = new MeleeSystem({
+            player: this.player,
+            enemies: this.enemies,
+            breakableObjects: this.breakableObjects,
+            camera: this.camera,
+            particles: this.particles,
+            handSystem: this.handSystem,
+            particleSpawner: this.combatSystem.particleSpawner
+        });
+        this.handSystem.setMeleeSystem(this.meleeSystem);
+
         this.playerSystem = new PlayerSystem({
             player: this.player,
             input: this.input,
@@ -141,9 +153,10 @@ export class Game {
             combatSystem: this.combatSystem,
             worldSystem: this.worldSystem,
             droppedItems: this.droppedItems,
-            vehicles: this.vehicles, // Pass vehicles
+            vehicles: this.vehicles,
             inventorySystem: this.inventorySystem,
-            buildSystem: this.buildSystem
+            buildSystem: this.buildSystem,
+            meleeSystem: this.meleeSystem
         });
 
         this.renderer = new Renderer({
@@ -169,6 +182,7 @@ export class Game {
 
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
+        this.inventorySystem.add('weapon:katana', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -300,6 +314,7 @@ export class Game {
         this.input.mouse.worldY = scaledMouseY + this.camera.y;
 
         this.handSystem.update(this.input.mouse.worldX, this.input.mouse.worldY);
+        this.meleeSystem.update();
 
         this.playerSystem.updatePlayerAimAndAction();
 

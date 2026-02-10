@@ -550,8 +550,10 @@ export class UIManager {
         if (!weapon) return;
         
         this.weaponName.innerText = weapon.name;
-        
-        if (weaponState) {
+
+        if (weapon.isMelee) {
+            this.ammoText.innerText = "MELEE";
+        } else if (weaponState) {
             this.ammoText.innerText = `${weaponState.currentAmmo} / ${weaponState.reserveAmmo}`;
         } else {
             this.ammoText.innerText = "- / -";

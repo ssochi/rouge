@@ -334,7 +334,67 @@ this.ctx.restore();
 
 ---
 
-## 7. 总结流程
+## 7. 近战武器制作规范
+
+近战武器使用 `WeaponType.MELEE` 类型，由 `MeleeSystem` 管理攻击逻辑，不产生子弹。
+
+### 7.1 WeaponData 配置
+
+```javascript
+katana: {
+    name: "Katana",
+    type: WeaponType.MELEE,
+    sprite: "katana",
+    drawOffset: { x: -5, y: -5 },
+    scale: 1.5,
+    hands: { right: { x: 0, y: 2 }, left: { x: 3, y: 2 } },
+    orbitRadius: 12,
+    isMelee: true,           // 必须设为 true
+    fireRate: 400,            // 攻击冷却(ms)
+    damage: 35,
+    meleeRange: 52,           // 命中检测半径(px)
+    meleeArc: 120,            // 命中扇形角度(度)
+    knockback: 6,
+    windupFrames: 4,          // 蓄力帧数
+    swingFrames: 8,           // 挥砍帧数
+    recoveryFrames: 6,        // 收招帧数
+    swingArcDegrees: 150,     // 视觉挥砍弧度
+    magazineSize: 0,
+    maxReserve: 0
+}
+```
+
+### 7.2 近战特有属性说明
+
+| 属性 | 说明 | 参考值 |
+|------|------|--------|
+| `isMelee` | 近战标志，阻止远程射击流程 | `true` |
+| `meleeRange` | 命中检测半径（像素） | 匕首30, 长刀52, 大剑70 |
+| `meleeArc` | 命中扇形角度（度） | 匕首90, 长刀120, 大剑150 |
+| `windupFrames` | 蓄力帧数（越少越快） | 2-6 |
+| `swingFrames` | 挥砍帧数 | 6-12 |
+| `recoveryFrames` | 收招帧数 | 4-8 |
+| `swingArcDegrees` | 武器视觉扫过的弧度 | 120-180 |
+
+### 7.3 添加新近战武器流程
+
+1. 创建 `src/assets/weapons/MyMeleeGenerator.js`（PixelDraw 绘制）
+2. 在 `Assets.js` 导入并注册 sprite
+3. 在 `WeaponData.js` 添加配置，必须包含 `isMelee: true`
+4. 在 `InventorySystem.js` 注册 `weapon:my_melee`
+5. 无需修改 MeleeSystem / HandSystem / PlayerSystem
+
+### 7.4 攻击状态机
+
+```
+IDLE → (点击) → WINDUP(蓄力) → SWING(挥砍+命中检测) → RECOVERY(收招) → IDLE
+```
+
+- **WINDUP**: 武器反向拉回约30°，产生蓄力感
+- **SWING**: 武器扫过 `swingArcDegrees` 弧度，每帧检测扇形区域内敌人
+- **RECOVERY**: 武器平滑回归鼠标方向，不可打断
+
+## 8. 总结流程
 1. **画**: 用字符画出枪，注意阴影和非矩形轮廓。
 2. **测**: 找到后握把坐标 (Pivot)，测算前握把距离。
 3. **配**: 填写 `drawOffset` (负的Pivot坐标) 和 `hands` (相对Pivot坐标 + Y轴下沉)。
