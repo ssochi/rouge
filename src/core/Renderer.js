@@ -315,20 +315,27 @@ export class Renderer {
                     if (this.player.state === 'roll') {
                         const maxDuration = 15;
                         const progress = (maxDuration - this.player.rollDuration) / maxDuration;
-                        
                         const moveX = Math.cos(this.player.angle);
-                        const rotation = (moveX >= 0 ? 1 : -1) * progress * Math.PI * 2;
+                        const direction = moveX >= 0 ? 1 : -1;
+                        const rotation = direction * progress * Math.PI * 2;
+                        const sprite = Assets.player.run[0];
 
-                        this.ctx.rotate(rotation);
-
-                        if (this.player.rollDuration % 2 === 0) {
-                            this.ctx.globalAlpha = 0.3;
+                        // --- Squash & Stretch ---
+                        let scaleX = 1, scaleY = 1;
+                        if (progress < 0.15) {
+                            const t = progress / 0.15;
+                            scaleX = 1 - 0.3 * t;
+                            scaleY = 1 + 0.3 * t;
+                        } else if (progress > 0.85) {
+                            const t = (progress - 0.85) / 0.15;
+                            scaleX = 1 + 0.3 * t;
+                            scaleY = 1 - 0.3 * t;
                         }
-                        
-                        const sprite = Assets.player.run[0]; 
+
+                        // --- Main body with rotation + scale ---
+                        this.ctx.rotate(rotation);
+                        this.ctx.scale(scaleX, scaleY);
                         this.ctx.drawImage(sprite, -16, -16);
-                        
-                        this.ctx.globalAlpha = 1.0;
 
                     } else {
                         if (this.player.facingRight) this.ctx.scale(-1, 1);

@@ -159,7 +159,8 @@ export class Game {
             vehicles: this.vehicles,
             inventorySystem: this.inventorySystem,
             buildSystem: this.buildSystem,
-            meleeSystem: this.meleeSystem
+            meleeSystem: this.meleeSystem,
+            particles: this.particles
         });
 
         this.profiler = new ProfilerSystem();
