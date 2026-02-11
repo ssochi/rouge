@@ -43,6 +43,18 @@ export const FURNITURE_CATALOG = Object.freeze({
     },
     cabinet: {
         variants: [{ type: 'cabinet', w: 2, h: 1 }]
+    },
+    fridge: {
+        variants: [{ type: 'fridge', w: 1, h: 1 }]
+    },
+    stove: {
+        variants: [{ type: 'stove', w: 1, h: 1 }]
+    },
+    kitchen_counter: {
+        variants: [{ type: 'kitchen_counter', w: 2, h: 1 }]
+    },
+    kitchen_sink: {
+        variants: [{ type: 'kitchen_sink', w: 1, h: 1 }]
     }
 });
 
@@ -51,6 +63,7 @@ export const ROOM_TEMPLATE_REQUIREMENTS = Object.freeze({
     bedroom: { minW: 4, minH: 4 },
     study: { minW: 3, minH: 3 },
     bathroom: { minW: 3, minH: 3 },
+    kitchen: { minW: 3, minH: 3 },
     storage: { minW: 3, minH: 3 },
     corridor: { minW: 2, minH: 3 },
     foyer: { minW: 3, minH: 3 }
@@ -121,6 +134,16 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
             { item: 'bathtub', chance: 0.5, requireWall: true, preferFarFromTag: 'toilet' },
             { item: 'sink', chance: 0.6, requireWall: true, nearTag: 'toilet' }
         ]
+    },
+    kitchen: {
+        required: [
+            { item: 'fridge', requireWall: true, tag: 'fridge' },
+            { item: 'stove', requireWall: true, preferFarFromTag: 'fridge', tag: 'stove' }
+        ],
+        optional: [
+            { item: 'kitchen_counter', chance: 0.5, requireWall: true },
+            { item: 'kitchen_sink', chance: 0.55, requireWall: true, nearTag: 'stove' }
+        ]
     }
 });
 
@@ -173,8 +196,8 @@ export const DEFAULT_GENERATION_CONFIG = Object.freeze({
         // Preferred roles are attempted but non-fatal for a single building.
         tierPreferredRoles: {
             small: ['study'],
-            medium: ['study', 'bathroom'],
-            large: ['bathroom']
+            medium: ['study', 'bathroom', 'kitchen'],
+            large: ['bathroom', 'kitchen']
         },
         // Map-level semantic quality guarantees.
         globalRoleQuota: {

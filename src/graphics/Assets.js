@@ -33,6 +33,10 @@ import { createArmchairSprite } from '../assets/objects/furniture/ArmchairSprite
 import { createFloorLampSprite } from '../assets/objects/furniture/FloorLampSprite.js';
 import { createPottedPlantSprite } from '../assets/objects/furniture/PottedPlantSprite.js';
 import { createCabinetSprite } from '../assets/objects/furniture/CabinetSprite.js';
+import { createFridgeSprite } from '../assets/objects/furniture/FridgeSprite.js';
+import { createStoveSprite } from '../assets/objects/furniture/StoveSprite.js';
+import { createKitchenCounterSprite } from '../assets/objects/furniture/KitchenCounterSprite.js';
+import { createKitchenSinkSprite } from '../assets/objects/furniture/KitchenSinkSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -106,6 +110,10 @@ const armchairSprite = createArmchairSprite();
 const floorLampSprite = createFloorLampSprite();
 const pottedPlantSprite = createPottedPlantSprite();
 const cabinetSprite = createCabinetSprite();
+const fridgeSprite = createFridgeSprite();
+const stoveSprite = createStoveSprite();
+const kitchenCounterSprite = createKitchenCounterSprite();
+const kitchenSinkSprite = createKitchenSinkSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -227,6 +235,15 @@ export const Assets = {
         potted_plant_flash: PixelDraw.createSilhouette(pottedPlantSprite),
         cabinet: cabinetSprite,
         cabinet_flash: PixelDraw.createSilhouette(cabinetSprite),
+        // Kitchen furniture
+        fridge: fridgeSprite,
+        fridge_flash: PixelDraw.createSilhouette(fridgeSprite),
+        stove: stoveSprite,
+        stove_flash: PixelDraw.createSilhouette(stoveSprite),
+        kitchen_counter: kitchenCounterSprite,
+        kitchen_counter_flash: PixelDraw.createSilhouette(kitchenCounterSprite),
+        kitchen_sink: kitchenSinkSprite,
+        kitchen_sink_flash: PixelDraw.createSilhouette(kitchenSinkSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

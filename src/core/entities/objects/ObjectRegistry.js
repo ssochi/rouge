@@ -22,6 +22,10 @@ import { ArmchairObject } from './ArmchairObject.js';
 import { FloorLampObject } from './FloorLampObject.js';
 import { PottedPlantObject } from './PottedPlantObject.js';
 import { CabinetObject } from './CabinetObject.js';
+import { FridgeObject } from './FridgeObject.js';
+import { StoveObject } from './StoveObject.js';
+import { KitchenCounterObject } from './KitchenCounterObject.js';
+import { KitchenSinkObject } from './KitchenSinkObject.js';
 import { TreeObject } from './TreeObject.js';
 import { TreeSmallObject } from './TreeSmallObject.js';
 import { BushObject } from './BushObject.js';
@@ -52,6 +56,10 @@ const OBJECT_DEFS = new Map([
     ['floor_lamp', FloorLampObject],
     ['potted_plant', PottedPlantObject],
     ['cabinet', CabinetObject],
+    ['fridge', FridgeObject],
+    ['stove', StoveObject],
+    ['kitchen_counter', KitchenCounterObject],
+    ['kitchen_sink', KitchenSinkObject],
     ['tree', TreeObject],
     ['tree_small', TreeSmallObject],
     ['bush', BushObject],
