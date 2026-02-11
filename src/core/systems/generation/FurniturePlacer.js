@@ -331,6 +331,7 @@ function roomSortWeight(room) {
         living_room: 4,
         bedroom: 3,
         study: 2,
+        bathroom: 1,
         foyer: 1,
         storage: 0,
         corridor: -1

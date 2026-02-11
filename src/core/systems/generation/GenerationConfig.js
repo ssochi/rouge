@@ -22,6 +22,27 @@ export const FURNITURE_CATALOG = Object.freeze({
     },
     wardrobe: {
         variants: [{ type: 'wardrobe', w: 1, h: 1 }]
+    },
+    toilet: {
+        variants: [{ type: 'toilet', w: 1, h: 1 }]
+    },
+    bathtub: {
+        variants: [{ type: 'bathtub', w: 2, h: 1 }]
+    },
+    sink: {
+        variants: [{ type: 'sink', w: 1, h: 1 }]
+    },
+    armchair: {
+        variants: [{ type: 'armchair', w: 1, h: 1 }]
+    },
+    floor_lamp: {
+        variants: [{ type: 'floor_lamp', w: 1, h: 1 }]
+    },
+    potted_plant: {
+        variants: [{ type: 'potted_plant', w: 1, h: 1 }]
+    },
+    cabinet: {
+        variants: [{ type: 'cabinet', w: 2, h: 1 }]
     }
 });
 
@@ -29,6 +50,7 @@ export const ROOM_TEMPLATE_REQUIREMENTS = Object.freeze({
     living_room: { minW: 5, minH: 4 },
     bedroom: { minW: 4, minH: 4 },
     study: { minW: 3, minH: 3 },
+    bathroom: { minW: 3, minH: 3 },
     storage: { minW: 3, minH: 3 },
     corridor: { minW: 2, minH: 3 },
     foyer: { minW: 3, minH: 3 }
@@ -42,7 +64,11 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         ],
         optional: [
             { item: 'table', chance: 0.6, preferCenter: true },
-            { item: 'bookshelf', chance: 0.5, requireWall: true }
+            { item: 'bookshelf', chance: 0.5, requireWall: true },
+            { item: 'armchair', chance: 0.4 },
+            { item: 'floor_lamp', chance: 0.35, nearTag: 'sofa' },
+            { item: 'potted_plant', chance: 0.3, nearTag: 'sofa' },
+            { item: 'cabinet', chance: 0.3, requireWall: true }
         ]
     },
     bedroom: {
@@ -52,7 +78,8 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         ],
         optional: [
             { item: 'wardrobe', chance: 0.7, requireWall: true },
-            { item: 'table', chance: 0.35 }
+            { item: 'table', chance: 0.35 },
+            { item: 'floor_lamp', chance: 0.25, nearTag: 'nightstand' }
         ]
     },
     study: {
@@ -61,7 +88,9 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
             { item: 'bookshelf', requireWall: true, preferFarFromTag: 'desk' }
         ],
         optional: [
-            { item: 'nightstand', chance: 0.25, requireWall: true }
+            { item: 'nightstand', chance: 0.25, requireWall: true },
+            { item: 'armchair', chance: 0.3 },
+            { item: 'potted_plant', chance: 0.25, nearTag: 'desk' }
         ]
     },
     storage: {
@@ -73,12 +102,24 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
     },
     corridor: {
         required: [],
-        optional: []
+        optional: [
+            { item: 'cabinet', chance: 0.2, requireWall: true }
+        ]
     },
     foyer: {
         required: [],
         optional: [
-            { item: 'table', chance: 0.25 }
+            { item: 'table', chance: 0.25, tag: 'foyer_table' },
+            { item: 'potted_plant', chance: 0.35, nearTag: 'foyer_table' }
+        ]
+    },
+    bathroom: {
+        required: [
+            { item: 'toilet', requireWall: true, tag: 'toilet' }
+        ],
+        optional: [
+            { item: 'bathtub', chance: 0.5, requireWall: true, preferFarFromTag: 'toilet' },
+            { item: 'sink', chance: 0.6, requireWall: true, nearTag: 'toilet' }
         ]
     }
 });
@@ -132,8 +173,8 @@ export const DEFAULT_GENERATION_CONFIG = Object.freeze({
         // Preferred roles are attempted but non-fatal for a single building.
         tierPreferredRoles: {
             small: ['study'],
-            medium: ['study'],
-            large: []
+            medium: ['study', 'bathroom'],
+            large: ['bathroom']
         },
         // Map-level semantic quality guarantees.
         globalRoleQuota: {

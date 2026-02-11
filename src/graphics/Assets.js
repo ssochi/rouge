@@ -26,6 +26,13 @@ import { createTableSprite } from '../assets/objects/furniture/TableSprite.js';
 import { createSofaSprite } from '../assets/objects/furniture/SofaSprite.js';
 import { createBookshelfSprite } from '../assets/objects/furniture/BookshelfSprite.js';
 import { createTVStandAnimatedSprite } from '../assets/objects/furniture/TVStandSprite.js';
+import { createToiletSprite } from '../assets/objects/furniture/ToiletSprite.js';
+import { createBathtubSprite } from '../assets/objects/furniture/BathtubSprite.js';
+import { createSinkSprite } from '../assets/objects/furniture/SinkSprite.js';
+import { createArmchairSprite } from '../assets/objects/furniture/ArmchairSprite.js';
+import { createFloorLampSprite } from '../assets/objects/furniture/FloorLampSprite.js';
+import { createPottedPlantSprite } from '../assets/objects/furniture/PottedPlantSprite.js';
+import { createCabinetSprite } from '../assets/objects/furniture/CabinetSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -92,6 +99,13 @@ const tableSprite = createTableSprite();
 const sofaSprite = createSofaSprite();
 const bookshelfSprite = createBookshelfSprite();
 const tvStandSprite = createTVStandAnimatedSprite();
+const toiletSprite = createToiletSprite();
+const bathtubSprite = createBathtubSprite();
+const sinkSprite = createSinkSprite();
+const armchairSprite = createArmchairSprite();
+const floorLampSprite = createFloorLampSprite();
+const pottedPlantSprite = createPottedPlantSprite();
+const cabinetSprite = createCabinetSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -198,6 +212,21 @@ export const Assets = {
         tv_stand_flash: Array.isArray(tvStandSprite)
             ? tvStandSprite.map(s => PixelDraw.createSilhouette(s))
             : PixelDraw.createSilhouette(tvStandSprite),
+        // Bathroom furniture
+        toilet: toiletSprite,
+        toilet_flash: PixelDraw.createSilhouette(toiletSprite),
+        bathtub: bathtubSprite,
+        bathtub_flash: PixelDraw.createSilhouette(bathtubSprite),
+        sink: sinkSprite,
+        sink_flash: PixelDraw.createSilhouette(sinkSprite),
+        armchair: armchairSprite,
+        armchair_flash: PixelDraw.createSilhouette(armchairSprite),
+        floor_lamp: floorLampSprite,
+        floor_lamp_flash: PixelDraw.createSilhouette(floorLampSprite),
+        potted_plant: pottedPlantSprite,
+        potted_plant_flash: PixelDraw.createSilhouette(pottedPlantSprite),
+        cabinet: cabinetSprite,
+        cabinet_flash: PixelDraw.createSilhouette(cabinetSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

@@ -8,7 +8,7 @@
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
     - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。
-    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板）。
+    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
@@ -114,9 +114,9 @@
   - `BuildingFootprintPlanner`: 规划多栋建筑外框（避免重叠/越界）。
   - `RoomPartitioner`: BSP 切分房间并生成内部墙分割线。
   - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
-  - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。
-  - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。
-  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。
+  - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。支持的房间语义：`living_room`、`bedroom`、`study`、`bathroom`、`storage`、`corridor`、`foyer`。
+  - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。`bathroom` 作为 medium/large 建筑的 preferredRole，不设全局配额。
+  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙)。卧室可选：落地灯(25%,偏墙)。书房可选：扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%)。走廊可选：矮柜(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙)。
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
