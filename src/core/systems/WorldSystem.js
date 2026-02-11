@@ -1215,8 +1215,12 @@ export class WorldSystem {
             instanceData = createWeaponInstanceData({ weaponConfigId });
         }
 
-        const dropX = enemy.x + (Math.random() - 0.5) * 20;
-        const dropY = enemy.y + (Math.random() - 0.5) * 20;
+        let dropX = enemy.x + (Math.random() - 0.5) * 20;
+        let dropY = enemy.y + (Math.random() - 0.5) * 20;
+        if (!this._isDroppedItemPositionValid(dropX, dropY)) {
+            dropX = enemy.x;
+            dropY = enemy.y;
+        }
         this.droppedItems.push(new DroppedItem(dropX, dropY, weaponItemId, 1, instanceData));
     }
 
@@ -1233,8 +1237,12 @@ export class WorldSystem {
         if (Math.random() > chance) return;
         if (this.inventorySystem && !this.inventorySystem.getItemDef(itemId)) return;
 
-        const dropX = enemy.x + (Math.random() - 0.5) * 18;
-        const dropY = enemy.y + (Math.random() - 0.5) * 18;
+        let dropX = enemy.x + (Math.random() - 0.5) * 18;
+        let dropY = enemy.y + (Math.random() - 0.5) * 18;
+        if (!this._isDroppedItemPositionValid(dropX, dropY)) {
+            dropX = enemy.x;
+            dropY = enemy.y;
+        }
         this.droppedItems.push(new DroppedItem(dropX, dropY, itemId, 1));
     }
 

@@ -1,12 +1,15 @@
+import { CollisionUtils } from '../../utils/CollisionUtils.js';
+
 /**
  * MeleeSystem — 近战攻击系统
  * 管理攻击状态机、扇形/戳刺命中检测、刀光VFX、体力消耗
  */
 export class MeleeSystem {
-    constructor({ player, enemies, breakableObjects, camera, particles, handSystem, particleSpawner }) {
+    constructor({ player, enemies, breakableObjects, walls, camera, particles, handSystem, particleSpawner }) {
         this.player = player;
         this.enemies = enemies;
         this.breakableObjects = breakableObjects;
+        this.walls = walls || [];
         this.camera = camera;
         this.particles = particles;
         this.handSystem = handSystem;
@@ -274,6 +277,8 @@ export class MeleeSystem {
             const perp = Math.abs(-dx * sinA + dy * cosA);
             if (perp > thrustWidth) continue;
 
+            if (this._isBlockedByWall(enemy.x, enemy.y)) continue;
+
             this.hitEnemies.push(enemy);
             const angle = Math.atan2(dy, dx);
             enemy.takeDamage(finalDamage, {
@@ -383,6 +388,8 @@ export class MeleeSystem {
             if (dist > range) continue;
 
             if (this._isInArc(dx, dy, dist, halfArc)) {
+                if (this._isBlockedByWall(enemy.x, enemy.y)) continue;
+
                 this.hitEnemies.push(enemy);
                 hitsThisFrame.push(enemy);
                 const angle = Math.atan2(dy, dx);
@@ -514,6 +521,36 @@ export class MeleeSystem {
             alpha: 0.6,
             life: 15
         });
+    }
+
+    _isBlockedByWall(targetX, targetY) {
+        const start = { x: this.player.x, y: this.player.y };
+        const end = { x: targetX, y: targetY };
+
+        for (const wall of this.walls) {
+            if (CollisionUtils.lineIntersectsRect(start, end, { x: wall.x, y: wall.y, width: wall.w, height: wall.h })) {
+                return true;
+            }
+        }
+
+        for (const obj of this.breakableObjects) {
+            if (!obj || obj.isBroken) continue;
+            const type = obj.type;
+            const baseType = obj.baseType;
+            const isWall = type === 'wall' || type === 'wall_h' || type === 'wall_v';
+            const isDoor = type === 'door_h' || type === 'door_v' || baseType === 'door_h' || baseType === 'door_v';
+            if (!isWall && !isDoor) continue;
+            if (isDoor && obj.isOpen) continue;
+
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+            for (const hb of hitboxes) {
+                if (CollisionUtils.lineIntersectsRect(start, end, hb)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     _lerpAngle(a, b, t) {

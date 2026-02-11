@@ -139,6 +139,7 @@ export class Game {
             player: this.player,
             enemies: this.enemies,
             breakableObjects: this.breakableObjects,
+            walls: this.walls,
             camera: this.camera,
             particles: this.particles,
             handSystem: this.handSystem,

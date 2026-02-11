@@ -598,11 +598,12 @@ export const WEAPONS = {
         name: "Battle Axe",
         type: WeaponType.MELEE,
         sprite: "battle_axe",
-        drawOffset: { x: -4, y: -7 },
+        // Pivot at Grip (x=8, y=16) - New 32x32 sprite, handle centered at y=16
+        drawOffset: { x: -8, y: -16 },
         scale: 1.5,
         hands: {
             right: { x: 0, y: 2 },
-            left: { x: 3, y: 2 }
+            left: { x: 8, y: 2 }
         },
         orbitRadius: 12,
         isMelee: true,

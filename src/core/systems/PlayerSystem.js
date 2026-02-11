@@ -31,11 +31,11 @@ export class PlayerSystem {
         const keys = this.input.keys;
         if (keys.e && !this.player.ePressed) {
             this.player.ePressed = true;
-            // Interaction Priority: Vehicle > Portal > Item
+            // Interaction Priority: Vehicle > Portal > Item > Object(Door)
             if (!this.tryEnterVehicle()) {
                 if (!this.tryEnterPortal()) {
-                    if (!this.tryInteractWithObject()) {
-                        this.tryPickupWeapon();
+                    if (!this.tryPickupWeapon()) {
+                        this.tryInteractWithObject();
                     }
                 }
             }
@@ -195,7 +195,7 @@ export class PlayerSystem {
     tryPickupWeapon() {
         let closestItem = null;
         let minDist = Infinity;
-        
+
         for (const item of this.droppedItems) {
             if (item.canInteract(this.player)) {
                 const dx = this.player.x - item.x;
@@ -207,40 +207,50 @@ export class PlayerSystem {
                 }
             }
         }
-        
-        if (closestItem) {
-            // Use InventorySystem to pick up
-            if (this.inventorySystem) {
-                const remaining = this.inventorySystem.add(closestItem.itemId, closestItem.count, closestItem.instanceData);
-                
-                if (remaining === 0) {
-                    // Fully picked up
-                    const index = this.droppedItems.indexOf(closestItem);
-                    if (index > -1) {
-                        this.droppedItems.splice(index, 1);
-                    }
-                    console.log(`Picked up ${closestItem.name}`);
-                } else if (remaining < closestItem.count) {
-                    // Partially picked up
-                    closestItem.count = remaining;
-                    console.log(`Picked up some ${closestItem.name}`);
-                } else {
-                    console.log(`Inventory full!`);
+
+        if (!closestItem) return false;
+
+        if (this.inventorySystem) {
+            const remaining = this.inventorySystem.add(closestItem.itemId, closestItem.count, closestItem.instanceData);
+
+            if (remaining === 0) {
+                // Fully picked up
+                const index = this.droppedItems.indexOf(closestItem);
+                if (index > -1) {
+                    this.droppedItems.splice(index, 1);
                 }
-                
-                // Refresh Equipped Item in case we picked up a weapon into empty slot
-                this.updateEquippedItem();
+                console.log(`Picked up ${closestItem.name}`);
+            } else if (remaining < closestItem.count) {
+                // Partially picked up
+                closestItem.count = remaining;
+                console.log(`Picked up some ${closestItem.name}`);
+            } else {
+                console.log(`Inventory full!`);
             }
+
+            // Refresh Equipped Item in case we picked up a weapon into empty slot
+            this.updateEquippedItem();
         }
+        return true;
     }
     
     // New Drop Interface
     dropItem(itemData) {
         if (!itemData || !itemData.itemId) return;
-        
-        const dropX = this.player.x + (Math.random() - 0.5) * 30;
-        const dropY = this.player.y + (Math.random() - 0.5) * 30;
-        
+
+        let dropX = this.player.x + (Math.random() - 0.5) * 30;
+        let dropY = this.player.y + (Math.random() - 0.5) * 30;
+
+        // Validate drop position against walls
+        if (this.worldSystem) {
+            const radius = 10;
+            const rect = { x: dropX - radius, y: dropY - radius, width: radius * 2, height: radius * 2 };
+            if (this.worldSystem.isRectBlocked(rect)) {
+                dropX = this.player.x;
+                dropY = this.player.y;
+            }
+        }
+
         this.droppedItems.push(new DroppedItem(dropX, dropY, itemData.itemId, itemData.count, itemData.instanceData));
     }
 
