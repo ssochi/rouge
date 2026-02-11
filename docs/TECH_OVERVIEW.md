@@ -98,6 +98,15 @@
   - 第一次：显示碰撞框（墙/玩家/敌人/物体/载具/传送门）。
   - 第二次：显示受击框（敌人 bullet hurtbox + 可破坏物 bullet hurtbox）。
   - 第三次：关闭调试框。
+- `I` 键切换性能分析器叠加层（详见下方）。
+
+### 性能分析器
+- `ProfilerSystem`（`src/core/systems/ProfilerSystem.js`）使用 `begin(label)` / `end(label)` API 包装各子系统，通过 300 帧环形缓冲区记录历史帧数据。
+- `I` 键切换 Canvas 叠加层（屏幕右上角），包含：
+  - FPS 计数器（绿色 ≥55 / 黄色 ≥30 / 红色 <30）
+  - 帧时间堆叠柱状图（每种颜色 = 一个子系统，带 60fps/30fps 参考线）
+  - 子系统耗时分解面板（毫秒 + 百分比 + 比例条）
+- 接入新系统只需 2 行代码，详见 `docs/PROFILER_GUIDE.md`。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品）。快捷栏（Hotbar）支持键盘选择。

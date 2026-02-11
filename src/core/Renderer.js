@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -22,6 +22,7 @@ export class Renderer {
         this.vehicles = vehicles || []; // Add vehicles
         this.buildSystem = buildSystem;
         this.blackHoles = blackHoles || [];
+        this.profiler = profiler || null;
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
@@ -829,8 +830,179 @@ export class Renderer {
         this.ctx.lineTo(mouse.x + 12, mouse.y);
         this.ctx.stroke();
 
+        // Profiler Overlay
+        if (this.profiler && this.profiler.visible) {
+            this.drawProfiler(this.ctx);
+        }
+
         this.uiManager.updatePlayerStatus(this.player);
         this.uiManager.updateWeapon(this.handSystem.currentWeapon, this.handSystem.getWeaponState());
+    }
+
+    drawProfiler(ctx) {
+        const profiler = this.profiler;
+        const canvasW = this.canvas.width;
+
+        // Layout
+        const MARGIN = 16;
+        const PAD = 12;
+        const PANEL_W = 420;
+        const GRAPH_H = 120;
+        const ROW_H = 18;
+        const BAR_W = 160;
+        const BAR_H = 12;
+
+        const history = profiler.getHistory();
+        const latest = profiler.getLatestFrame();
+        const systemOrder = profiler.getSystemOrder();
+
+        const breakdownH = systemOrder.length * ROW_H + 30;
+        const PANEL_H = 40 + GRAPH_H + 16 + breakdownH + PAD * 2;
+
+        const px = canvasW - PANEL_W - MARGIN;
+        const py = MARGIN;
+
+        ctx.save();
+
+        // Panel background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+        ctx.fillRect(px, py, PANEL_W, PANEL_H);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, PANEL_W, PANEL_H);
+
+        // Header: FPS + frame time
+        const fps = profiler.fps;
+        const frameMs = latest ? latest.total.toFixed(1) : '0.0';
+        const fpsColor = fps >= 55 ? '#2ecc71' : fps >= 30 ? '#f1c40f' : '#e74c3c';
+
+        ctx.font = '16px monospace';
+        ctx.fillStyle = fpsColor;
+        ctx.fillText(`${fps} FPS`, px + PAD, py + PAD + 14);
+
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`${frameMs} ms`, px + PAD + 90, py + PAD + 14);
+
+        ctx.fillStyle = '#666';
+        ctx.fillText(`(${history.length} frames)`, px + PAD + 170, py + PAD + 14);
+
+        // Frame time graph
+        const gx = px + PAD;
+        const gy = py + PAD + 28;
+        const gw = PANEL_W - PAD * 2;
+        const gh = GRAPH_H;
+        const maxMs = 50;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(gx, gy, gw, gh);
+
+        // Reference lines: 60fps (16.67ms) and 30fps (33.33ms)
+        const y60 = gy + gh - (16.67 / maxMs) * gh;
+        const y30 = gy + gh - (33.33 / maxMs) * gh;
+
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+
+        ctx.strokeStyle = 'rgba(46, 204, 113, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(gx, y60);
+        ctx.lineTo(gx + gw, y60);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(241, 196, 15, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(gx, y30);
+        ctx.lineTo(gx + gw, y30);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Reference labels
+        ctx.font = '9px monospace';
+        ctx.fillStyle = 'rgba(46, 204, 113, 0.6)';
+        ctx.fillText('60', gx + gw + 2, y60 + 3);
+        ctx.fillStyle = 'rgba(241, 196, 15, 0.6)';
+        ctx.fillText('30', gx + gw + 2, y30 + 3);
+
+        // History bars (stacked per system)
+        if (history.length > 0) {
+            const barW = Math.max(1, gw / profiler.HISTORY_SIZE);
+            const startX = gx + gw - history.length * barW;
+
+            for (let i = 0; i < history.length; i++) {
+                const frame = history[i];
+                const bx = startX + i * barW;
+
+                // Stacked system bars (bottom-up)
+                let stackY = gy + gh;
+                for (const label of systemOrder) {
+                    const ms = frame.systems[label] || 0;
+                    const h = (ms / maxMs) * gh;
+                    if (h < 0.5) continue;
+                    stackY -= h;
+                    ctx.fillStyle = profiler.getSystemColor(label);
+                    ctx.fillRect(bx, stackY, barW - 0.2, h);
+                }
+
+                // Remaining unlabeled time (gray)
+                let labeledMs = 0;
+                for (const l of systemOrder) labeledMs += (frame.systems[l] || 0);
+                const otherMs = frame.total - labeledMs;
+                if (otherMs > 0.5) {
+                    const otherH = (otherMs / maxMs) * gh;
+                    stackY -= otherH;
+                    ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
+                    ctx.fillRect(bx, stackY, barW - 0.2, otherH);
+                }
+            }
+        }
+
+        // System breakdown (latest frame)
+        const bdY = gy + gh + 16;
+
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#888';
+        ctx.fillText('SYSTEM BREAKDOWN', gx, bdY);
+
+        if (latest) {
+            const totalMs = latest.total;
+
+            for (let i = 0; i < systemOrder.length; i++) {
+                const label = systemOrder[i];
+                const ms = latest.systems[label] || 0;
+                const pct = totalMs > 0 ? (ms / totalMs) * 100 : 0;
+                const rowY = bdY + 16 + i * ROW_H;
+
+                // Color swatch
+                ctx.fillStyle = profiler.getSystemColor(label);
+                ctx.fillRect(gx, rowY, 8, BAR_H);
+
+                // Label
+                ctx.fillStyle = '#ccc';
+                ctx.font = '10px monospace';
+                ctx.fillText(label, gx + 14, rowY + 10);
+
+                // Proportional bar
+                const barX = gx + 120;
+
+                // Background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+                ctx.fillRect(barX, rowY, BAR_W, BAR_H);
+
+                // Fill
+                const fillW = Math.max(1, (pct / 100) * BAR_W);
+                ctx.fillStyle = profiler.getSystemColor(label);
+                ctx.globalAlpha = 0.7;
+                ctx.fillRect(barX, rowY, fillW, BAR_H);
+                ctx.globalAlpha = 1.0;
+
+                // ms + percentage
+                ctx.fillStyle = '#aaa';
+                ctx.fillText(`${ms.toFixed(2)}ms (${pct.toFixed(0)}%)`, barX + BAR_W + 8, rowY + 10);
+            }
+        }
+
+        ctx.restore();
     }
 
     drawCollisionDebug(ctx) {
