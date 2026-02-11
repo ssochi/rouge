@@ -142,7 +142,8 @@ export class Game {
             camera: this.camera,
             particles: this.particles,
             handSystem: this.handSystem,
-            particleSpawner: this.combatSystem.particleSpawner
+            particleSpawner: this.combatSystem.particleSpawner,
+            statusEffects: this.combatSystem.statusEffects
         });
         this.handSystem.setMeleeSystem(this.meleeSystem);
 
