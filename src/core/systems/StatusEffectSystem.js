@@ -545,4 +545,36 @@ export class StatusEffectSystem {
             });
         }
     }
+
+    updateBleedEffects() {
+        for (const e of this.enemies) {
+            if (!e.bleedTimer || e.bleedTimer <= 0) continue;
+            e.bleedTimer--;
+            e.bleedTickCounter = (e.bleedTickCounter || 0) + 1;
+
+            if (e.bleedTickCounter >= (e.bleedTickInterval || 20)) {
+                e.bleedTickCounter = 0;
+                const bleedDmg = e.bleedDamage || 3;
+                e.hp -= bleedDmg;
+                e.hitFlashTimer = 3;
+                e.hpBarTimer = 60;
+
+                // Blood drip particle
+                this.particles.push({
+                    x: e.x + (Math.random() - 0.5) * 8,
+                    y: e.y + (Math.random() - 0.5) * 8,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: Math.random() * 1.0 + 0.5,
+                    life: 20 + Math.floor(Math.random() * 10),
+                    color: Math.random() > 0.5 ? '#922b21' : '#c0392b',
+                    size: Math.random() * 2 + 1,
+                    friction: 0.95
+                });
+
+                if (e.hp <= 0) {
+                    this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                }
+            }
+        }
+    }
 }

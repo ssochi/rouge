@@ -401,6 +401,7 @@ export class CombatSystem {
     updateBullets() { this.bulletSystem.update(); }
     updateBlackHoles() { this.statusEffects.updateBlackHoles(); }
     updateBurnEffects() { this.statusEffects.updateBurnEffects(); }
+    updateBleedEffects() { this.statusEffects.updateBleedEffects(); }
     updateFreezeEffects() { this.statusEffects.updateFreezeEffects(); }
     updateParticles() { this.particleSpawner.updateParticles(); }
     spawnExplosion(x, y, damage, radius, knockback) { this.statusEffects.spawnExplosion(x, y, damage, radius, knockback); }

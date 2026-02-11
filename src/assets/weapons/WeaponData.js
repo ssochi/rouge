@@ -491,7 +491,7 @@ export const WEAPONS = {
         isMelee: true,
         // Melee stats
         fireRate: 400,
-        damage: 35,
+        damage: 12,
         meleeRange: 52,
         meleeArc: 120,
         knockback: 6,
@@ -501,6 +501,128 @@ export const WEAPONS = {
         recoveryFrames: 6,
         swingArcDegrees: 150,
         // No ammo
+        magazineSize: 0,
+        maxReserve: 0
+    },
+    dagger: {
+        name: "Dagger",
+        type: WeaponType.MELEE,
+        sprite: "dagger",
+        drawOffset: { x: -3, y: -4 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 }
+        },
+        orbitRadius: 14,
+        isMelee: true,
+        fireRate: 200,
+        damage: 5,
+        meleeRange: 32,
+        meleeArc: 80,
+        knockback: 2,
+        windupFrames: 2,
+        swingFrames: 4,
+        recoveryFrames: 3,
+        swingArcDegrees: 120,
+        // Unique: critical hits
+        criticalHitChance: 0.3,
+        criticalMultiplier: 3,
+        // VFX
+        slashTrailColor: 'rgba(80, 200, 120, 0.6)',
+        slashTrailWidth: 2,
+        hitSparkColors: ['#2ecc71', '#27ae60', '#ffffff'],
+        magazineSize: 0,
+        maxReserve: 0
+    },
+    greatsword: {
+        name: "Greatsword",
+        type: WeaponType.MELEE,
+        sprite: "greatsword",
+        drawOffset: { x: -5, y: -6 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 },
+            left: { x: 4, y: 2 }
+        },
+        orbitRadius: 12,
+        isMelee: true,
+        fireRate: 800,
+        damage: 22,
+        meleeRange: 68,
+        meleeArc: 150,
+        knockback: 12,
+        windupFrames: 8,
+        swingFrames: 12,
+        recoveryFrames: 8,
+        swingArcDegrees: 180,
+        // Unique: cleave bonus on 3+ hits
+        cleaveMultiplier: 0.5,
+        cleaveThreshold: 3,
+        // VFX
+        slashTrailColor: 'rgba(230, 126, 34, 0.8)',
+        slashTrailWidth: 6,
+        hitSparkColors: ['#e67e22', '#f39c12', '#ffffff'],
+        magazineSize: 0,
+        maxReserve: 0
+    },
+    spear: {
+        name: "Spear",
+        type: WeaponType.MELEE,
+        sprite: "spear",
+        drawOffset: { x: -4, y: -3 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 },
+            left: { x: 5, y: 2 }
+        },
+        orbitRadius: 10,
+        isMelee: true,
+        fireRate: 450,
+        damage: 14,
+        meleeRange: 80,
+        meleeArc: 45,
+        knockback: 3,
+        thrustAttack: true,
+        windupFrames: 3,
+        swingFrames: 6,
+        recoveryFrames: 5,
+        swingArcDegrees: 60,
+        // VFX
+        slashTrailColor: 'rgba(236, 240, 241, 0.7)',
+        slashTrailWidth: 3,
+        hitSparkColors: ['#ecf0f1', '#bdc3c7', '#ffffff'],
+        magazineSize: 0,
+        maxReserve: 0
+    },
+    battle_axe: {
+        name: "Battle Axe",
+        type: WeaponType.MELEE,
+        sprite: "battle_axe",
+        drawOffset: { x: -4, y: -7 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 2 },
+            left: { x: 3, y: 2 }
+        },
+        orbitRadius: 12,
+        isMelee: true,
+        fireRate: 550,
+        damage: 15,
+        meleeRange: 55,
+        meleeArc: 160,
+        knockback: 9,
+        windupFrames: 6,
+        swingFrames: 10,
+        recoveryFrames: 6,
+        swingArcDegrees: 170,
+        // Unique: bleed DOT
+        bleedDamage: 3,
+        bleedDuration: 180,
+        bleedTickInterval: 20,
+        // VFX
+        slashTrailColor: 'rgba(192, 57, 43, 0.75)',
+        slashTrailWidth: 5,
+        hitSparkColors: ['#c0392b', '#922b21', '#e74c3c'],
         magazineSize: 0,
         maxReserve: 0
     },

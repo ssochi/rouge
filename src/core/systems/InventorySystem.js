@@ -180,6 +180,42 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:dagger',
+            type: 'weapon',
+            name: 'Dagger',
+            icon: 'dagger',
+            maxStack: 1,
+            data: { weaponConfigId: 'dagger' }
+        });
+
+        this.registerItem({
+            id: 'weapon:greatsword',
+            type: 'weapon',
+            name: 'Greatsword',
+            icon: 'greatsword',
+            maxStack: 1,
+            data: { weaponConfigId: 'greatsword' }
+        });
+
+        this.registerItem({
+            id: 'weapon:spear',
+            type: 'weapon',
+            name: 'Spear',
+            icon: 'spear',
+            maxStack: 1,
+            data: { weaponConfigId: 'spear' }
+        });
+
+        this.registerItem({
+            id: 'weapon:battle_axe',
+            type: 'weapon',
+            name: 'Battle Axe',
+            icon: 'battle_axe',
+            maxStack: 1,
+            data: { weaponConfigId: 'battle_axe' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',

@@ -13,7 +13,7 @@
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`）。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -32,8 +32,8 @@
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
-      - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧）。
-      - `MeleeSystem.js`: 近战攻击系统——攻击状态机（IDLE→WINDUP→SWING→RECOVERY）、扇形命中检测、刀光拖尾VFX。由 `HandSystem` 在挥砍时覆盖武器旋转角度，`PlayerSystem` 分发点击事件。
+      - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧、流血DOT）。
+      - `MeleeSystem.js`: 近战攻击系统——攻击状态机（IDLE→WINDUP→SWING→RECOVERY）、扇形/直线命中检测、刀光/戳刺拖尾VFX。支持暴击(Dagger)、劈斩加成(Greatsword)、流血DOT(Battle Axe)、戳刺(Spear)等数据驱动的武器特殊机制。5把近战武器：Katana/Dagger/Greatsword/Spear/Battle Axe。
       - `ParticleSpawner.js`: 粒子生成（碎片、血液、弹壳、刀光拖尾）与粒子物理更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable）。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。

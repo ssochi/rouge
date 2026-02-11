@@ -255,6 +255,17 @@ export class Renderer {
                         }
                         this.ctx.restore();
                     }
+                    // Bleed overlay (Battle Axe DOT)
+                    if (e.bleedTimer > 0) {
+                        const bleedHb = e.getBulletHurtbox ? e.getBulletHurtbox() :
+                            { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        this.ctx.save();
+                        const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
+                        this.ctx.globalAlpha = pulse;
+                        this.ctx.fillStyle = '#c0392b';
+                        this.ctx.fillRect(bleedHb.x, bleedHb.y, bleedHb.width, bleedHb.height);
+                        this.ctx.restore();
+                    }
                 }
             });
         });
@@ -488,6 +499,17 @@ export class Renderer {
                         this.ctx.lineCap = 'round';
                         this.ctx.beginPath();
                         this.ctx.arc(p.originX, p.originY, p.radius, p.startAngle, p.endAngle, p.anticlockwise || false);
+                        this.ctx.stroke();
+                        this.ctx.restore();
+                    } else if (p.type === 'thrust_trail') {
+                        this.ctx.save();
+                        this.ctx.globalAlpha = Math.max(0, p.alpha);
+                        this.ctx.strokeStyle = p.color;
+                        this.ctx.lineWidth = p.width || 3;
+                        this.ctx.lineCap = 'round';
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(p.startX, p.startY);
+                        this.ctx.lineTo(p.endX, p.endY);
                         this.ctx.stroke();
                         this.ctx.restore();
                     } else if (p.type === 'shell' || p.type === 'debris') {

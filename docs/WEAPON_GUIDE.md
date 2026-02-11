@@ -369,12 +369,33 @@ katana: {
 | 属性 | 说明 | 参考值 |
 |------|------|--------|
 | `isMelee` | 近战标志，阻止远程射击流程 | `true` |
-| `meleeRange` | 命中检测半径（像素） | 匕首30, 长刀52, 大剑70 |
-| `meleeArc` | 命中扇形角度（度） | 匕首90, 长刀120, 大剑150 |
-| `windupFrames` | 蓄力帧数（越少越快） | 2-6 |
-| `swingFrames` | 挥砍帧数 | 6-12 |
-| `recoveryFrames` | 收招帧数 | 4-8 |
-| `swingArcDegrees` | 武器视觉扫过的弧度 | 120-180 |
+| `meleeRange` | 命中检测半径（像素） | 匕首32, 长刀52, 大剑68, 长矛80 |
+| `meleeArc` | 命中扇形角度（度） | 长矛45, 匕首80, 长刀120, 大剑150, 战斧160 |
+| `windupFrames` | 蓄力帧数（越少越快） | 2-8 |
+| `swingFrames` | 挥砍帧数 | 4-12 |
+| `recoveryFrames` | 收招帧数 | 3-8 |
+| `swingArcDegrees` | 武器视觉扫过的弧度 | 60-180 |
+| `criticalHitChance` | 暴击概率（0-1） | 匕首0.3 |
+| `criticalMultiplier` | 暴击伤害倍率 | 匕首3 |
+| `cleaveMultiplier` | 劈斩加成（命中多目标时额外伤害比例） | 大剑0.5 |
+| `cleaveThreshold` | 触发劈斩的最低命中数 | 大剑3 |
+| `bleedDamage` | 流血DOT每跳伤害 | 战斧3 |
+| `bleedDuration` | 流血持续帧数 | 战斧180 (3秒) |
+| `bleedTickInterval` | 流血伤害间隔帧数 | 战斧20 |
+| `slashTrailColor` | 刀光拖尾颜色 | `'rgba(200, 220, 255, 0.7)'` |
+| `slashTrailWidth` | 刀光宽度 | 2-6 |
+| `hitSparkColors` | 命中火花颜色数组 | `['#ffffff', '#f1c40f']` |
+| `thrustAttack` | 戳刺攻击模式（直线命中检测） | 长矛true |
+
+### 7.2.1 现有近战武器参数对比
+
+| 武器 | 速度 | 伤害 | 范围 | 弧度 | 击退 | 特殊机制 | 刀光颜色 |
+|------|------|------|------|------|------|----------|----------|
+| Katana | 400ms | 12 | 52px | 120° | 6 | 均衡基准 | 淡蓝白 |
+| Dagger | 200ms | 5 | 32px | 80° | 2 | 30%暴击3x | 翠绿 |
+| Greatsword | 800ms | 22 | 68px | 150° | 12 | 3+命中额外50%伤害+冲击波 | 橙红 |
+| Spear | 450ms | 14 | 80px | 直线 | 3 | 直线戳刺 | 银白 |
+| Battle Axe | 550ms | 15 | 55px | 160° | 9 | 命中附带流血DOT | 暗红 |
 
 ### 7.3 添加新近战武器流程
 
@@ -382,7 +403,7 @@ katana: {
 2. 在 `Assets.js` 导入并注册 sprite
 3. 在 `WeaponData.js` 添加配置，必须包含 `isMelee: true`
 4. 在 `InventorySystem.js` 注册 `weapon:my_melee`
-5. 无需修改 MeleeSystem / HandSystem / PlayerSystem
+5. 无需修改 MeleeSystem / HandSystem / PlayerSystem（特殊机制通过配置属性驱动）
 
 ### 7.4 攻击状态机
 

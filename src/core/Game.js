@@ -183,6 +183,10 @@ export class Game {
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
         this.inventorySystem.add('weapon:katana', 1);
+        this.inventorySystem.add('weapon:dagger', 1);
+        this.inventorySystem.add('weapon:greatsword', 1);
+        this.inventorySystem.add('weapon:spear', 1);
+        this.inventorySystem.add('weapon:battle_axe', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -321,6 +325,7 @@ export class Game {
         this.combatSystem.updateBullets();
         this.combatSystem.updateBlackHoles();
         this.combatSystem.updateBurnEffects();
+        this.combatSystem.updateBleedEffects();
         this.combatSystem.updateFreezeEffects();
         this.breakableObjects.forEach(obj => obj.update(this.player));
         this.combatSystem.updateParticles();

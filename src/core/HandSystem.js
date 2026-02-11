@@ -287,7 +287,13 @@ export class HandSystem {
         let effectiveRadius = this.orbitRadius;
         if (this.currentWeapon.isMelee && this.meleeSystem && this.meleeSystem.isAttacking) {
             effectiveAngle = this.meleeSystem.getSwingAngle();
-            effectiveRadius = this.orbitRadius + 2;
+            if (this.meleeSystem.isThrust) {
+                // Thrust: extend weapon forward along aim direction
+                const thrustExtend = this.meleeSystem.getThrustProgress() * 20;
+                effectiveRadius = this.orbitRadius + thrustExtend;
+            } else {
+                effectiveRadius = this.orbitRadius + 2;
+            }
         }
 
         const currentDist = effectiveRadius - this.recoilOffset;

@@ -523,20 +523,13 @@ export class UIManager {
         this.hpText.innerText = `${Math.ceil(player.hp)}/${player.maxHp}`;
 
         // Stamina / Roll Cooldown
-        // 假设 rollCooldown 是 0 到 maxCooldown，我们需要反向显示耐力
-        // 或者显示“DODGE”状态
-        // 这里简化：如果 cooldown > 0，显示进度；否则满
-        const maxCd = 60; // 假设最大冷却 (需要从 player 获取或者常量)
-        // 实际 player.rollCooldown 是帧数倒计时
+        const maxCd = 60;
         let staminaPercent = 100;
         let staminaLabel = "READY";
-        
         if (player.rollCooldown > 0) {
-            // 假设最大冷却是 60 帧 (约 1秒)
-            staminaPercent = 100 - (player.rollCooldown / 60 * 100);
+            staminaPercent = 100 - (player.rollCooldown / maxCd * 100);
             staminaLabel = "RECHARGING";
         }
-        
         this.staminaBar.style.width = `${Math.max(0, staminaPercent)}%`;
         this.staminaText.innerText = staminaLabel;
     }
