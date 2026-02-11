@@ -5,7 +5,7 @@ import { CollisionUtils } from '../../utils/CollisionUtils.js';
  * 管理攻击状态机、扇形/戳刺命中检测、刀光VFX、体力消耗
  */
 export class MeleeSystem {
-    constructor({ player, enemies, breakableObjects, walls, camera, particles, handSystem, particleSpawner }) {
+    constructor({ player, enemies, breakableObjects, walls, camera, particles, handSystem, particleSpawner, statusEffects }) {
         this.player = player;
         this.enemies = enemies;
         this.breakableObjects = breakableObjects;
@@ -14,6 +14,7 @@ export class MeleeSystem {
         this.particles = particles;
         this.handSystem = handSystem;
         this.particleSpawner = particleSpawner;
+        this.statusEffects = statusEffects;
 
         // Attack state: 'idle' | 'windup' | 'swing' | 'recovery'
         this.attackState = 'idle';
@@ -294,8 +295,12 @@ export class MeleeSystem {
                 enemy.bleedTickCounter = 0;
             }
 
-            if (this.particleSpawner && this.particleSpawner.spawnBloodSplatter) {
-                this.particleSpawner.spawnBloodSplatter(enemy.x, enemy.y, this.aimAngleAtAttack);
+            if (this.particleSpawner) {
+                if (enemy.hp <= 0) {
+                    this.particleSpawner.spawnBloodExplosion(enemy.x, enemy.y);
+                } else if (this.particleSpawner.spawnBloodSplatter) {
+                    this.particleSpawner.spawnBloodSplatter(enemy.x, enemy.y, this.aimAngleAtAttack);
+                }
             }
             this._spawnHitSparks(enemy.x, enemy.y, isCritical);
 
@@ -327,6 +332,12 @@ export class MeleeSystem {
 
             this.hitEnemies.push(obj);
             obj.takeDamage(finalDamage);
+            if (obj.isBroken) {
+                this.particleSpawner.spawnDebris(cx, cy, obj.type);
+                if (obj.type === 'explosive_barrel') {
+                    this.statusEffects.spawnExplosion(cx, cy, 80, 100, 10);
+                }
+            }
             this._spawnHitSparks(cx, cy, isCritical);
         }
     }
@@ -407,8 +418,12 @@ export class MeleeSystem {
                 }
 
                 // Blood
-                if (this.particleSpawner && this.particleSpawner.spawnBloodSplatter) {
-                    this.particleSpawner.spawnBloodSplatter(enemy.x, enemy.y, this.swingCurrentAngle);
+                if (this.particleSpawner) {
+                    if (enemy.hp <= 0) {
+                        this.particleSpawner.spawnBloodExplosion(enemy.x, enemy.y);
+                    } else if (this.particleSpawner.spawnBloodSplatter) {
+                        this.particleSpawner.spawnBloodSplatter(enemy.x, enemy.y, this.swingCurrentAngle);
+                    }
                 }
 
                 // Hit sparks
@@ -452,6 +467,12 @@ export class MeleeSystem {
                 this.hitEnemies.push(obj);
                 obj.takeDamage(finalDamage);
                 this._spawnHitSparks(cx, cy, isCritical);
+                if (obj.isBroken) {
+                    this.particleSpawner.spawnDebris(cx, cy, obj.type);
+                    if (obj.type === 'explosive_barrel') {
+                        this.statusEffects.spawnExplosion(cx, cy, 80, 100, 10);
+                    }
+                }
             }
         }
     }

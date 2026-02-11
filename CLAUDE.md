@@ -42,6 +42,7 @@ npm run preview  # 预览生产构建
 6. **新增游戏按键**：必须在 `src/core/Input.js` 的 `keys` 对象和 `_initListeners` 中注册。
 7. **方案文档**放置在 `docs/feature/` 中。
 8. 开始开发代码前,确保代码都已经提交过,否则我无法回滚.
+9. **新增/修改子系统**时需接入性能分析器，遵循 `docs/PROFILER_GUIDE.md`。
 
 ## 素材制作要点
 

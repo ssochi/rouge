@@ -10,6 +10,7 @@ import { PlayerSystem } from './systems/PlayerSystem.js';
 import { InventorySystem } from './systems/InventorySystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
 import { MeleeSystem } from './systems/MeleeSystem.js';
+import { ProfilerSystem } from './systems/ProfilerSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
 
@@ -143,7 +144,8 @@ export class Game {
             camera: this.camera,
             particles: this.particles,
             handSystem: this.handSystem,
-            particleSpawner: this.combatSystem.particleSpawner
+            particleSpawner: this.combatSystem.particleSpawner,
+            statusEffects: this.combatSystem.statusEffects
         });
         this.handSystem.setMeleeSystem(this.meleeSystem);
 
@@ -159,6 +161,9 @@ export class Game {
             buildSystem: this.buildSystem,
             meleeSystem: this.meleeSystem
         });
+
+        this.profiler = new ProfilerSystem();
+        this.iPressed = false;
 
         this.renderer = new Renderer({
             canvas: this.canvas,
@@ -178,7 +183,8 @@ export class Game {
             bullets: this.bullets,
             worldSystem: this.worldSystem, // Pass WorldSystem to access portals
             buildSystem: this.buildSystem,
-            blackHoles: this.blackHoles
+            blackHoles: this.blackHoles,
+            profiler: this.profiler
         });
 
         // Initial Inventory
@@ -256,22 +262,23 @@ export class Game {
             this.bPressed = false;
         }
 
+        // Toggle Profiler
+        if (this.input.keys.i && !this.iPressed) {
+            this.iPressed = true;
+            this.profiler.visible = !this.profiler.visible;
+        } else if (!this.input.keys.i) {
+            this.iPressed = false;
+        }
+
         if (this.isInventoryOpen) {
             return;
         }
 
-        // Handle Vehicle Logic
+        // --- Vehicles ---
+        this.profiler.begin('Vehicles');
         let activeVehicle = null;
         if (this.player.state === 'driving') {
-             // Find the vehicle driven by player
              activeVehicle = this.vehicles.find(v => v.driver === this.player);
-             
-             // Check for Exit (E key)
-             // We need to debounce E key or check if it was just pressed
-             // PlayerSystem usually handles E for interaction, but here we are in 'driving' state
-             // So we should handle 'Exit' here or let PlayerSystem handle it if we call it.
-             
-             // If driving, we skip standard player movement
              if (this.input.keys.e && !this.player.ePressed) {
                  this.player.ePressed = true;
                  if (activeVehicle) {
@@ -285,14 +292,11 @@ export class Game {
         } else {
              this.playerSystem.updatePlayerMovement();
         }
-
-        // Update all vehicles
         for (let i = this.vehicles.length - 1; i >= 0; i--) {
             const v = this.vehicles[i];
             if (v.isDead) {
-                // If vehicle exploded and was active, ensure player state is reset (handled in explode/exit but double check)
                 if (activeVehicle === v) {
-                    this.player.state = 'idle'; // Fallback
+                    this.player.state = 'idle';
                     activeVehicle = null;
                 }
                 this.vehicles.splice(i, 1);
@@ -300,52 +304,84 @@ export class Game {
             }
             v.update(this.input, this.walls, this.particles, this.breakableObjects, this.enemies, this.player, this.camera, this.combatSystem, this.vehicles);
         }
+        this.profiler.end('Vehicles');
 
+        // --- Flow Field ---
+        this.profiler.begin('FlowField');
         this.frameCount++;
         const flow = this.worldSystem.updateFlowFieldForPlayer(this.frameCount, this.flowPlayerCellX, this.flowPlayerCellY);
         this.flowPlayerCellX = flow.x;
         this.flowPlayerCellY = flow.y;
+        this.profiler.end('FlowField');
 
-        // Camera Follow
+        // --- Camera ---
+        this.profiler.begin('Camera');
         if (activeVehicle) {
             this.camera.follow(activeVehicle);
         } else {
             this.camera.follow(this.player);
         }
-
         const scaledMouseX = this.input.mouse.x / this.scale;
         const scaledMouseY = this.input.mouse.y / this.scale;
         this.input.mouse.worldX = scaledMouseX + this.camera.x;
         this.input.mouse.worldY = scaledMouseY + this.camera.y;
+        this.profiler.end('Camera');
 
+        // --- Hand & Melee ---
+        this.profiler.begin('HandSystem');
         this.handSystem.update(this.input.mouse.worldX, this.input.mouse.worldY);
+        this.profiler.end('HandSystem');
+
+        this.profiler.begin('Melee');
         this.meleeSystem.update();
+        this.profiler.end('Melee');
 
+        // --- Player ---
+        this.profiler.begin('Player');
         this.playerSystem.updatePlayerAimAndAction();
+        this.profiler.end('Player');
 
+        // --- Combat ---
+        this.profiler.begin('Combat');
         this.combatSystem.updateBullets();
         this.combatSystem.updateBlackHoles();
         this.combatSystem.updateBurnEffects();
         this.combatSystem.updateBleedEffects();
         this.combatSystem.updateFreezeEffects();
+        this.profiler.end('Combat');
+
+        // --- World Objects ---
+        this.profiler.begin('WorldObjects');
         this.breakableObjects.forEach(obj => obj.update(this.player));
         this.combatSystem.updateParticles();
         this.worldSystem.updateEnemies();
         this.worldSystem.updatePortals();
         this.playerSystem.updateDroppedItems();
-        
+        this.profiler.end('WorldObjects');
+
+        // --- Build ---
+        this.profiler.begin('Build');
         this.buildSystem.update();
+        this.profiler.end('Build');
+
+        // --- UI ---
+        this.profiler.begin('UI');
         this.uiManager.updateHotbar(this.inventorySystem);
+        this.profiler.end('UI');
     }
 
     draw() {
+        this.profiler.begin('Render');
         this.renderer.draw();
+        this.profiler.end('Render');
     }
 
     start() {
         const loop = () => {
+            this.profiler.beginFrame();
             this.update();
             this.draw();
+            this.profiler.endFrame();
             requestAnimationFrame(loop);
         };
         loop();
