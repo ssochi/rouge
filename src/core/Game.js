@@ -13,6 +13,7 @@ import { MeleeSystem } from './systems/MeleeSystem.js';
 import { ProfilerSystem } from './systems/ProfilerSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
+import { PetDog } from './entities/PetDog.js';
 
 export class Game {
     constructor(canvas) {
@@ -37,6 +38,7 @@ export class Game {
         this.breakableObjects = [];
         this.vehicles = [];
         this.blackHoles = [];
+        this.pets = [];
         // Portals are managed by WorldSystem but need to be passed to Renderer via Game reference or directly
 
         const NAV_GRID_SIZE = 8;
@@ -128,10 +130,11 @@ export class Game {
             enemies: this.enemies,
             droppedItems: this.droppedItems,
             breakableObjects: this.breakableObjects,
-            vehicles: this.vehicles, // Pass vehicles
+            vehicles: this.vehicles,
             player: this.player,
-            combatSystem: this.combatSystem, // Pass CombatSystem
-            inventorySystem: this.inventorySystem
+            combatSystem: this.combatSystem,
+            inventorySystem: this.inventorySystem,
+            pets: this.pets
         });
 
         this.buildSystem = new BuildSystem(this);
@@ -185,8 +188,12 @@ export class Game {
             worldSystem: this.worldSystem, // Pass WorldSystem to access portals
             buildSystem: this.buildSystem,
             blackHoles: this.blackHoles,
-            profiler: this.profiler
+            profiler: this.profiler,
+            pets: this.pets
         });
+
+        // Spawn pet dog near player
+        this.pets.push(new PetDog(this.player.x + 30, this.player.y + 20));
 
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
@@ -356,6 +363,7 @@ export class Game {
         this.breakableObjects.forEach(obj => obj.update(this.player));
         this.combatSystem.updateParticles();
         this.worldSystem.updateEnemies();
+        this.worldSystem.updatePets();
         this.worldSystem.updatePortals();
         this.playerSystem.updateDroppedItems();
         this.profiler.end('WorldObjects');

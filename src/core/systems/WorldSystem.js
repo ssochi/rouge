@@ -28,7 +28,7 @@ const ENEMY_HAMBURGER_DROP_CHANCE = 0.02;
 const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 
 export class WorldSystem {
-    constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem }) {
+    constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem, pets }) {
         this.navGrid = navGrid;
         this.walls = walls;
         this.enemies = enemies;
@@ -38,6 +38,7 @@ export class WorldSystem {
         this.combatSystem = combatSystem;
         this.vehicles = vehicles;
         this.inventorySystem = inventorySystem;
+        this.pets = pets || [];
         this.portals = [];
         this.carpets = [];
         // Floor tile system
@@ -1408,6 +1409,29 @@ export class WorldSystem {
             );
 
             this._updateEnemyBreachBehavior(e);
+        });
+    }
+
+    updatePets() {
+        if (!this.pets || this.pets.length === 0) return;
+
+        const getFlowDirection = (x, y) => this.navGrid.getFlowDirection(x, y);
+        const getNavDirection = (pet, desiredX, desiredY) => {
+            const hbWidth = pet.hitboxWidth || pet.width;
+            const hbHeight = pet.hitboxHeight || pet.height;
+            const hbOffsetY = pet.hitboxOffsetY || 0;
+            return this.navGrid.findNavigableDirection(
+                pet.x, pet.y + hbOffsetY,
+                hbWidth, hbHeight,
+                desiredX, desiredY
+            );
+        };
+        const resolvePetMove = (pet, nextX, nextY, intentX, intentY) => {
+            this.resolveEntityMovement(pet, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
+        };
+
+        this.pets.forEach(pet => {
+            pet.update(this.player, getFlowDirection, getNavDirection, resolvePetMove);
         });
     }
 }

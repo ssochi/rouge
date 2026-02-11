@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler, pets }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -23,6 +23,7 @@ export class Renderer {
         this.buildSystem = buildSystem;
         this.blackHoles = blackHoles || [];
         this.profiler = profiler || null;
+        this.pets = pets || [];
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
@@ -288,6 +289,14 @@ export class Renderer {
                 });
             });
         }
+
+        // Draw Pets
+        this.pets.forEach(pet => {
+            renderList.push({
+                y: pet.y + pet.height / 2,
+                draw: () => pet.draw(this.ctx)
+            });
+        });
 
         if (this.player.state !== 'driving') {
             renderList.push({
