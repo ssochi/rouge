@@ -2,7 +2,7 @@ import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 
 export class PlayerSystem {
-    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem }) {
+    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles }) {
         this.player = player;
         this.input = input;
         this.handSystem = handSystem;
@@ -13,6 +13,7 @@ export class PlayerSystem {
         this.inventorySystem = inventorySystem;
         this.buildSystem = buildSystem;
         this.meleeSystem = meleeSystem;
+        this.particles = particles || [];
         this.mousePressed = false;
 
         if (this.handSystem && this.handSystem.bindInstanceSync) {
@@ -280,6 +281,7 @@ export class PlayerSystem {
                 this.player.state = 'idle';
                 this.player.rollDuration = 0;
                 this.player.rollCooldown = Math.max(this.player.rollCooldown || 0, 10);
+                this._spawnRollDust(this.player.x, this.player.y, true);
                 return;
             }
 
@@ -287,12 +289,13 @@ export class PlayerSystem {
             if (this.player.rollDuration <= 0) {
                 this.player.state = 'idle';
                 this.player.rollCooldown = 30;
+                this._spawnRollDust(this.player.x, this.player.y, true);
             }
             const speed = this.player.rollSpeed;
             const nextX = this.player.x + Math.cos(this.player.angle) * speed;
             const nextY = this.player.y + Math.sin(this.player.angle) * speed;
             this.resolveMove(nextX, nextY);
-            
+
             if (this.player.state !== startState) this.player.animationTimer = 0;
             else this.player.animationTimer++;
             return;
@@ -310,6 +313,7 @@ export class PlayerSystem {
         const isMoving = dx !== 0 || dy !== 0;
 
         if (keys.space && this.player.rollCooldown <= 0 && isMoving && effectiveSpeed > 0) {
+            this._spawnRollDust(this.player.x, this.player.y, false, Math.atan2(dy, dx));
             this.player.state = 'roll';
             this.player.rollDuration = 15;
             this.player.angle = Math.atan2(dy, dx);
@@ -344,6 +348,32 @@ export class PlayerSystem {
         return this.player.speed;
     }
     
+    _spawnRollDust(x, y, isLanding, rollAngle) {
+        const count = isLanding ? 4 : 5;
+        for (let i = 0; i < count; i++) {
+            let angle;
+            if (isLanding) {
+                // Landing: spread in all directions
+                angle = Math.random() * Math.PI * 2;
+            } else {
+                // Takeoff: bias toward opposite of roll direction
+                angle = rollAngle + Math.PI + (Math.random() - 0.5) * 1.2;
+            }
+            const speed = 0.5 + Math.random() * 1.0;
+            this.particles.push({
+                type: 'smoke',
+                x: x + (Math.random() - 0.5) * 6,
+                y: y + 10 + Math.random() * 4,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed * 0.5,
+                life: 15 + Math.random() * 10,
+                color: '#a0896e',
+                size: 2 + Math.random() * 2,
+                alpha: 0.5
+            });
+        }
+    }
+
     resolveMove(nextX, nextY) {
         // Check Vehicle Collision
         let blocked = false;

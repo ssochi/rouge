@@ -61,6 +61,8 @@ import { TELEPORT_GUN_SPRITE } from '../assets/weapons/TeleportGunGenerator.js';
 import { LIGHTNING_GUN_SPRITE } from '../assets/weapons/LightningGunGenerator.js';
 import { FREEZE_RAY_SPRITE } from '../assets/weapons/FreezeRayGenerator.js';
 import { RICOCHET_GUN_SPRITE } from '../assets/weapons/RicochetGunGenerator.js';
+import { DOG_IDLE_FRAMES } from '../assets/characters/pets/dog/DogIdle.js';
+import { DOG_RUN_FRAMES } from '../assets/characters/pets/dog/DogRun.js';
 import { BOOMERANG_SPRITE } from '../assets/weapons/BoomerangGenerator.js';
 import { KATANA_SPRITE } from '../assets/weapons/KatanaGenerator.js';
 import { DAGGER_SPRITE } from '../assets/weapons/DaggerGenerator.js';
@@ -174,6 +176,10 @@ export const Assets = {
     soldier: {
         idle: SOLDIER_IDLE_FRAMES,
         run: SOLDIER_RUN_FRAMES
+    },
+    dog: {
+        idle: DOG_IDLE_FRAMES,
+        run: DOG_RUN_FRAMES
     },
     objects: {
         box: boxSprite,

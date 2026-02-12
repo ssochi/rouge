@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler, pets }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -23,6 +23,7 @@ export class Renderer {
         this.buildSystem = buildSystem;
         this.blackHoles = blackHoles || [];
         this.profiler = profiler || null;
+        this.pets = pets || [];
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
@@ -289,6 +290,14 @@ export class Renderer {
             });
         }
 
+        // Draw Pets
+        this.pets.forEach(pet => {
+            renderList.push({
+                y: pet.y + pet.height / 2,
+                draw: () => pet.draw(this.ctx)
+            });
+        });
+
         if (this.player.state !== 'driving') {
             renderList.push({
                 y: this.player.y + this.player.height/2,
@@ -315,20 +324,27 @@ export class Renderer {
                     if (this.player.state === 'roll') {
                         const maxDuration = 15;
                         const progress = (maxDuration - this.player.rollDuration) / maxDuration;
-                        
                         const moveX = Math.cos(this.player.angle);
-                        const rotation = (moveX >= 0 ? 1 : -1) * progress * Math.PI * 2;
+                        const direction = moveX >= 0 ? 1 : -1;
+                        const rotation = direction * progress * Math.PI * 2;
+                        const sprite = Assets.player.run[0];
 
-                        this.ctx.rotate(rotation);
-
-                        if (this.player.rollDuration % 2 === 0) {
-                            this.ctx.globalAlpha = 0.3;
+                        // --- Squash & Stretch ---
+                        let scaleX = 1, scaleY = 1;
+                        if (progress < 0.15) {
+                            const t = progress / 0.15;
+                            scaleX = 1 - 0.3 * t;
+                            scaleY = 1 + 0.3 * t;
+                        } else if (progress > 0.85) {
+                            const t = (progress - 0.85) / 0.15;
+                            scaleX = 1 + 0.3 * t;
+                            scaleY = 1 - 0.3 * t;
                         }
-                        
-                        const sprite = Assets.player.run[0]; 
+
+                        // --- Main body with rotation + scale ---
+                        this.ctx.rotate(rotation);
+                        this.ctx.scale(scaleX, scaleY);
                         this.ctx.drawImage(sprite, -16, -16);
-                        
-                        this.ctx.globalAlpha = 1.0;
 
                     } else {
                         if (this.player.facingRight) this.ctx.scale(-1, 1);
