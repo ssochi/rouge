@@ -38,7 +38,11 @@
 | Melee | 近战系统 | 近战攻击状态机 |
 | Player | 玩家系统 | 玩家瞄准/射击 |
 | Combat | 战斗系统 | 弹道、黑洞、燃烧/流血/冰冻效果 |
-| WorldObjects | 世界物体 | 可破坏物、粒子、敌人、传送门、掉落物 |
+| Breakables | 可破坏物更新 | 可破坏物动画/提示刷新 |
+| Particles | 粒子系统 | 粒子生命周期更新 |
+| EnemyUpdate | 敌人更新 | 敌人 AI、网格分离、破障行为 |
+| Portals | 传送门系统 | 传送门粒子与提示刷新 |
+| DroppedItems | 掉落物系统 | 掉落物动画与交互检测 |
 | Build | 建造系统 | 建造模式更新 |
 | UI | 界面更新 | 快捷栏刷新 |
 | Render | 渲染管线 | Renderer.draw() 全过程 |

@@ -143,7 +143,8 @@ export class BuildSystem {
             } else {
                 const obj = new BreakableObject(this.preview.x, this.preview.y, type);
                 this.worldSystem.breakableObjects.push(obj);
-                this.worldSystem.updateFlowField();
+                this.worldSystem.markWorldStaticDirty();
+                this.worldSystem.rebuildStaticCachesIfNeeded();
             }
         }
 

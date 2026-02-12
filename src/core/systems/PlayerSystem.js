@@ -107,6 +107,9 @@ export class PlayerSystem {
                     }
                     
                     if (obj.interact()) {
+                        if (this.worldSystem && this.worldSystem.markWorldStaticDirty) {
+                            this.worldSystem.markWorldStaticDirty();
+                        }
                         // Interaction successful
                         
                         // Check if we just closed a door (Open -> Closed)

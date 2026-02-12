@@ -29,7 +29,8 @@
       - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。
+      - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用）。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
@@ -109,6 +110,7 @@
   - 帧时间堆叠柱状图（每种颜色 = 一个子系统，带 60fps/30fps 参考线）
   - 子系统耗时分解面板（毫秒 + 百分比 + 比例条）
 - 接入新系统只需 2 行代码，详见 `docs/PROFILER_GUIDE.md`。
+- `WorldObjects` 已细分为 `Breakables` / `Particles` / `EnemyUpdate` / `Portals` / `DroppedItems`，便于定位高并发场景下的真实热点。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品）。快捷栏（Hotbar）支持键盘选择。
@@ -157,10 +159,12 @@
 ### 移动碰撞约定
 - 玩家和敌人通过 `getMovementHitboxAt(x, y)` 提供统一的“移动碰撞体”（脚底占地）。
 - `WorldSystem.resolveEntityMovement()` 负责统一处理移动、贴墙滑动、卡住检测与自动脱困。
+- `WorldSystem.isRectBlocked()` 优先走 `ObstacleSpatialIndex` 的局部候选查询，避免每次碰撞检测全量扫描墙体/可破坏物。
 - 门关闭时会先做阻挡预检，避免将玩家或敌人夹进门框。
 - 当敌人与玩家路径不可达（或持续卡住）时，`WorldSystem` 会触发破障逻辑：优先攻击阻挡路径的门，其次攻击其他阻挡物体，打通后再继续追击。
 - 非僵尸远程敌人（Hunter/Soldier）在近门受阻时可优先开门；若仍无法通行，再走破障流程。
 - 自适应墙体 (`wall`) 采用**多段碰撞体**（`getHitboxes()`），不再等价为单个矩形包围盒。
+- 敌人分离采用两层策略：AI 内部 `getNearbyEnemies()` 软分离 + `WorldSystem` 末尾基于网格邻域的稳定硬分离（累计位移后单次应用），避免全局 `O(N^2)` 同时抑制重叠与震荡。
 - 墙体判定语义拆分为三类：
   - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。
   - `hurtboxes` (`getHurtboxes()`): 用于子弹/激光命中检测。

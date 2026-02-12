@@ -15,6 +15,7 @@ import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
+import { ObstacleSpatialIndex } from './ObstacleSpatialIndex.js';
 import {
     cloneWeaponInstanceData,
     createWeaponInstanceData,
@@ -49,6 +50,15 @@ export class WorldSystem {
         this.generatedLayoutMeta = null;
         this.soldierWeaponPool = null;
         this.roomWeaponPool = null;
+        this.obstacleIndex = new ObstacleSpatialIndex({
+            gridSize: this.navGrid?.gridSize || TILE_SIZE,
+            gridCols: this.navGrid?.gridCols || MAP_WIDTH,
+            gridRows: this.navGrid?.gridRows || MAP_HEIGHT
+        });
+        this.worldStaticDirty = true;
+        this.wallConnectivityDirty = true;
+        this._trackedObstacleCount = 0;
+        this._trackedObstacleStates = new WeakMap();
     }
 
     loadMap(mapType) {
@@ -65,6 +75,10 @@ export class WorldSystem {
         this.floorMapHeight = 0;
         this.floorCanvas = null;
         this.generatedLayoutMeta = null;
+        this.markWorldStaticDirty();
+        if (this.obstacleIndex) {
+            this.obstacleIndex.clear();
+        }
         
         // Reset player state if needed (position is handled per map)
         
@@ -91,7 +105,10 @@ export class WorldSystem {
         }
         
         this.navGrid.setWalls(this.walls);
-        this.navGrid.updateFlowField(this.player.x, this.player.y);
+        this.markWorldStaticDirty();
+        this._trackedObstacleStates = new WeakMap();
+        this._trackedObstacleCount = 0;
+        this.rebuildStaticCachesIfNeeded();
     }
 
     fillInventoryForTest() {
@@ -501,13 +518,78 @@ export class WorldSystem {
         this.spawnGameEncounters();
     }
 
+    markWorldStaticDirty() {
+        this.worldStaticDirty = true;
+        this.wallConnectivityDirty = true;
+    }
+
+    _refreshStaticDirtyFlags() {
+        let changed = false;
+        let count = 0;
+
+        for (const obj of this.breakableObjects) {
+            if (!obj) continue;
+            count++;
+            const stamp = `${obj.isBroken ? 1 : 0}:${obj.isOpen ? 1 : 0}`;
+            const prev = this._trackedObstacleStates.get(obj);
+            if (prev !== stamp) {
+                this._trackedObstacleStates.set(obj, stamp);
+                changed = true;
+            }
+        }
+
+        if (count !== this._trackedObstacleCount) {
+            this._trackedObstacleCount = count;
+            changed = true;
+        }
+
+        if (changed) {
+            this.markWorldStaticDirty();
+        }
+    }
+
+    _snapshotObstacleStates() {
+        const nextStates = new WeakMap();
+        let count = 0;
+        for (const obj of this.breakableObjects) {
+            if (!obj) continue;
+            count++;
+            nextStates.set(obj, `${obj.isBroken ? 1 : 0}:${obj.isOpen ? 1 : 0}`);
+        }
+        this._trackedObstacleStates = nextStates;
+        this._trackedObstacleCount = count;
+    }
+
+    rebuildObstacleIndex() {
+        if (!this.obstacleIndex) return;
+        this.obstacleIndex.rebuild({
+            walls: this.walls,
+            breakableObjects: this.breakableObjects
+        });
+    }
+
+    rebuildStaticCachesIfNeeded() {
+        if (!this.worldStaticDirty && !this.wallConnectivityDirty) return false;
+
+        if (this.wallConnectivityDirty) {
+            this.updateWallConnectivity();
+        }
+        this.rebuildObstacleIndex();
+        this.updateFlowField();
+
+        this.worldStaticDirty = false;
+        this.wallConnectivityDirty = false;
+        this._snapshotObstacleStates();
+        return true;
+    }
+
     updatePortals() {
-        this.portals.forEach(p => {
+        for (const p of this.portals) {
             p.update(this.player);
             // Collision logic moved to PlayerSystem or handled here if purely collision based.
             // But we want 'E' interaction now.
             // Keeping collision check for proximity detection only if needed.
-        });
+        }
     }
 
     _shuffleInPlace(list) {
@@ -852,13 +934,31 @@ export class WorldSystem {
 
     isRectBlocked(rect, options = {}) {
         const ignoreObject = options.ignoreObject || null;
+        const skipOpenDoors = options.skipOpenDoors || false;
+        const canUseIndex = this.obstacleIndex && !this.worldStaticDirty;
+        const indexCandidates = canUseIndex ? this.obstacleIndex.queryRect(rect) : null;
+
+        if (indexCandidates) {
+            for (const entry of indexCandidates) {
+                const obj = entry.object;
+                if (obj) {
+                    if (obj === ignoreObject || obj.isBroken) continue;
+                    if (skipOpenDoors && this._isDoorObject(obj) && obj.isOpen) continue;
+                }
+
+                if (this.checkRectCollision(rect, entry.rect)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         for (const wall of this.walls) {
             if (this.checkRectCollision(rect, wall)) {
                 return true;
             }
         }
 
-        const skipOpenDoors = options.skipOpenDoors || false;
         for (const obj of this.breakableObjects) {
             if (obj.isBroken || obj === ignoreObject) continue;
             if (skipOpenDoors && this._isDoorObject(obj) && obj.isOpen) continue;
@@ -1028,9 +1128,13 @@ export class WorldSystem {
     }
 
     updateFlowFieldForPlayer(frameCount, flowPlayerCellX, flowPlayerCellY) {
+        const rebuilt = this.rebuildStaticCachesIfNeeded();
         const cell = this.navGrid.getCell(this.player.x, this.player.y);
         const playerCellX = cell.x;
         const playerCellY = cell.y;
+        if (rebuilt) {
+            return { x: playerCellX, y: playerCellY };
+        }
         if (playerCellX !== flowPlayerCellX || playerCellY !== flowPlayerCellY || frameCount % 10 === 0) {
             this.updateFlowField();
             return { x: playerCellX, y: playerCellY };
@@ -1096,6 +1200,45 @@ export class WorldSystem {
         return obj.baseType === 'door_h' || obj.baseType === 'door_v' || obj.type === 'door_h' || obj.type === 'door_v';
     }
 
+    _getBreachHitboxCandidates(from, to, nearbyRadius) {
+        if (this.obstacleIndex && !this.worldStaticDirty) {
+            const margin = nearbyRadius + TILE_SIZE;
+            const minX = Math.min(from.x, to.x) - margin;
+            const minY = Math.min(from.y, to.y) - margin;
+            const maxX = Math.max(from.x, to.x) + margin;
+            const maxY = Math.max(from.y, to.y) + margin;
+            const rect = {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY
+            };
+            const indexed = this.obstacleIndex.queryRect(rect, { objectsOnly: true });
+            const result = [];
+            for (const entry of indexed) {
+                if (!entry.object) continue;
+                result.push({
+                    object: entry.object,
+                    hitbox: entry.rect
+                });
+            }
+            return result;
+        }
+
+        const result = [];
+        for (const obj of this.breakableObjects) {
+            if (!obj) continue;
+            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
+            for (const hb of hitboxes) {
+                result.push({
+                    object: obj,
+                    hitbox: hb
+                });
+            }
+        }
+        return result;
+    }
+
     _pickEnemyBreachTarget(enemy) {
         const from = { x: enemy.x, y: enemy.y };
         const to = { x: this.player.x, y: this.player.y };
@@ -1113,34 +1256,48 @@ export class WorldSystem {
         let blockerNearby = null;
         let blockerNearbyDist = Number.POSITIVE_INFINITY;
 
-        for (const obj of this.breakableObjects) {
+        const objectStates = new Map();
+        const candidates = this._getBreachHitboxCandidates(from, to, nearbyRadius);
+
+        for (const candidate of candidates) {
+            const obj = candidate.object;
             if (!obj || obj.isBroken) continue;
 
             const isDoor = this._isDoorObject(obj);
             if (isDoor && obj.isOpen) continue;
 
-            const hitboxes = obj.getHitboxes ? obj.getHitboxes() : [obj.getHitbox()];
-            if (!hitboxes || hitboxes.length === 0) continue;
-
-            let minDist = Number.POSITIVE_INFINITY;
-            let nearestHitbox = null;
-            let intersectsPath = false;
-
-            for (const hb of hitboxes) {
-                const dist = this._distancePointToRect(enemy.x, enemy.y, hb);
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearestHitbox = hb;
-                }
-
-                if (!intersectsPath && CollisionUtils.lineIntersectsRect(from, to, hb)) {
-                    intersectsPath = true;
-                }
+            const hb = candidate.hitbox;
+            if (!hb) continue;
+            let state = objectStates.get(obj);
+            if (!state) {
+                state = {
+                    object: obj,
+                    minDist: Number.POSITIVE_INFINITY,
+                    nearestHitbox: null,
+                    intersectsPath: false
+                };
+                objectStates.set(obj, state);
             }
 
+            const dist = this._distancePointToRect(enemy.x, enemy.y, hb);
+            if (dist < state.minDist) {
+                state.minDist = dist;
+                state.nearestHitbox = hb;
+            }
+
+            if (!state.intersectsPath && CollisionUtils.lineIntersectsRect(from, to, hb)) {
+                state.intersectsPath = true;
+            }
+        }
+
+        for (const state of objectStates.values()) {
+            const obj = state.object;
+            const nearestHitbox = state.nearestHitbox;
+            const minDist = state.minDist;
             if (!nearestHitbox || !Number.isFinite(minDist)) continue;
 
-            if (intersectsPath) {
+            const isDoor = this._isDoorObject(obj);
+            if (state.intersectsPath) {
                 if (isDoor && minDist < doorOnPathDist) {
                     doorOnPathDist = minDist;
                     doorOnPath = { object: obj, hitbox: nearestHitbox };
@@ -1179,6 +1336,10 @@ export class WorldSystem {
         const damage = Math.max(4, Math.round(baseDamage * 0.8));
         const wasBroken = targetObj.isBroken;
         targetObj.takeDamage(damage);
+
+        if (!wasBroken && targetObj.isBroken) {
+            this.markWorldStaticDirty();
+        }
 
         if (!wasBroken && targetObj.isBroken && this.combatSystem) {
             if (this.combatSystem.spawnDebris) {
@@ -1299,7 +1460,11 @@ export class WorldSystem {
             if (enemy._breachAttackCooldown <= 0) {
                 const isDoor = this._isDoorObject(target.object);
                 if (isDoor && enemy.canOpenDoors && target.object.interact && !target.object.isOpen) {
+                    const wasOpen = !!target.object.isOpen;
                     target.object.interact();
+                    if (!!target.object.isOpen !== wasOpen) {
+                        this.markWorldStaticDirty();
+                    }
                     enemy._breachAttackCooldown = 10;
                 } else {
                     this._damageObstacleFromEnemy(enemy, target.object);
@@ -1319,15 +1484,134 @@ export class WorldSystem {
         return true;
     }
 
+    _resolveEnemySeparationPair(e1, e2, pushes, enemyIndex) {
+        if (!e1 || !e2 || e1 === e2 || e1.hp <= 0 || e2.hp <= 0) return;
+
+        let dx = e1.x - e2.x;
+        let dy = e1.y - e2.y;
+        let distSq = dx * dx + dy * dy;
+        const minDist = (e1.width + e2.width) / 2;
+        const minDistSq = minDist * minDist;
+        if (distSq >= minDistSq) return;
+
+        let nx = 0;
+        let ny = 0;
+        let dist = 0;
+        if (distSq <= 1e-6) {
+            // Deterministic fallback direction for near-perfect overlap.
+            const i1 = enemyIndex.get(e1) || 0;
+            const i2 = enemyIndex.get(e2) || 0;
+            const seed = ((i1 * 73856093) ^ (i2 * 19349663)) & 1023;
+            const angle = (seed / 1024) * Math.PI * 2;
+            nx = Math.cos(angle);
+            ny = Math.sin(angle);
+            dist = 0;
+        } else {
+            dist = Math.sqrt(distSq);
+            nx = dx / dist;
+            ny = dy / dist;
+        }
+
+        const overlap = minDist - dist;
+        const overlapEpsilon = 0.35;
+        if (overlap <= overlapEpsilon) return;
+
+        const maxPairPush = 1.25;
+        const correction = Math.min(maxPairPush, (overlap - overlapEpsilon) * 0.5);
+        if (correction <= 0) return;
+
+        let p1 = pushes.get(e1);
+        if (!p1) {
+            p1 = { x: 0, y: 0 };
+            pushes.set(e1, p1);
+        }
+        p1.x += nx * correction;
+        p1.y += ny * correction;
+
+        let p2 = pushes.get(e2);
+        if (!p2) {
+            p2 = { x: 0, y: 0 };
+            pushes.set(e2, p2);
+        }
+        p2.x -= nx * correction;
+        p2.y -= ny * correction;
+    }
+
+    _resolveEnemySeparationByGrid() {
+        const grid = this.navGrid.enemyGrid;
+        if (!grid || grid.size === 0 || this.enemies.length <= 1) return;
+
+        const cols = this.navGrid.gridCols;
+        const rows = this.navGrid.gridRows;
+        const neighborOffsets = [
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 1, y: 1 },
+            { x: 1, y: -1 }
+        ];
+
+        const pushes = new Map();
+        const enemyIndex = new Map();
+        for (let i = 0; i < this.enemies.length; i++) {
+            enemyIndex.set(this.enemies[i], i);
+        }
+
+        for (const [key, list] of grid.entries()) {
+            if (!list || list.length === 0) continue;
+            const cellX = key % cols;
+            const cellY = (key - cellX) / cols;
+
+            for (let i = 0; i < list.length; i++) {
+                const e1 = list[i];
+                for (let j = i + 1; j < list.length; j++) {
+                    this._resolveEnemySeparationPair(e1, list[j], pushes, enemyIndex);
+                }
+            }
+
+            for (const offset of neighborOffsets) {
+                const nx = cellX + offset.x;
+                const ny = cellY + offset.y;
+                if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+                const otherList = grid.get(nx + ny * cols);
+                if (!otherList || otherList.length === 0) continue;
+
+                for (const e1 of list) {
+                    for (const e2 of otherList) {
+                        this._resolveEnemySeparationPair(e1, e2, pushes, enemyIndex);
+                    }
+                }
+            }
+        }
+
+        const relaxation = 0.6;
+        const maxEnemyPush = 1.75;
+        for (const [enemy, push] of pushes.entries()) {
+            if (!enemy || enemy.hp <= 0) continue;
+
+            let px = push.x * relaxation;
+            let py = push.y * relaxation;
+            const len = Math.hypot(px, py);
+            if (len < 0.01) continue;
+            if (len > maxEnemyPush) {
+                const scale = maxEnemyPush / len;
+                px *= scale;
+                py *= scale;
+            }
+
+            this.resolveEntityMovement(
+                enemy,
+                enemy.x + px,
+                enemy.y + py,
+                px,
+                py,
+                { skipOpenDoors: true }
+            );
+        }
+    }
+
     updateEnemies() {
-        // Periodically update wall visuals (e.g., every 10 frames)
-        // We assume updateEnemies is called every frame
-        // We can add a frame counter or just use a random check?
-        // Let's assume Game.js calls this every frame.
-        // We don't have access to frameCount here easily unless passed.
-        // Let's just do it every frame for now, optimization later if needed.
-        // Actually, N is small.
-        this.updateWallConnectivity();
+        this._refreshStaticDirtyFlags();
+        this.rebuildStaticCachesIfNeeded();
 
         // Filter dead enemies and remove them from the array
         for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -1361,42 +1645,7 @@ export class WorldSystem {
             this.resolveEntityMovement(enemy, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
         };
 
-        // Simple Enemy-Enemy Collision Resolution (Separation)
-        for (let i = 0; i < this.enemies.length; i++) {
-            for (let j = i + 1; j < this.enemies.length; j++) {
-                const e1 = this.enemies[i];
-                const e2 = this.enemies[j];
-                
-                const dx = e1.x - e2.x;
-                const dy = e1.y - e2.y;
-                const distSq = dx*dx + dy*dy;
-                const minDist = (e1.width + e2.width) / 2; // Approximate radius
-                
-                if (distSq < minDist * minDist && distSq > 0) {
-                    const dist = Math.sqrt(distSq);
-                    const overlap = minDist - dist;
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    
-                    const push = overlap / 2;
-                    const e1TargetX = e1.x + nx * push;
-                    const e1TargetY = e1.y + ny * push;
-                    const e2TargetX = e2.x - nx * push;
-                    const e2TargetY = e2.y - ny * push;
-
-                    if (!this.isEntityBlockedAt(e1, e1TargetX, e1TargetY, { skipOpenDoors: true })) {
-                        e1.x = e1TargetX;
-                        e1.y = e1TargetY;
-                    }
-                    if (!this.isEntityBlockedAt(e2, e2TargetX, e2TargetY, { skipOpenDoors: true })) {
-                        e2.x = e2TargetX;
-                        e2.y = e2TargetY;
-                    }
-                }
-            }
-        }
-
-        this.enemies.forEach(e => {
+        for (const e of this.enemies) {
             e.update(
                 this.player,
                 this.walls,
@@ -1409,7 +1658,11 @@ export class WorldSystem {
             );
 
             this._updateEnemyBreachBehavior(e);
-        });
+        }
+
+        // Run one stable post-update overlap resolution pass to avoid large zombie stacks.
+        this.navGrid.buildEnemyGrid(this.enemies);
+        this._resolveEnemySeparationByGrid();
     }
 
     updatePets() {

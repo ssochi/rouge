@@ -359,14 +359,28 @@ export class Game {
         this.profiler.end('Combat');
 
         // --- World Objects ---
-        this.profiler.begin('WorldObjects');
-        this.breakableObjects.forEach(obj => obj.update(this.player));
+        this.profiler.begin('Breakables');
+        for (const obj of this.breakableObjects) {
+            obj.update(this.player);
+        }
+        this.profiler.end('Breakables');
+
+        this.profiler.begin('Particles');
         this.combatSystem.updateParticles();
+        this.profiler.end('Particles');
+
+        this.profiler.begin('EnemyUpdate');
         this.worldSystem.updateEnemies();
         this.worldSystem.updatePets();
+        this.profiler.end('EnemyUpdate');
+
+        this.profiler.begin('Portals');
         this.worldSystem.updatePortals();
+        this.profiler.end('Portals');
+
+        this.profiler.begin('DroppedItems');
         this.playerSystem.updateDroppedItems();
-        this.profiler.end('WorldObjects');
+        this.profiler.end('DroppedItems');
 
         // --- Build ---
         this.profiler.begin('Build');

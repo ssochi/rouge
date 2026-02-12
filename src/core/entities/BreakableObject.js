@@ -65,7 +65,7 @@ export class BreakableObject {
         
         // Handle Animation
         const sprite = Assets.objects[this.type];
-        if (Array.isArray(sprite)) {
+        if (Array.isArray(sprite) && !this.isAdaptive) {
             if (!this.frameTimer) this.frameTimer = 0;
             this.frameTimer++;
             
