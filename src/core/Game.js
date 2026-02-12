@@ -13,7 +13,6 @@ import { MeleeSystem } from './systems/MeleeSystem.js';
 import { ProfilerSystem } from './systems/ProfilerSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
-import { PetDog } from './entities/PetDog.js';
 
 export class Game {
     constructor(canvas) {
@@ -163,7 +162,8 @@ export class Game {
             inventorySystem: this.inventorySystem,
             buildSystem: this.buildSystem,
             meleeSystem: this.meleeSystem,
-            particles: this.particles
+            particles: this.particles,
+            pets: this.pets
         });
 
         this.profiler = new ProfilerSystem();
@@ -192,9 +192,6 @@ export class Game {
             pets: this.pets
         });
 
-        // Spawn pet dog near player
-        this.pets.push(new PetDog(this.player.x + 30, this.player.y + 20));
-
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
         this.inventorySystem.add('weapon:katana', 1);
@@ -202,6 +199,9 @@ export class Game {
         this.inventorySystem.add('weapon:greatsword', 1);
         this.inventorySystem.add('weapon:spear', 1);
         this.inventorySystem.add('weapon:battle_axe', 1);
+        this.inventorySystem.add('consumable:pet_dog', 1);
+        this.inventorySystem.add('consumable:pet_cat', 1);
+        this.inventorySystem.add('consumable:pet_2b', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click

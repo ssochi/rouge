@@ -9,11 +9,13 @@
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
     - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
+    - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
+    - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
     - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
-    - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`）。
+    - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
@@ -26,12 +28,14 @@
       - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
       - `DroppedItem.js`: 掉落物逻辑与悬浮效果（支持 weapon/placeable/consumable）。
       - `Portal.js`: 传送门逻辑与粒子渲染。
-      - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗）。
+      - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗，远距离自动传送）。
+      - `PetCat.js`: 宠物猫实体（与 PetDog 同架构，速度更快，体型更小，灰白虎斑外观）。
+      - `Pet2B.js`: 尼尔机械纪元 2B 宠物实体（人形角色，scale 0.65，白蓝科技风传送特效）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
       - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
-      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用）。
+      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
@@ -120,6 +124,7 @@
 - **掉落物**: `DroppedItem` 类负责管理地面掉落（武器/可放置物/消耗品），包含悬浮动画与拾取提示。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取、快捷栏切换以及左键动作分流（射击/放置/使用消耗品）。
 - **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。
+- **宠物系统**: 宠物存储在独立的 `pets` 数组（不在 `enemies` 中），不参与战斗碰撞。宠物作为消耗品道具注册（`consumable:pet_dog`/`consumable:pet_cat`），从快捷栏左键使用后召唤。`WorldSystem.updatePets()` 复用流场寻路实现跟随。宠物超过 600px 距离时自动传送到玩家身边（带消散/出现粒子特效）。猫（`PetCat`）比狗（`PetDog`）速度更快、体型更小。
 
 ### 建筑生成场景（construction + game）
 - `construction` 与 `game` 地图都通过 `generation/ConstructionLayoutGenerator.js` 进行流程化生成，不再依赖 `game` 旧随机墙逻辑。

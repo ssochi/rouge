@@ -124,12 +124,17 @@ export class WorldSystem {
         this.inventorySystem.add('weapon:crossbow', 1);
         this.inventorySystem.add('weapon:grenade_launcher', 1);
 
+        // Add Consumables (Pets)
+        this.inventorySystem.add('consumable:pet_dog', 1);
+        this.inventorySystem.add('consumable:pet_cat', 1);
+        this.inventorySystem.add('consumable:pet_2b', 1);
+
         // Add Placeables
         const ids = this.inventorySystem.getAllPlaceableIds();
         ids.forEach(id => {
             this.inventorySystem.add(id, 99);
         });
-        
+
         // Select first slot
         this.inventorySystem.selectHotbarSlot(0);
     }
@@ -1683,8 +1688,9 @@ export class WorldSystem {
             this.resolveEntityMovement(pet, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
         };
 
+        const particles = this.combatSystem ? this.combatSystem.particles : null;
         this.pets.forEach(pet => {
-            pet.update(this.player, getFlowDirection, getNavDirection, resolvePetMove);
+            pet.update(this.player, getFlowDirection, getNavDirection, resolvePetMove, particles);
         });
     }
 }

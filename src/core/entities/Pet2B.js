@@ -1,6 +1,6 @@
 import { Assets } from '../../graphics/Assets.js';
 
-export class PetDog {
+export class Pet2B {
     constructor(x, y) {
         this.x = x;
         this.y = y;
@@ -8,14 +8,14 @@ export class PetDog {
         this.height = 16;
 
         // Movement hitbox (bottom-aligned, for wall collision)
-        this.hitboxWidth = 10;
-        this.hitboxHeight = 6;
+        this.hitboxWidth = 8;
+        this.hitboxHeight = 5;
         this.hitboxOffsetY = 10;
 
-        this.maxSpeed = 4.5;
+        this.maxSpeed = 4.8;
         this.currentSpeed = 0;
-        this.accel = 0.35;      // Acceleration per frame
-        this.decel = 0.25;      // Deceleration per frame (slower for slide-to-stop)
+        this.accel = 0.38;
+        this.decel = 0.28;
         this.state = 'idle'; // idle | run
         this.animationTimer = 0;
         this.facingRight = false;
@@ -47,15 +47,14 @@ export class PetDog {
             return;
         }
 
-        // Hysteresis zone: run when far, idle when close
+        // Hysteresis zone
         let wantsToRun = this.state === 'run';
-        if (dist > 60) wantsToRun = true;
-        else if (dist <= 40) wantsToRun = false;
+        if (dist > 58) wantsToRun = true;
+        else if (dist <= 38) wantsToRun = false;
 
         // Compute desired direction
         let dirX = 0, dirY = 0;
         if (wantsToRun) {
-            // Use flow field for pathfinding
             if (getFlowDirection) {
                 const flow = getFlowDirection(this.x, this.y);
                 if (flow && (flow.x !== 0 || flow.y !== 0)) {
@@ -63,12 +62,10 @@ export class PetDog {
                     dirY = flow.y;
                 }
             }
-            // Fallback: direct path when very close
             if (dirX === 0 && dirY === 0 && dist > 0) {
                 dirX = dx / dist;
                 dirY = dy / dist;
             }
-            // Navigate around obstacles
             if (getNavDirection) {
                 const nav = getNavDirection(this, dirX, dirY);
                 if (nav && (nav.x !== 0 || nav.y !== 0)) {
@@ -76,22 +73,18 @@ export class PetDog {
                     dirY = nav.y;
                 }
             }
-            // Normalize
             const len = Math.sqrt(dirX * dirX + dirY * dirY);
             if (len > 0) { dirX /= len; dirY /= len; }
         }
 
         // Smooth acceleration / deceleration
         if (wantsToRun) {
-            // Speed up: faster when further from player
-            const targetSpeed = Math.min(this.maxSpeed, this.maxSpeed * (dist / 80));
+            const targetSpeed = Math.min(this.maxSpeed, this.maxSpeed * (dist / 75));
             this.currentSpeed = Math.min(targetSpeed, this.currentSpeed + this.accel);
-            // Blend direction smoothly
-            this.vx += (dirX - this.vx) * 0.2;
-            this.vy += (dirY - this.vy) * 0.2;
+            this.vx += (dirX - this.vx) * 0.22;
+            this.vy += (dirY - this.vy) * 0.22;
             this.state = 'run';
         } else {
-            // Decelerate to stop
             this.currentSpeed = Math.max(0, this.currentSpeed - this.decel);
             if (this.currentSpeed < 0.1) {
                 this.currentSpeed = 0;
@@ -105,7 +98,6 @@ export class PetDog {
             let mvx = this.vx, mvy = this.vy;
             if (vLen > 0) { mvx /= vLen; mvy /= vLen; }
 
-            // Update facing
             if (mvx > 0.1) this.facingRight = true;
             else if (mvx < -0.1) this.facingRight = false;
 
@@ -119,14 +111,13 @@ export class PetDog {
                 this.y = nextY;
             }
         } else {
-            // Face toward player when idle
             if (dx > 5) this.facingRight = true;
             else if (dx < -5) this.facingRight = false;
         }
     }
 
     _teleportTo(playerX, playerY, particles) {
-        // Disappear VFX at old position
+        // Disappear VFX — white/blue tech particles (YoRHa style)
         for (let i = 0; i < 8; i++) {
             const angle = Math.random() * Math.PI * 2;
             particles.push({
@@ -136,7 +127,7 @@ export class PetDog {
                 vx: Math.cos(angle) * 0.5,
                 vy: -Math.random() * 1.5 - 0.5,
                 life: 20 + Math.random() * 10,
-                color: '#b0d0ff',
+                color: '#c0d8ff',
                 size: 2 + Math.random() * 2,
                 alpha: 0.7
             });
@@ -151,7 +142,7 @@ export class PetDog {
         this.vx = 0;
         this.vy = 0;
 
-        // Appear VFX at new position
+        // Appear VFX — white/light blue (sci-fi feel)
         for (let i = 0; i < 10; i++) {
             const angle = (i / 10) * Math.PI * 2;
             particles.push({
@@ -161,7 +152,7 @@ export class PetDog {
                 vx: Math.cos(angle) * 1.5,
                 vy: Math.sin(angle) * 1.0,
                 life: 15 + Math.random() * 10,
-                color: i % 2 === 0 ? '#ffffff' : '#ffe066',
+                color: i % 2 === 0 ? '#ffffff' : '#a0c8ff',
                 size: 2 + Math.random() * 2,
                 alpha: 0.8
             });
@@ -169,36 +160,34 @@ export class PetDog {
     }
 
     draw(ctx) {
-        const s = 0.6; // Scale down for small dog look
+        const s = 0.65; // Slightly larger scale for humanoid detail
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
 
         if (this.facingRight) ctx.scale(-1, 1);
 
-        // Shadow (aligned with sprite feet)
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.ellipse(0, 10, 5, 2.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 10, 5, 2, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Scale sprite down, shift Y so feet land on shadow
+        // Scale sprite down
         ctx.scale(s, s);
 
-        // Select animation frames
         let frames;
         let frameDelay;
         if (this.state === 'run') {
-            frames = Assets.dog.run;
-            frameDelay = 4;
+            frames = Assets.nier2b.run;
+            frameDelay = 5;
         } else {
-            frames = Assets.dog.idle;
+            frames = Assets.nier2b.idle;
             frameDelay = 8;
         }
 
         if (frames && frames.length > 0) {
             const frameIndex = Math.floor(this.animationTimer / frameDelay) % frames.length;
-            // -12 instead of -16: shifts sprite down so feet (row 29) align with shadow at y=10
-            ctx.drawImage(frames[frameIndex], -16, -12);
+            ctx.drawImage(frames[frameIndex], -16, -10);
         }
 
         ctx.restore();
