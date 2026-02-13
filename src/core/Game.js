@@ -13,7 +13,7 @@ import { MeleeSystem } from './systems/MeleeSystem.js';
 import { ProfilerSystem } from './systems/ProfilerSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
-import { PetDog } from './entities/PetDog.js';
+import { TestPanel } from '../ui/TestPanel.js';
 
 export class Game {
     constructor(canvas) {
@@ -167,7 +167,8 @@ export class Game {
             inventorySystem: this.inventorySystem,
             buildSystem: this.buildSystem,
             meleeSystem: this.meleeSystem,
-            particles: this.particles
+            particles: this.particles,
+            pets: this.pets
         });
 
         this.profiler = new ProfilerSystem();
@@ -196,16 +197,8 @@ export class Game {
             pets: this.pets
         });
 
-        // Spawn pet dog near player
-        this.pets.push(new PetDog(this.player.x + 30, this.player.y + 20));
-
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
-        this.inventorySystem.add('weapon:katana', 1);
-        this.inventorySystem.add('weapon:dagger', 1);
-        this.inventorySystem.add('weapon:greatsword', 1);
-        this.inventorySystem.add('weapon:spear', 1);
-        this.inventorySystem.add('weapon:battle_axe', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click
@@ -235,6 +228,13 @@ export class Game {
         
         this.isInventoryOpen = false;
         this.bPressed = false;
+
+        this.testPanel = new TestPanel({
+            inventorySystem: this.inventorySystem,
+            worldSystem: this.worldSystem,
+            player: this.player
+        });
+        this.lPressed = false;
 
         this.worldSystem.loadMap('hub'); // Start in Hub
         this.playerSystem.updateEquippedItem();
@@ -274,6 +274,14 @@ export class Game {
             this.bPressed = false;
         }
 
+        // Toggle Test Panel
+        if (this.input.keys.l && !this.lPressed) {
+            this.lPressed = true;
+            this.testPanel.toggle();
+        } else if (!this.input.keys.l) {
+            this.lPressed = false;
+        }
+
         // Toggle Profiler
         if (this.input.keys.i && !this.iPressed) {
             this.iPressed = true;
@@ -282,7 +290,7 @@ export class Game {
             this.iPressed = false;
         }
 
-        if (this.isInventoryOpen) {
+        if (this.isInventoryOpen || this.testPanel.isOpen) {
             return;
         }
 

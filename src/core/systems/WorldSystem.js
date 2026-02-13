@@ -86,22 +86,18 @@ export class WorldSystem {
             case 'hub':
                 this.initHubMap();
                 break;
-            case 'test':
-                this.initTestMap();
-                break;
             case 'construction':
                 this.initConstructionMap();
                 break;
             case 'game':
                 this.initGameMap();
                 break;
+            case 'test':
+                this.initTestMap();
+                break;
             default:
                 console.error('Unknown map type:', mapType);
                 this.initHubMap();
-        }
-        
-        if (mapType === 'test' && this.inventorySystem) {
-            this.fillInventoryForTest();
         }
         
         this.navGrid.setWalls(this.walls);
@@ -109,29 +105,6 @@ export class WorldSystem {
         this._trackedObstacleStates = new WeakMap();
         this._trackedObstacleCount = 0;
         this.rebuildStaticCachesIfNeeded();
-    }
-
-    fillInventoryForTest() {
-        if (!this.inventorySystem) return;
-        
-        // Add Weapons
-        this.inventorySystem.add('weapon:rifle', 1);
-        this.inventorySystem.add('weapon:rocket_launcher', 1);
-        this.inventorySystem.add('weapon:pistol', 1);
-        this.inventorySystem.add('weapon:smg', 1);
-        this.inventorySystem.add('weapon:shotgun', 1);
-        this.inventorySystem.add('weapon:sniper', 1);
-        this.inventorySystem.add('weapon:crossbow', 1);
-        this.inventorySystem.add('weapon:grenade_launcher', 1);
-
-        // Add Placeables
-        const ids = this.inventorySystem.getAllPlaceableIds();
-        ids.forEach(id => {
-            this.inventorySystem.add(id, 99);
-        });
-        
-        // Select first slot
-        this.inventorySystem.selectHotbarSlot(0);
     }
 
     initHubMap() {
@@ -170,10 +143,10 @@ export class WorldSystem {
         
         // Test Portal (Blue)
         this.portals.push(new Portal(
-            startX + 12 * TILE_SIZE, 
-            startY + 2 * TILE_SIZE, 
-            'test', 
-            'TEST', 
+            startX + 12 * TILE_SIZE,
+            startY + 2 * TILE_SIZE,
+            'test',
+            'TEST',
             '#3498db'
         ));
 
@@ -390,118 +363,63 @@ export class WorldSystem {
     }
 
     initTestMap() {
-        // Open area with test sections
-        // Walls
-        this.walls.push({x: 0, y: 0, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: (MAP_HEIGHT - 1) * TILE_SIZE, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-        this.walls.push({x: (MAP_WIDTH - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-        
-        this.player.x = 200;
-        this.player.y = 300;
-        
-        // Weapon Rack
-        let wx = 200;
-        for (const key in WEAPONS) {
-            if (key === 'hammer' || WEAPONS[key]?.isUtility) continue;
-            this.droppedItems.push(new DroppedItem(wx, 200, `weapon:${key.replace('default_', '')}`, 1));
-            wx += 64;
-        }
-        
-        // Breakable Grid (All Types)
-        // Dynamically get all object types from Assets.objects
-        // Filter out _flash variants
-        const allTypes = Object.keys(Assets.objects).filter(key => !key.endsWith('_flash'));
-        const carpetTypes = allTypes.filter(key => key.startsWith('carpet_'));
-        const types = allTypes.filter(key => !key.startsWith('carpet_'));
+        // 1000x1000 px showcase area with 3x3-tile cells
+        const cellTiles = 3;
+        const cellPx = cellTiles * TILE_SIZE; // 96px per cell
+        const cols = 10;
+        const rows = 12; // row 0 = spawn, row 1 = vehicles, rows 2+ = objects
+        const wallThick = TILE_SIZE;
+        const areaW = wallThick * 2 + cols * cellPx; // walls + content
+        const areaH = wallThick * 2 + rows * cellPx;
 
-        if (carpetTypes.length > 0) {
-            const carpetStartX = 200;
-            const carpetStartY = 350;
-            let cx = carpetStartX;
-            let cy = carpetStartY;
-            let rowMaxH = 0;
-            const maxRowWidth = 900;
-            const margin = 24;
+        // Boundary walls
+        this.walls.push({ x: 0, y: 0, w: areaW, h: wallThick });
+        this.walls.push({ x: 0, y: areaH - wallThick, w: areaW, h: wallThick });
+        this.walls.push({ x: 0, y: 0, w: wallThick, h: areaH });
+        this.walls.push({ x: areaW - wallThick, y: 0, w: wallThick, h: areaH });
 
-            carpetTypes.forEach(type => {
-                const sprite = Assets.objects[type];
-                const w = sprite ? sprite.width : 32;
-                const h = sprite ? sprite.height : 32;
+        // Content origin (inside walls)
+        const ox = wallThick;
+        const oy = wallThick;
 
-                if (cx + w > carpetStartX + maxRowWidth) {
-                    cx = carpetStartX;
-                    cy += rowMaxH + margin;
-                    rowMaxH = 0;
-                }
-
-                this.carpets.push(new Carpet(cx, cy, type));
-                cx += w + margin;
-                rowMaxH = Math.max(rowMaxH, h);
-            });
-        }
-
-        const baseStartX = 200;
-        const baseStartY = 520;
-        const typesPerRow = 5;
-        const gridSpacingX = 250;
-        const gridSpacingY = 300; // 5 rows * 40 = 200 + margin
-        
-        types.forEach((type, index) => {
-            const typeRow = Math.floor(index / typesPerRow);
-            const typeCol = index % typesPerRow;
-            
-            const currentStartX = baseStartX + typeCol * gridSpacingX;
-            const currentStartY = baseStartY + typeRow * gridSpacingY;
-
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    const obj = new BreakableObject(
-                        currentStartX + c * 40,
-                        currentStartY + r * 40,
-                        type
-                    );
-                    
-                    // Special spacing for Bed (it's tall)
-                    if (type === 'bed') {
-                        // Increase vertical spacing
-                        obj.y = currentStartY + r * 60;
-                    } else if (type === 'bed_h') {
-                         // Increase horizontal spacing (it's wide)
-                         obj.x = currentStartX + c * 60;
-                    } else if (type === 'wardrobe') {
-                         // Increase vertical spacing
-                         obj.y = currentStartY + r * 70;
-                    } else if (type === 'sofa') {
-                         obj.x = currentStartX + c * 60; // Wider
-                    } else if (type === 'bookshelf') {
-                         obj.y = currentStartY + r * 60; // Taller
-                    }
-                    
-                    this.breakableObjects.push(obj);
-                }
-            }
-        });
-        
-        // Return Portal
+        // Row 0: player spawn + return portal
+        this.player.x = ox + cellPx * 1.5;
+        this.player.y = oy + cellPx * 0.5;
         this.portals.push(new Portal(
-            100, 
-            100, 
-            'hub', 
-            'HUB', 
-            '#9b59b6'
+            ox + cellPx * 0.5, oy + cellPx * 0.5,
+            'hub', 'HUB', '#9b59b6'
         ));
 
-        // Add Test Vehicle
-        if (this.vehicles) {
-            // Place vehicles near the portal (100, 100) aligned in a row
-            // Away from items (which are at Y=200)
-            this.vehicles.push(new Vehicle(220, 100, 'suv'));
-            this.vehicles.push(new Vehicle(320, 100, 'truck'));
-            this.vehicles.push(new Vehicle(420, 100, 'police'));
+        // Row 1: vehicles (cycle through types)
+        const vehicleTypes = ['suv', 'truck', 'police'];
+        for (let col = 0; col < cols; col++) {
+            const cx = ox + col * cellPx + cellPx / 2;
+            const cy = oy + 1 * cellPx + cellPx / 2;
+            const vType = vehicleTypes[col % vehicleTypes.length];
+            if (this.vehicles) {
+                this.vehicles.push(new Vehicle(cx, cy, vType));
+            }
         }
 
-        // Initialize floor map (GRASS base) so floor tiles can be placed
+        // Rows 2+: one object per cell
+        const objectTypes = Object.keys(Assets.objects).filter(k =>
+            !k.endsWith('_flash') &&
+            !k.includes('_frame') &&
+            !k.includes('_panel') &&
+            !k.startsWith('carpet_')
+        );
+        let objectIdx = 0;
+        for (let row = 2; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                if (objectIdx >= objectTypes.length) break;
+                const cx = ox + col * cellPx + cellPx / 2;
+                const cy = oy + row * cellPx + cellPx / 2;
+                this.breakableObjects.push(new BreakableObject(cx, cy, objectTypes[objectIdx]));
+                objectIdx++;
+            }
+        }
+
+        // Floor (grass)
         const S = FLOOR_TILES_PER_CELL;
         this.floorMapWidth = MAP_WIDTH * S;
         this.floorMapHeight = MAP_HEIGHT * S;
@@ -1177,20 +1095,31 @@ export class WorldSystem {
         // 2. Update masks for walls only (doors don't change shape based on neighbors, but they affect walls)
         for (const wall of walls) {
             let mask = 0;
+            let collisionMask = 0;
             const x = Math.floor(wall.x);
             const y = Math.floor(wall.y);
             const TILE = 32; // Assuming 32 is TILE_SIZE
-            
-            // North
-            if (wallMap.has(`${x},${y - TILE}`)) mask |= 1;
-            // East
-            if (wallMap.has(`${x + TILE},${y}`)) mask |= 2;
-            // South
-            if (wallMap.has(`${x},${y + TILE}`)) mask |= 4;
-            // West
-            if (wallMap.has(`${x - TILE},${y}`)) mask |= 8;
-            
-            wall.setWallMask(mask);
+
+            const directions = [
+                { dx: 0, dy: -TILE, bit: 1 }, // North
+                { dx: TILE, dy: 0, bit: 2 },  // East
+                { dx: 0, dy: TILE, bit: 4 },  // South
+                { dx: -TILE, dy: 0, bit: 8 }  // West
+            ];
+
+            for (const dir of directions) {
+                const neighbor = wallMap.get(`${x + dir.dx},${y + dir.dy}`);
+                if (neighbor) {
+                    mask |= dir.bit;
+                    // Don't extend collision toward open doors (fixes visual-collision gap mismatch)
+                    const isOpenDoor = this._isDoorObject(neighbor) && neighbor.isOpen;
+                    if (!isOpenDoor) {
+                        collisionMask |= dir.bit;
+                    }
+                }
+            }
+
+            wall.setWallMask(mask, collisionMask);
         }
     }
 
@@ -1699,8 +1628,9 @@ export class WorldSystem {
             this.resolveEntityMovement(pet, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
         };
 
+        const particles = this.combatSystem ? this.combatSystem.particles : null;
         this.pets.forEach(pet => {
-            pet.update(this.player, getFlowDirection, getNavDirection, resolvePetMove);
+            pet.update(this.player, getFlowDirection, getNavDirection, resolvePetMove, particles);
         });
     }
 }

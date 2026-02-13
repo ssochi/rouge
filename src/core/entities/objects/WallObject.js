@@ -45,27 +45,36 @@ export const WallObject = {
         obj.wallMask = 0;
         obj.occlusionSortY = FRONT_FACE_Y;
     },
-    setWallMask(obj, mask) {
+    setWallMask(obj, mask, collisionMask) {
         if (!obj.isAdaptive) return;
+
+        const cmask = collisionMask !== undefined ? collisionMask : mask;
 
         obj.wallMask = mask;
         obj.frameIndex = mask;
         obj.hitboxes = [];
 
-        obj.hitboxes.push({ offsetX: 10, offsetY: 10, width: 12, height: 12 });
-        if (mask & 1) obj.hitboxes.push({ offsetX: 10, offsetY: 0, width: 12, height: 10 });
-        if (mask & 2) obj.hitboxes.push({ offsetX: 22, offsetY: 10, width: 10, height: 12 });
-        if (mask & 4) obj.hitboxes.push({ offsetX: 10, offsetY: 22, width: 12, height: 10 });
-        if (mask & 8) obj.hitboxes.push({ offsetX: 0, offsetY: 10, width: 10, height: 12 });
+        // Center block — shrink sides facing open doors (visual has connection, collision doesn't)
+        let cMinX = 10, cMaxX = 22, cMinY = 10, cMaxY = 22;
+        if ((mask & 1) && !(cmask & 1)) cMinY = 16;
+        if ((mask & 4) && !(cmask & 4)) cMaxY = 16;
+        if ((mask & 8) && !(cmask & 8)) cMinX = 16;
+        if ((mask & 2) && !(cmask & 2)) cMaxX = 16;
 
-        let minX = 10;
-        let maxX = 22;
-        let minY = 10;
-        let maxY = 22;
-        if (mask & 1) minY = 0;
-        if (mask & 2) maxX = 32;
-        if (mask & 4) maxY = 32;
-        if (mask & 8) minX = 0;
+        obj.hitboxes.push({ offsetX: cMinX, offsetY: cMinY, width: cMaxX - cMinX, height: cMaxY - cMinY });
+        if (cmask & 1) obj.hitboxes.push({ offsetX: 10, offsetY: 0, width: 12, height: 10 });
+        if (cmask & 2) obj.hitboxes.push({ offsetX: 22, offsetY: 10, width: 10, height: 12 });
+        if (cmask & 4) obj.hitboxes.push({ offsetX: 10, offsetY: 22, width: 12, height: 10 });
+        if (cmask & 8) obj.hitboxes.push({ offsetX: 0, offsetY: 10, width: 10, height: 12 });
+
+        let minX = cMinX;
+        let maxX = cMaxX;
+        let minY = cMinY;
+        let maxY = cMaxY;
+        if (cmask & 1) minY = 0;
+        if (cmask & 2) maxX = 32;
+        if (cmask & 4) maxY = 32;
+        if (cmask & 8) minX = 0;
 
         obj.hitbox = { offsetX: minX, offsetY: minY, width: maxX - minX, height: maxY - minY };
         const shadowRects = buildFrontStrips(mask, FRONT_FACE_Y, 3).map(r => ({

@@ -63,6 +63,13 @@ import { FREEZE_RAY_SPRITE } from '../assets/weapons/FreezeRayGenerator.js';
 import { RICOCHET_GUN_SPRITE } from '../assets/weapons/RicochetGunGenerator.js';
 import { DOG_IDLE_FRAMES } from '../assets/characters/pets/dog/DogIdle.js';
 import { DOG_RUN_FRAMES } from '../assets/characters/pets/dog/DogRun.js';
+import { CAT_IDLE_FRAMES } from '../assets/characters/pets/cat/CatIdle.js';
+import { CAT_RUN_FRAMES } from '../assets/characters/pets/cat/CatRun.js';
+import { createPetDogItemSprite } from '../assets/items/PetDogItemSprite.js';
+import { createPetCatItemSprite } from '../assets/items/PetCatItemSprite.js';
+import { NIER2B_IDLE_FRAMES } from '../assets/characters/pets/nier2b/Nier2bIdle.js';
+import { NIER2B_RUN_FRAMES } from '../assets/characters/pets/nier2b/Nier2bRun.js';
+import { createPet2BItemSprite } from '../assets/items/Pet2BItemSprite.js';
 import { BOOMERANG_SPRITE } from '../assets/weapons/BoomerangGenerator.js';
 import { KATANA_SPRITE } from '../assets/weapons/KatanaGenerator.js';
 import { DAGGER_SPRITE } from '../assets/weapons/DaggerGenerator.js';
@@ -127,6 +134,9 @@ const grassTuftSprites = createGrassTuftSprites();
 const recoveryNeedleSprite = createRecoveryNeedleSprite();
 const hamburgerSprite = createHamburgerSprite();
 const medkitSprite = createMedkitSprite();
+const petDogItemSprite = createPetDogItemSprite();
+const petCatItemSprite = createPetCatItemSprite();
+const pet2BItemSprite = createPet2BItemSprite();
 
 const hammerSprite = (() => {
     const canvas = document.createElement('canvas');
@@ -180,6 +190,14 @@ export const Assets = {
     dog: {
         idle: DOG_IDLE_FRAMES,
         run: DOG_RUN_FRAMES
+    },
+    cat: {
+        idle: CAT_IDLE_FRAMES,
+        run: CAT_RUN_FRAMES
+    },
+    nier2b: {
+        idle: NIER2B_IDLE_FRAMES,
+        run: NIER2B_RUN_FRAMES
     },
     objects: {
         box: boxSprite,
@@ -280,6 +298,9 @@ export const Assets = {
     recovery_needle: recoveryNeedleSprite,
     hamburger: hamburgerSprite,
     medkit: medkitSprite,
+    pet_dog_item: petDogItemSprite,
+    pet_cat_item: petCatItemSprite,
+    pet_2b_item: pet2BItemSprite,
     rocket_launcher: ROCKET_LAUNCHER_SPRITE,
     pistol: PISTOL_SPRITE,
     smg: SMG_SPRITE,

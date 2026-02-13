@@ -254,6 +254,36 @@ export class InventorySystem {
             }
         });
 
+        this.registerItem({
+            id: 'consumable:pet_dog',
+            type: 'consumable',
+            name: 'Pet Dog',
+            description: 'Left click to summon a pet dog.',
+            icon: 'pet_dog_item',
+            maxStack: 1,
+            data: { petType: 'dog' }
+        });
+
+        this.registerItem({
+            id: 'consumable:pet_cat',
+            type: 'consumable',
+            name: 'Pet Cat',
+            description: 'Left click to summon a pet cat.',
+            icon: 'pet_cat_item',
+            maxStack: 1,
+            data: { petType: 'cat' }
+        });
+
+        this.registerItem({
+            id: 'consumable:pet_2b',
+            type: 'consumable',
+            name: '2B',
+            description: 'Left click to summon 2B.',
+            icon: 'pet_2b_item',
+            maxStack: 1,
+            data: { petType: '2b' }
+        });
+
         // 2. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel
         const objectKeys = Object.keys(Assets.objects).filter(k => 

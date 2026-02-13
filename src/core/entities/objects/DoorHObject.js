@@ -40,6 +40,33 @@ export const DoorHObject = {
         }
         return [obj.getHitbox()];
     },
+    getHurtboxes(obj) {
+        // Extend 16px upward to cover the visual area (drawOffset.y = -16)
+        if (obj.isOpen) {
+            return [
+                { x: obj.x, y: obj.y + 10 - 16, width: 4, height: 12 + 16 },
+                { x: obj.x + 28, y: obj.y + 10 - 16, width: 4, height: 12 + 16 }
+            ];
+        }
+        return [{
+            x: obj.x,
+            y: obj.y + 10 - 16,
+            width: 32,
+            height: 12 + 16
+        }];
+    },
+    getHurtbox(obj) {
+        const boxes = this.getHurtboxes(obj);
+        if (boxes.length === 1) return boxes[0];
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const hb of boxes) {
+            minX = Math.min(minX, hb.x);
+            minY = Math.min(minY, hb.y);
+            maxX = Math.max(maxX, hb.x + hb.width);
+            maxY = Math.max(maxY, hb.y + hb.height);
+        }
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    },
     interact(obj) {
         obj.isOpen = !obj.isOpen;
         if (obj.isOpen) {
@@ -72,6 +99,15 @@ export const DoorHObject = {
         ctx.restore();
 
         ctx.drawImage(frameSprite, dx, dy);
+
+        // Hit flash effect
+        if (obj.hitFlashTimer > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(frameSprite, dx, dy);
+            ctx.restore();
+        }
 
         if (obj.showHint) {
             ctx.fillStyle = '#f1c40f';

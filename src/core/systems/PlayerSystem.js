@@ -1,8 +1,11 @@
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
+import { PetDog } from '../entities/PetDog.js';
+import { PetCat } from '../entities/PetCat.js';
+import { Pet2B } from '../entities/Pet2B.js';
 
 export class PlayerSystem {
-    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles }) {
+    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles, pets }) {
         this.player = player;
         this.input = input;
         this.handSystem = handSystem;
@@ -14,6 +17,7 @@ export class PlayerSystem {
         this.buildSystem = buildSystem;
         this.meleeSystem = meleeSystem;
         this.particles = particles || [];
+        this.pets = pets || [];
         this.mousePressed = false;
 
         if (this.handSystem && this.handSystem.bindInstanceSync) {
@@ -453,6 +457,40 @@ export class PlayerSystem {
         if (removed <= 0) return false;
 
         const data = item.def?.data || {};
+
+        // Pet summoning
+        if (data.petType) {
+            let pet;
+            const spawnX = this.player.x + (Math.random() > 0.5 ? 30 : -30);
+            const spawnY = this.player.y + 20;
+            if (data.petType === 'dog') {
+                pet = new PetDog(spawnX, spawnY);
+            } else if (data.petType === 'cat') {
+                pet = new PetCat(spawnX, spawnY);
+            } else if (data.petType === '2b') {
+                pet = new Pet2B(spawnX, spawnY);
+            }
+            if (pet && this.pets) {
+                this.pets.push(pet);
+                // Summon VFX
+                for (let i = 0; i < 10; i++) {
+                    const angle = (i / 10) * Math.PI * 2;
+                    this.particles.push({
+                        type: 'smoke',
+                        x: spawnX,
+                        y: spawnY,
+                        vx: Math.cos(angle) * 1.5,
+                        vy: Math.sin(angle) * 1.0,
+                        life: 15 + Math.random() * 10,
+                        color: i % 2 === 0 ? '#ffffff' : '#ffe066',
+                        size: 2 + Math.random() * 2,
+                        alpha: 0.8
+                    });
+                }
+            }
+            this.updateEquippedItem();
+            return true;
+        }
 
         // Max HP boost (e.g. recovery needle: +50% max HP then full heal)
         if (data.maxHpBoostPercent) {
