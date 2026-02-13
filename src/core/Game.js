@@ -140,15 +140,19 @@ export class Game {
         this.buildSystem = new BuildSystem(this);
 
         this.meleeSystem = new MeleeSystem({
-            player: this.player,
-            enemies: this.enemies,
+            owner: this.player,
+            targets: this.enemies,
             breakableObjects: this.breakableObjects,
             walls: this.walls,
-            camera: this.camera,
             particles: this.particles,
             handSystem: this.handSystem,
             particleSpawner: this.combatSystem.particleSpawner,
-            statusEffects: this.combatSystem.statusEffects
+            statusEffects: this.combatSystem.statusEffects,
+            onHit: ({ isCritical, knockback }) => {
+                const shake = isCritical ? 8 : Math.min(knockback, 12) * 0.5;
+                this.camera.x += (Math.random() - 0.5) * shake;
+                this.camera.y += (Math.random() - 0.5) * shake;
+            }
         });
         this.handSystem.setMeleeSystem(this.meleeSystem);
 

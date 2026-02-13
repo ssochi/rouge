@@ -847,6 +847,7 @@ export class WorldSystem {
                 enemy.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
                 enemy.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
             }
+            this._initEnemyMeleeIfNeeded(enemy);
         }
 
         if (type === 'soldier') {
@@ -858,7 +859,22 @@ export class WorldSystem {
                 enemy.weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
                 enemy.weaponInstanceData = createWeaponInstanceData({ weaponConfigId });
             }
+            this._initEnemyMeleeIfNeeded(enemy);
         }
+    }
+
+    _initEnemyMeleeIfNeeded(enemy) {
+        if (!enemy.initMeleeSystem) return;
+        if (!enemy.currentWeapon || !enemy.currentWeapon.isMelee) return;
+
+        enemy.initMeleeSystem({
+            player: this.player,
+            breakableObjects: this.breakableObjects,
+            walls: this.walls,
+            particles: this.combatSystem.particles,
+            particleSpawner: this.combatSystem.particleSpawner,
+            statusEffects: this.combatSystem.statusEffects
+        });
     }
 
     spawnEnemyWithIndoorPreference(type, indoorPool, indoorRatio = 0.7) {

@@ -4,6 +4,7 @@ import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
 import { EnemyWeaponController } from '../systems/EnemyWeaponController.js';
+import { MeleeSystem } from '../systems/MeleeSystem.js';
 
 export class Hunter extends Enemy {
     constructor(x, y) {
@@ -30,9 +31,26 @@ export class Hunter extends Enemy {
         });
         this.fireIntervalMultiplier = 2;
 
+        this.meleeSystem = null;
+
         this.setCombatWeapon(this.weaponConfigId);
 
         this.state = 'idle'; // idle, run, combat
+    }
+
+    initMeleeSystem({ player, breakableObjects, walls, particles, particleSpawner, statusEffects }) {
+        this.meleeSystem = new MeleeSystem({
+            owner: this,
+            targets: [player],
+            breakableObjects,
+            walls,
+            particles,
+            handSystem: this.handSystem,
+            particleSpawner,
+            statusEffects,
+            onHit: null
+        });
+        this.handSystem.setMeleeSystem(this.meleeSystem);
     }
 
     setCombatWeapon(weaponConfigId) {
@@ -46,7 +64,9 @@ export class Hunter extends Enemy {
         this.handSystem.setWeapon(weaponConfigId);
         this.weaponController.setWeapon(weaponConfigId, this.weaponInstanceData);
 
-        if (weapon.bulletType === 'laser_beam') {
+        if (weapon.isMelee) {
+            this.shootRange = weapon.meleeRange || 52;
+        } else if (weapon.bulletType === 'laser_beam') {
             this.shootRange = weapon.laserMaxRange || 600;
         } else {
             const bulletLife = weapon.bulletLife || 50;
@@ -62,6 +82,9 @@ export class Hunter extends Enemy {
 
         if (this.weaponController) {
             this.weaponController.update();
+        }
+        if (this.meleeSystem) {
+            this.meleeSystem.update();
         }
 
         if (this.frozenTimer > 0) return;
@@ -79,23 +102,36 @@ export class Hunter extends Enemy {
 
         // AI Logic
         if (dist < this.visionRange) {
-            if (dist < this.shootRange) {
-                this.state = 'combat';
-                const muzzle = this.handSystem.getMuzzleWorldPosition();
-                const canShoot = !combatSystem || !combatSystem.canShootFrom
-                    ? true
-                    : combatSystem.canShootFrom(this, muzzle, player);
-
-                if (!canShoot) {
-                    // LOS blocked: chase/reposition and do not shoot.
+            if (this.currentWeapon && this.currentWeapon.isMelee) {
+                // Melee AI
+                if (dist < this.shootRange) {
+                    this.state = 'combat';
+                    if (this.meleeSystem && !this.meleeSystem.isAttacking) {
+                        this.meleeSystem.tryAttack();
+                    }
+                } else {
                     this.state = 'run';
                     this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
-                } else {
-                    this.shoot(combatSystem, player);
                 }
             } else {
-                this.state = 'run';
-                this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                // Ranged AI
+                if (dist < this.shootRange) {
+                    this.state = 'combat';
+                    const muzzle = this.handSystem.getMuzzleWorldPosition();
+                    const canShoot = !combatSystem || !combatSystem.canShootFrom
+                        ? true
+                        : combatSystem.canShootFrom(this, muzzle, player);
+
+                    if (!canShoot) {
+                        this.state = 'run';
+                        this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                    } else {
+                        this.shoot(combatSystem, player);
+                    }
+                } else {
+                    this.state = 'run';
+                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                }
             }
         } else {
             this.state = 'idle';

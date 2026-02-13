@@ -560,21 +560,45 @@ export class StatusEffectSystem {
                 e.hpBarTimer = 60;
 
                 // Blood drip particle
-                this.particles.push({
-                    x: e.x + (Math.random() - 0.5) * 8,
-                    y: e.y + (Math.random() - 0.5) * 8,
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: Math.random() * 1.0 + 0.5,
-                    life: 20 + Math.floor(Math.random() * 10),
-                    color: Math.random() > 0.5 ? '#922b21' : '#c0392b',
-                    size: Math.random() * 2 + 1,
-                    friction: 0.95
-                });
+                this._spawnBleedParticle(e.x, e.y);
 
                 if (e.hp <= 0) {
                     this.particleSpawner.spawnBloodExplosion(e.x, e.y);
                 }
             }
         }
+
+        // Player bleed DOT
+        const p = this.player;
+        if (!p || !p.bleedTimer || p.bleedTimer <= 0) return;
+
+        p.bleedTimer--;
+        p.bleedTickCounter = (p.bleedTickCounter || 0) + 1;
+
+        if (p.bleedTickCounter >= (p.bleedTickInterval || 20)) {
+            p.bleedTickCounter = 0;
+            const bleedDmg = p.bleedDamage || 3;
+
+            if (p.takeDamage) {
+                p.takeDamage(bleedDmg, { x: 0, y: 0 });
+            } else {
+                p.hp -= bleedDmg;
+            }
+
+            this._spawnBleedParticle(p.x, p.y);
+        }
+    }
+
+    _spawnBleedParticle(x, y) {
+        this.particles.push({
+            x: x + (Math.random() - 0.5) * 8,
+            y: y + (Math.random() - 0.5) * 8,
+            vx: (Math.random() - 0.5) * 0.5,
+            vy: Math.random() * 1.0 + 0.5,
+            life: 20 + Math.floor(Math.random() * 10),
+            color: Math.random() > 0.5 ? '#922b21' : '#c0392b',
+            size: Math.random() * 2 + 1,
+            friction: 0.95
+        });
     }
 }

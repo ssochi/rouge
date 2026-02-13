@@ -5,16 +5,16 @@ import { CollisionUtils } from '../../utils/CollisionUtils.js';
  * 管理攻击状态机、扇形/戳刺命中检测、刀光VFX、体力消耗
  */
 export class MeleeSystem {
-    constructor({ player, enemies, breakableObjects, walls, camera, particles, handSystem, particleSpawner, statusEffects }) {
-        this.player = player;
-        this.enemies = enemies;
+    constructor({ owner, targets, breakableObjects, walls, particles, handSystem, particleSpawner, statusEffects, onHit }) {
+        this.owner = owner;
+        this.targets = targets;
         this.breakableObjects = breakableObjects;
         this.walls = walls || [];
-        this.camera = camera;
         this.particles = particles;
         this.handSystem = handSystem;
         this.particleSpawner = particleSpawner;
         this.statusEffects = statusEffects;
+        this.onHit = onHit || null;
 
         // Attack state: 'idle' | 'windup' | 'swing' | 'recovery'
         this.attackState = 'idle';
@@ -26,7 +26,7 @@ export class MeleeSystem {
         this.swingEndAngle = 0;
         this.swingCurrentAngle = 0;
         this.swingDirection = 1; // Alternates: 1 = CW, -1 = CCW
-        this.hitEnemies = [];
+        this.hitTargets = [];
         this.prevSwingAngle = 0;
 
         // Thrust data (spear)
@@ -57,7 +57,7 @@ export class MeleeSystem {
 
         this.lastAttackTime = now;
         this.aimAngleAtAttack = this.handSystem.angle;
-        this.hitEnemies = [];
+        this.hitTargets = [];
         this.attackTimer = 0;
 
         if (weapon.thrustAttack) {
@@ -93,7 +93,7 @@ export class MeleeSystem {
 
     update() {
         if (this.attackState === 'idle') return;
-        if (this.player.hp <= 0 || this.player.state === 'roll') {
+        if (this.owner.hp <= 0 || this.owner.state === 'roll') {
             this.cancelAttack();
             return;
         }
@@ -261,12 +261,12 @@ export class MeleeSystem {
         }
 
         // Check enemies in a narrow corridor along thrust direction
-        for (const enemy of this.enemies) {
+        for (const enemy of this.targets) {
             if (enemy.hp <= 0) continue;
-            if (this.hitEnemies.includes(enemy)) continue;
+            if (this.hitTargets.includes(enemy)) continue;
 
-            const dx = enemy.x - this.player.x;
-            const dy = enemy.y - this.player.y;
+            const dx = enemy.x - this.owner.x;
+            const dy = enemy.y - this.owner.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > currentReach) continue;
 
@@ -280,7 +280,7 @@ export class MeleeSystem {
 
             if (this._isBlockedByWall(enemy.x, enemy.y)) continue;
 
-            this.hitEnemies.push(enemy);
+            this.hitTargets.push(enemy);
             const angle = Math.atan2(dy, dx);
             enemy.takeDamage(finalDamage, {
                 x: Math.cos(this.aimAngleAtAttack) * kb,
@@ -304,15 +304,15 @@ export class MeleeSystem {
             }
             this._spawnHitSparks(enemy.x, enemy.y, isCritical);
 
-            const shakeIntensity = isCritical ? 8 : Math.min(kb, 12) * 0.5;
-            this.camera.x += (Math.random() - 0.5) * shakeIntensity;
-            this.camera.y += (Math.random() - 0.5) * shakeIntensity;
+            if (this.onHit) {
+                this.onHit({ isCritical, knockback: kb });
+            }
         }
 
         // Check breakable objects
         for (const obj of this.breakableObjects) {
             if (obj.isBroken) continue;
-            if (this.hitEnemies.includes(obj)) continue;
+            if (this.hitTargets.includes(obj)) continue;
             if (!obj.takeDamage) continue;
 
             const hb = obj.getHurtbox ? obj.getHurtbox() : (obj.getHitbox ? obj.getHitbox() : null);
@@ -320,8 +320,8 @@ export class MeleeSystem {
 
             const cx = hb.x + (hb.width || hb.w || 0) / 2;
             const cy = hb.y + (hb.height || hb.h || 0) / 2;
-            const dx = cx - this.player.x;
-            const dy = cy - this.player.y;
+            const dx = cx - this.owner.x;
+            const dy = cy - this.owner.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > currentReach) continue;
 
@@ -330,7 +330,7 @@ export class MeleeSystem {
             const perp = Math.abs(-dx * sinA + dy * cosA);
             if (perp > thrustWidth) continue;
 
-            this.hitEnemies.push(obj);
+            this.hitTargets.push(obj);
             obj.takeDamage(finalDamage);
             if (obj.isBroken) {
                 this.particleSpawner.spawnDebris(cx, cy, obj.type);
@@ -355,17 +355,17 @@ export class MeleeSystem {
 
         this.particles.push({
             type: 'thrust_trail',
-            startX: this.player.x + cosA * 12,
-            startY: this.player.y + sinA * 12,
-            endX: this.player.x + cosA * reach,
-            endY: this.player.y + sinA * reach,
+            startX: this.owner.x + cosA * 12,
+            startY: this.owner.y + sinA * 12,
+            endX: this.owner.x + cosA * reach,
+            endY: this.owner.y + sinA * reach,
             color: weapon.slashTrailColor || 'rgba(236, 240, 241, 0.7)',
             alpha: weapon.slashTrailAlpha || 0.7,
             width: weapon.slashTrailWidth || 3,
             fadeRate: 0.15,
             life: 6,
             maxLife: 6,
-            y: this.player.y
+            y: this.owner.y
         });
     }
 
@@ -389,19 +389,19 @@ export class MeleeSystem {
         const hitsThisFrame = [];
 
         // Check enemies
-        for (const enemy of this.enemies) {
+        for (const enemy of this.targets) {
             if (enemy.hp <= 0) continue;
-            if (this.hitEnemies.includes(enemy)) continue;
+            if (this.hitTargets.includes(enemy)) continue;
 
-            const dx = enemy.x - this.player.x;
-            const dy = enemy.y - this.player.y;
+            const dx = enemy.x - this.owner.x;
+            const dy = enemy.y - this.owner.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > range) continue;
 
             if (this._isInArc(dx, dy, dist, halfArc)) {
                 if (this._isBlockedByWall(enemy.x, enemy.y)) continue;
 
-                this.hitEnemies.push(enemy);
+                this.hitTargets.push(enemy);
                 hitsThisFrame.push(enemy);
                 const angle = Math.atan2(dy, dx);
                 enemy.takeDamage(finalDamage, {
@@ -429,15 +429,14 @@ export class MeleeSystem {
                 // Hit sparks
                 this._spawnHitSparks(enemy.x, enemy.y, isCritical);
 
-                // Camera shake (scaled by knockback)
-                const shakeIntensity = isCritical ? 8 : Math.min(kb, 12) * 0.5;
-                this.camera.x += (Math.random() - 0.5) * shakeIntensity;
-                this.camera.y += (Math.random() - 0.5) * shakeIntensity;
+                if (this.onHit) {
+                    this.onHit({ isCritical, knockback: kb });
+                }
             }
         }
 
         // Cleave bonus (Greatsword) — extra damage when hitting 3+ enemies
-        if (weapon.cleaveMultiplier && this.hitEnemies.length >= (weapon.cleaveThreshold || 3)) {
+        if (weapon.cleaveMultiplier && this.hitTargets.length >= (weapon.cleaveThreshold || 3)) {
             const bonus = Math.floor(finalDamage * weapon.cleaveMultiplier);
             for (const target of hitsThisFrame) {
                 if (target.hp > 0 && target.takeDamage) {
@@ -450,7 +449,7 @@ export class MeleeSystem {
         // Check breakable objects
         for (const obj of this.breakableObjects) {
             if (obj.isBroken) continue;
-            if (this.hitEnemies.includes(obj)) continue;
+            if (this.hitTargets.includes(obj)) continue;
             if (!obj.takeDamage) continue;
 
             const hb = obj.getHurtbox ? obj.getHurtbox() : (obj.getHitbox ? obj.getHitbox() : null);
@@ -458,13 +457,13 @@ export class MeleeSystem {
 
             const cx = hb.x + (hb.width || hb.w || 0) / 2;
             const cy = hb.y + (hb.height || hb.h || 0) / 2;
-            const dx = cx - this.player.x;
-            const dy = cy - this.player.y;
+            const dx = cx - this.owner.x;
+            const dy = cy - this.owner.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > range) continue;
 
             if (this._isInArc(dx, dy, dist, halfArc)) {
-                this.hitEnemies.push(obj);
+                this.hitTargets.push(obj);
                 obj.takeDamage(finalDamage);
                 this._spawnHitSparks(cx, cy, isCritical);
                 if (obj.isBroken) {
@@ -493,8 +492,8 @@ export class MeleeSystem {
 
         this.particles.push({
             type: 'slash_trail',
-            originX: this.player.x,
-            originY: this.player.y,
+            originX: this.owner.x,
+            originY: this.owner.y,
             radius,
             startAngle: this.prevSwingAngle,
             endAngle: this.swingCurrentAngle,
@@ -505,7 +504,7 @@ export class MeleeSystem {
             fadeRate: 0.12,
             life: 8,
             maxLife: 8,
-            y: this.player.y
+            y: this.owner.y
         });
     }
 
@@ -534,8 +533,8 @@ export class MeleeSystem {
     _spawnCleaveShockwave() {
         this.particles.push({
             type: 'shockwave',
-            x: this.player.x,
-            y: this.player.y,
+            x: this.owner.x,
+            y: this.owner.y,
             size: 10,
             maxSize: 60,
             color: '#e67e22',
@@ -545,7 +544,7 @@ export class MeleeSystem {
     }
 
     _isBlockedByWall(targetX, targetY) {
-        const start = { x: this.player.x, y: this.player.y };
+        const start = { x: this.owner.x, y: this.owner.y };
         const end = { x: targetX, y: targetY };
 
         for (const wall of this.walls) {

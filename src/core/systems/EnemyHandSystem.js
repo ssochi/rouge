@@ -1,8 +1,8 @@
 import { Assets } from '../../graphics/Assets.js';
 import { WEAPONS, WeaponType } from '../../assets/weapons/WeaponData.js';
 
-// Simplified version of HandSystem for Enemies
-// Supports basic aiming and rendering
+// HandSystem for Enemies
+// Supports aiming, ranged weapon rendering, and melee swing rendering
 export class EnemyHandSystem {
     constructor(owner, weaponId = 'default_pistol') {
         this.owner = owner;
@@ -10,17 +10,27 @@ export class EnemyHandSystem {
         this.currentWeapon = WEAPONS[this.currentWeaponId];
         this.orbitRadius = this.currentWeapon.orbitRadius;
         this.angle = 0;
-        
+
         // Recoil
         this.recoilOffset = 0;
         this.showFlash = false;
         this.flashTimer = 0;
 
+        // Melee system reference (set via setMeleeSystem)
+        this.meleeSystem = null;
+
         this.setWeapon(weaponId);
+    }
+
+    setMeleeSystem(meleeSystem) {
+        this.meleeSystem = meleeSystem;
     }
 
     setWeapon(weaponId) {
         if (!weaponId || !WEAPONS[weaponId]) return;
+        if (this.meleeSystem && this.meleeSystem.isAttacking) {
+            this.meleeSystem.cancelAttack();
+        }
         this.currentWeaponId = weaponId;
         this.currentWeapon = WEAPONS[weaponId];
         this.orbitRadius = this.currentWeapon.orbitRadius;
@@ -54,8 +64,7 @@ export class EnemyHandSystem {
         const angle = this.angle;
         const weapon = this.currentWeapon;
         const gunScale = weapon.scale || 1;
-        
-        // Bobbing (sync with owner if needed, simplified here)
+
         const bobY = 0;
 
         const currentDist = this.orbitRadius - this.recoilOffset;
@@ -79,26 +88,38 @@ export class EnemyHandSystem {
         ctx.save();
         ctx.translate(this.owner.x, this.owner.y);
 
-        const currentDist = this.orbitRadius - this.recoilOffset;
-        const gunX = Math.cos(this.angle) * currentDist;
-        const gunY = Math.sin(this.angle) * currentDist;
+        // Melee swing angle / thrust extension override
+        let effectiveAngle = this.angle;
+        let effectiveRadius = this.orbitRadius;
+        if (this.currentWeapon.isMelee && this.meleeSystem && this.meleeSystem.isAttacking) {
+            effectiveAngle = this.meleeSystem.getSwingAngle();
+            if (this.meleeSystem.isThrust) {
+                effectiveRadius = this.orbitRadius + this.meleeSystem.getThrustProgress() * 20;
+            } else {
+                effectiveRadius = this.orbitRadius + 2;
+            }
+        }
+
+        const currentDist = effectiveRadius - this.recoilOffset;
+        const gunX = Math.cos(effectiveAngle) * currentDist;
+        const gunY = Math.sin(effectiveAngle) * currentDist;
 
         ctx.translate(gunX, gunY);
-        ctx.rotate(this.angle);
+        ctx.rotate(effectiveAngle);
 
-        const isFlipped = Math.abs(this.angle) > Math.PI / 2;
+        const isFlipped = Math.abs(effectiveAngle) > Math.PI / 2;
         if (isFlipped) {
             ctx.scale(1, -1);
         }
 
         const gunScale = this.currentWeapon.scale || 1;
-        
+
         if (Assets[this.currentWeapon.sprite]) {
              const drawOffset = this.currentWeapon.drawOffset || { x: 0, y: -5 };
              ctx.save();
              ctx.scale(gunScale, gunScale);
              ctx.drawImage(Assets[this.currentWeapon.sprite], drawOffset.x, drawOffset.y);
-             
+
              if (this.showFlash && Assets.muzzleFlash) {
                  const muzzle = this.currentWeapon.muzzleOffset || {x: 10, y: 0};
                  ctx.drawImage(Assets.muzzleFlash, muzzle.x - 4, muzzle.y - 8);
@@ -106,13 +127,14 @@ export class EnemyHandSystem {
              ctx.restore();
         }
 
-        // Draw Hands (Simplified, just right hand for pistol)
-        if (this.currentWeapon.hands.right) {
-            this.drawHand(
-                ctx,
-                this.currentWeapon.hands.right.x * gunScale,
-                this.currentWeapon.hands.right.y * gunScale
-            );
+        // Draw Hands — two-hand grip for melee and rifle weapons
+        const hands = this.currentWeapon.hands;
+        if ((this.currentWeapon.type === WeaponType.RIFLE || this.currentWeapon.type === WeaponType.MELEE)
+            && hands.left && hands.right) {
+            this.drawHand(ctx, hands.right.x * gunScale, hands.right.y * gunScale);
+            this.drawHand(ctx, hands.left.x * gunScale, hands.left.y * gunScale);
+        } else if (hands.right) {
+            this.drawHand(ctx, hands.right.x * gunScale, hands.right.y * gunScale);
         }
 
         ctx.restore();

@@ -4,6 +4,7 @@ import { EnemyHandSystem } from '../systems/EnemyHandSystem.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/WeaponInstanceUtils.js';
 import { EnemyWeaponController } from '../systems/EnemyWeaponController.js';
+import { MeleeSystem } from '../systems/MeleeSystem.js';
 
 export class Soldier extends Enemy {
     constructor(x, y) {
@@ -45,9 +46,26 @@ export class Soldier extends Enemy {
             weaponInstanceData: this.weaponInstanceData
         });
 
+        this.meleeSystem = null;
+
         this.setCombatWeapon(this.weaponConfigId);
 
         this.state = 'idle';
+    }
+
+    initMeleeSystem({ player, breakableObjects, walls, particles, particleSpawner, statusEffects }) {
+        this.meleeSystem = new MeleeSystem({
+            owner: this,
+            targets: [player],
+            breakableObjects,
+            walls,
+            particles,
+            handSystem: this.handSystem,
+            particleSpawner,
+            statusEffects,
+            onHit: null
+        });
+        this.handSystem.setMeleeSystem(this.meleeSystem);
     }
 
     setCombatWeapon(weaponConfigId) {
@@ -78,7 +96,9 @@ export class Soldier extends Enemy {
             this.burstSize = fireRateFrames <= 7 ? 4 : (fireRateFrames <= 14 ? 3 : 2);
         }
 
-        if (weapon.bulletType === 'laser_beam') {
+        if (weapon.isMelee) {
+            this.shootRange = weapon.meleeRange || 52;
+        } else if (weapon.bulletType === 'laser_beam') {
             this.shootRange = weapon.laserMaxRange || 600;
         } else {
             const bulletLife = weapon.bulletLife || 45;
@@ -95,6 +115,9 @@ export class Soldier extends Enemy {
         if (this.weaponController) {
             this.weaponController.update();
         }
+        if (this.meleeSystem) {
+            this.meleeSystem.update();
+        }
 
         if (this.frozenTimer > 0) return;
 
@@ -109,58 +132,69 @@ export class Soldier extends Enemy {
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Burst cooldown
-        if (this.burstCooldown > 0) this.burstCooldown--;
-        if (this.burstDelay > 0) this.burstDelay--;
-
-        // Continue burst (fire remaining shots)
-        if (this.burstRemaining > 0 && this.burstDelay <= 0) {
-            const shot = this.fireOneBullet(combatSystem, player);
-            if (!shot.fired) {
-                if (shot.reason === 'cooldown') {
-                    this.burstDelay = 1;
-                } else {
-                    this.burstRemaining = 0;
-                    this.burstCooldown = Math.max(this.burstCooldown, shot.reason === 'blocked' ? 10 : 30);
-                }
-            } else {
-                this.burstRemaining--;
-                if (this.burstRemaining > 0) {
-                    this.burstDelay = this.burstDelayMax;
-                } else {
-                    this.burstCooldown = this.burstCooldownMax;
-                }
-            }
-        }
-
         // AI Logic
         if (dist < this.visionRange) {
-            if (dist < this.shootRange) {
-                const muzzle = this.handSystem.getMuzzleWorldPosition();
-                const canShoot = !combatSystem || !combatSystem.canShootFrom
-                    ? true
-                    : combatSystem.canShootFrom(this, muzzle, player);
-
-                if (!canShoot) {
-                    this.state = 'run';
-                    this.burstRemaining = 0;
-                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
-                } else {
+            if (this.currentWeapon && this.currentWeapon.isMelee) {
+                // Melee AI
+                if (dist < this.shootRange) {
                     this.state = 'combat';
                     this.strafeMove(player, walls, wallQuery, moveResolver);
-
-                    // Start new burst only when shooter can actually engage.
-                    if (this.burstCooldown <= 0 &&
-                        this.burstRemaining <= 0 &&
-                        this.weaponController &&
-                        !this.weaponController.isReloading) {
-                        this.startBurst();
+                    if (this.meleeSystem && !this.meleeSystem.isAttacking) {
+                        this.meleeSystem.tryAttack();
                     }
+                } else {
+                    this.state = 'run';
+                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
                 }
             } else {
-                // Chase
-                this.state = 'run';
-                this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                // Ranged AI — burst fire
+                if (this.burstCooldown > 0) this.burstCooldown--;
+                if (this.burstDelay > 0) this.burstDelay--;
+
+                if (this.burstRemaining > 0 && this.burstDelay <= 0) {
+                    const shot = this.fireOneBullet(combatSystem, player);
+                    if (!shot.fired) {
+                        if (shot.reason === 'cooldown') {
+                            this.burstDelay = 1;
+                        } else {
+                            this.burstRemaining = 0;
+                            this.burstCooldown = Math.max(this.burstCooldown, shot.reason === 'blocked' ? 10 : 30);
+                        }
+                    } else {
+                        this.burstRemaining--;
+                        if (this.burstRemaining > 0) {
+                            this.burstDelay = this.burstDelayMax;
+                        } else {
+                            this.burstCooldown = this.burstCooldownMax;
+                        }
+                    }
+                }
+
+                if (dist < this.shootRange) {
+                    const muzzle = this.handSystem.getMuzzleWorldPosition();
+                    const canShoot = !combatSystem || !combatSystem.canShootFrom
+                        ? true
+                        : combatSystem.canShootFrom(this, muzzle, player);
+
+                    if (!canShoot) {
+                        this.state = 'run';
+                        this.burstRemaining = 0;
+                        this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                    } else {
+                        this.state = 'combat';
+                        this.strafeMove(player, walls, wallQuery, moveResolver);
+
+                        if (this.burstCooldown <= 0 &&
+                            this.burstRemaining <= 0 &&
+                            this.weaponController &&
+                            !this.weaponController.isReloading) {
+                            this.startBurst();
+                        }
+                    }
+                } else {
+                    this.state = 'run';
+                    this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
+                }
             }
         } else {
             this.state = 'idle';
