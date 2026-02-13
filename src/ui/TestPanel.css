@@ -1,0 +1,304 @@
+/* TestPanel.css - Debug Test Panel */
+
+#test-panel-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    pointer-events: auto;
+    transition: opacity 0.2s ease;
+}
+
+#test-panel-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.test-panel-window {
+    background: var(--ui-bg-color);
+    border: 4px solid var(--ui-border-dark);
+    outline: 2px solid #7f8c8d;
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.8),
+        inset 0 0 50px rgba(0,0,0,0.2);
+    width: 500px;
+    max-height: 80vh;
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.test-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #7f8c8d;
+    padding-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.test-panel-header span {
+    font-size: 16px;
+    color: #e74c3c;
+    text-shadow: 2px 2px 0 #000;
+    letter-spacing: 2px;
+}
+
+.test-panel-close {
+    background: none;
+    border: 2px solid #7f8c8d;
+    color: #ecf0f1;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.test-panel-close:hover {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.test-panel-tabs {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.test-panel-tab {
+    flex: 1;
+    background: var(--ui-slot-bg);
+    border: 2px solid #576574;
+    color: #95a5a6;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 6px 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+    text-align: center;
+}
+
+.test-panel-tab:hover {
+    border-color: #bdc3c7;
+    color: #ecf0f1;
+}
+
+.test-panel-tab.active {
+    border-color: var(--highlight-color);
+    color: var(--highlight-color);
+    background: rgba(241, 196, 15, 0.1);
+    box-shadow: 0 0 5px rgba(241, 196, 15, 0.2);
+}
+
+.test-panel-search {
+    flex-shrink: 0;
+}
+
+.test-panel-search input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid #576574;
+    color: #ecf0f1;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.1s;
+}
+
+.test-panel-search input:focus {
+    border-color: var(--highlight-color);
+}
+
+.test-panel-search input::placeholder {
+    color: #576574;
+}
+
+.test-panel-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: 300px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 4px;
+
+    scrollbar-width: thin;
+    scrollbar-color: #7f8c8d #2c3e50;
+}
+
+.test-panel-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.test-panel-list::-webkit-scrollbar-track {
+    background: #2c3e50;
+    border-radius: 4px;
+}
+
+.test-panel-list::-webkit-scrollbar-thumb {
+    background: #7f8c8d;
+    border-radius: 4px;
+}
+
+.test-panel-list::-webkit-scrollbar-thumb:hover {
+    background: #95a5a6;
+}
+
+.test-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+    border: 1px solid transparent;
+    border-radius: 2px;
+}
+
+.test-panel-item:hover {
+    background: rgba(52, 73, 94, 0.6);
+    border-color: #576574;
+}
+
+.test-panel-item.selected {
+    background: rgba(241, 196, 15, 0.1);
+    border-color: var(--highlight-color);
+}
+
+.test-panel-item-icon {
+    width: 28px;
+    height: 28px;
+    image-rendering: pixelated;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.5));
+}
+
+.test-panel-item-icon-placeholder {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.test-panel-item-name {
+    font-size: 10px;
+    color: #ecf0f1;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.test-panel-item-id {
+    font-size: 8px;
+    color: #7f8c8d;
+    margin-left: auto;
+}
+
+.test-panel-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 2px solid #7f8c8d;
+    padding-top: 8px;
+}
+
+.enemy-weapon-select {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.enemy-weapon-select.visible {
+    display: flex;
+}
+
+.enemy-weapon-select label {
+    font-size: 8px;
+    color: #95a5a6;
+    white-space: nowrap;
+}
+
+.enemy-weapon-select select {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid #576574;
+    color: #ecf0f1;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.enemy-weapon-select select:focus {
+    border-color: var(--highlight-color);
+}
+
+.spawn-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.spawn-controls label {
+    font-size: 8px;
+    color: #95a5a6;
+    white-space: nowrap;
+}
+
+.spawn-controls input[type="number"] {
+    width: 60px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid #576574;
+    color: #ecf0f1;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 4px 6px;
+    text-align: center;
+    outline: none;
+}
+
+.spawn-controls input[type="number"]:focus {
+    border-color: var(--highlight-color);
+}
+
+.spawn-btn {
+    flex: 1;
+    background: rgba(46, 204, 113, 0.2);
+    border: 2px solid #2ecc71;
+    color: #2ecc71;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.1s;
+    letter-spacing: 1px;
+}
+
+.spawn-btn:hover {
+    background: rgba(46, 204, 113, 0.4);
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.3);
+}
+
+.spawn-btn:active {
+    transform: scale(0.95);
+}
+
+.test-panel-msg {
+    font-size: 8px;
+    color: #f1c40f;
+    text-align: center;
+    min-height: 12px;
+}

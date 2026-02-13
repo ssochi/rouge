@@ -11,6 +11,7 @@ export class InputHandler {
             i: false, // Profiler Toggle
             o: false, // Spawn Nearby Vehicle
             b: false, // Backpack
+            l: false, // Test Panel
             p: false, // Debug Toggle
             space: false,
             '1': false, '2': false, '3': false, '4': false, '5': false,

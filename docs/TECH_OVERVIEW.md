@@ -52,6 +52,11 @@
   - `graphics/`: **渲染系统**。
     - `SpriteGenerator.js`: 将字符模板转换为 Canvas/Image 的核心工具。
     - `Assets.js`: 负责调用生成器并缓存生成的游戏资源。
+  - `ui/`: **UI 组件**。
+    - `UIManager.js`: HUD 与背包 UI 管理。
+    - `TestPanel.js`: 调试测试面板（按 L 键打开），可快速生成武器、道具、车辆、敌人、物体。自包含 DOM 组件，自动发现数据源。
+    - `TestPanel.css`: 测试面板样式，复用项目 CSS 变量。
+    - `HUD.css`: 游戏化拟物风格 HUD 样式。
   - `utils/`: **工具库**。常量 (`Constants.js`)，`PixelDraw.js` (程序化像素绘制)，`FloorTypes.js` (地板类型/子格常量) 和通用辅助函数。
   - `main.js`: **入口文件**。负责初始化游戏实例并挂载到 DOM。
 
