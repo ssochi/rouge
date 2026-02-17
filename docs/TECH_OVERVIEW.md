@@ -16,7 +16,7 @@
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -39,7 +39,7 @@
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
-      - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧、流血DOT）。
+      - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧、流血DOT、中毒DOT、酸液地面、力场撞墙）。
       - `MeleeSystem.js`: 近战攻击系统——攻击状态机（IDLE→WINDUP→SWING→RECOVERY）、扇形/直线命中检测、刀光/戳刺拖尾VFX。支持暴击(Dagger)、劈斩加成(Greatsword)、流血DOT(Battle Axe)、戳刺(Spear)等数据驱动的武器特殊机制。5把近战武器：Katana/Dagger/Greatsword/Spear/Battle Axe。
       - `ParticleSpawner.js`: 粒子生成（碎片、血液、弹壳、刀光拖尾）与粒子物理更新。
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable）。
@@ -93,13 +93,22 @@
   - **传送弹丸**（`teleport`）：命中后将玩家瞬移到弹丸位置，自动防卡墙。
   - **弹跳弹**（`ricochet`）：碰墙反弹最多 3 次，伤害不衰减，反射通过 prevX/prevY 判断碰撞轴。
   - **回旋镖**（`boomerang`）：飞行 200px 后自动归航返回玩家，去回各可命中敌人，阶段切换时重置 hitList。
+  - **等离子弹**（`plasma`）：等离子步枪三连发弹丸，绿色发光拖尾。`burstCount` + `burstInterval` 驱动连发状态机。
+  - **追踪导弹**（`homing`）：追踪导弹发射器弹丸，每帧向最近敌人转向（`homingTurnRate` 限制转弯速率），命中后爆炸（`blastRadius: 48`）。
+  - **酸液弹**（`acid`）：毒液枪弹丸，命中施加中毒DOT（`poisonDamage` + `poisonDuration`），同时在落点生成酸液地面区域（`puddleRadius/Duration/Damage`）。
+  - **集束弹**（`cluster`）：分裂炮弹丸，命中或寿命到期后分裂成 8 颗 standard 碎片子弹（`fragmentCount/Damage/Speed/Life`），放射状扩散。
+  - **力场弹**（`force`）：力场枪 3 弹丸散射，超低伤害但超高击退（`knockback: 18`），敌人被击退撞墙时造成额外伤害（`wallSlamDamage: 15`）。
+- `CombatSystem.updateBurst()`：更新三连发状态机（检查间隔、发射后续子弹、消耗弹药）。
 - `CombatSystem.updateBlackHoles()`：更新黑洞实体（拉力、周期伤害、粒子、到期移除）。
 - `CombatSystem.updateBurnEffects()`：更新燃烧 DOT（周期伤害、火焰粒子）。
 - `CombatSystem.updateFreezeEffects()`：更新减速/冻结状态（冻结粒子、slowTimer/frozenTimer 递减、freezeStacks 管理）。
+- `CombatSystem.updatePoisonEffects()`：更新中毒 DOT（周期伤害、绿色粒子，支持冻结易伤 1.5x）。
+- `CombatSystem.updateAcidPuddles()`：更新酸液地面区域（周期范围伤害、气泡粒子、到期移除）。
+- `CombatSystem.updateForceEffects()`：检测被力场枪击退的敌人是否撞墙，撞墙造成额外伤害并生成冲击粒子。
 - `CombatSystem._chainLightning()`：处理闪电链式跳跃（查找最近未命中敌人、衰减伤害、生成 `lightning_arc` 粒子）。
 - **冻结易伤**：所有伤害源（子弹、爆炸、燃烧 DOT、闪电链）对冻结中敌人造成 1.5x 伤害。
 - **敌人速度系统**：`Enemy.getEffectiveSpeed()` 统一处理减速/冻结对移动速度的影响，所有敌人子类使用此方法。
-- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang` 与默认圆形子弹分支。
+- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang`、`plasma`、`homing`、`acid`、`cluster`、`force` 与默认圆形子弹分支。
 - **激光瞄准**：`Renderer.drawLaserSight()` 为狙击枪绘制激光线，使用 `HandSystem.angle` 确保方向与枪管一致，通过 `laserOffset` 定位发射器起点，射线检测墙壁遮挡。
 - **武器发射动画**：`HandSystem` 支持 `fireSprite` 配置，当弹药为空时自动切换精灵（如弩发射后弓臂前弹、弦松弛、无箭矢）。
 - 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。

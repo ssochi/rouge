@@ -20,6 +20,7 @@ export class CombatSystem {
         this.bulletSystem = new BulletSystem({ ...deps, particleSpawner: this.particleSpawner, statusEffects: this.statusEffects });
 
         this.lastShotTime = 0;
+        this.burstState = null;
     }
 
     _isShootBlockerObject(obj) {
@@ -197,6 +198,37 @@ export class CombatSystem {
                 bullet.catchRadius = weapon.catchRadius || 16;
             }
 
+            // Homing: carry tracking params
+            if (weapon.bulletType === 'homing') {
+                bullet.homingTurnRate = weapon.homingTurnRate || 0.06;
+                bullet.homingAcquireRange = weapon.homingAcquireRange || 300;
+            }
+
+            // Acid: carry poison and puddle params
+            if (weapon.bulletType === 'acid') {
+                bullet.poisonDamage = weapon.poisonDamage || 3;
+                bullet.poisonDuration = weapon.poisonDuration || 120;
+                bullet.poisonTickInterval = weapon.poisonTickInterval || 20;
+                bullet.puddleRadius = weapon.puddleRadius || 30;
+                bullet.puddleDuration = weapon.puddleDuration || 180;
+                bullet.puddleDamage = weapon.puddleDamage || 2;
+                bullet.puddleTickInterval = weapon.puddleTickInterval || 15;
+            }
+
+            // Cluster: carry fragment params
+            if (weapon.bulletType === 'cluster') {
+                bullet.fragmentCount = weapon.fragmentCount || 8;
+                bullet.fragmentDamage = weapon.fragmentDamage || 6;
+                bullet.fragmentSpeed = weapon.fragmentSpeed || 8;
+                bullet.fragmentLife = weapon.fragmentLife || 20;
+                bullet.fragmentSize = weapon.fragmentSize || 3;
+            }
+
+            // Force: carry knockback and wall slam params
+            if (weapon.bulletType === 'force') {
+                bullet.wallSlamDamage = weapon.wallSlamDamage || 15;
+            }
+
             this.bullets.push(bullet);
             created++;
         }
@@ -369,6 +401,37 @@ export class CombatSystem {
                     bullet.catchRadius = weapon.catchRadius || 16;
                 }
 
+                // Homing: carry tracking params
+                if (weapon.bulletType === 'homing') {
+                    bullet.homingTurnRate = weapon.homingTurnRate || 0.06;
+                    bullet.homingAcquireRange = weapon.homingAcquireRange || 300;
+                }
+
+                // Acid: carry poison and puddle params
+                if (weapon.bulletType === 'acid') {
+                    bullet.poisonDamage = weapon.poisonDamage || 3;
+                    bullet.poisonDuration = weapon.poisonDuration || 120;
+                    bullet.poisonTickInterval = weapon.poisonTickInterval || 20;
+                    bullet.puddleRadius = weapon.puddleRadius || 30;
+                    bullet.puddleDuration = weapon.puddleDuration || 180;
+                    bullet.puddleDamage = weapon.puddleDamage || 2;
+                    bullet.puddleTickInterval = weapon.puddleTickInterval || 15;
+                }
+
+                // Cluster: carry fragment params
+                if (weapon.bulletType === 'cluster') {
+                    bullet.fragmentCount = weapon.fragmentCount || 8;
+                    bullet.fragmentDamage = weapon.fragmentDamage || 6;
+                    bullet.fragmentSpeed = weapon.fragmentSpeed || 8;
+                    bullet.fragmentLife = weapon.fragmentLife || 20;
+                    bullet.fragmentSize = weapon.fragmentSize || 3;
+                }
+
+                // Force: carry wall slam params
+                if (weapon.bulletType === 'force') {
+                    bullet.wallSlamDamage = weapon.wallSlamDamage || 15;
+                }
+
                 this.bullets.push(bullet);
             }
 
@@ -376,10 +439,46 @@ export class CombatSystem {
             this.camera.x += (Math.random() - 0.5) * recoil;
             this.camera.y += (Math.random() - 0.5) * recoil;
 
+            // Initiate burst fire if weapon has burstCount
+            if (weapon.burstCount > 1) {
+                this.burstState = {
+                    remaining: weapon.burstCount - 1,
+                    interval: weapon.burstInterval || 60,
+                    lastBurstShotTime: now,
+                    weapon: weapon
+                };
+            }
+
             this.lastShotTime = now;
             return true;
         }
         return false;
+    }
+
+    updateBurst() {
+        if (!this.burstState) return;
+        const now = Date.now();
+        if (now - this.burstState.lastBurstShotTime >= this.burstState.interval) {
+            if (this.burstState.remaining > 0) {
+                const weapon = this.burstState.weapon;
+                const muzzle = this.handSystem.getMuzzleWorldPosition(now);
+                if (muzzle && this.handSystem.canShoot()) {
+                    this.handSystem.triggerShoot();
+                    this._pushWeaponProjectiles({
+                        weapon, muzzle, source: 'player'
+                    });
+                    this.handSystem.consumeAmmo();
+                    const recoil = (weapon.damage || 10) / 8;
+                    this.camera.x += (Math.random() - 0.5) * recoil;
+                    this.camera.y += (Math.random() - 0.5) * recoil;
+                }
+                this.burstState.remaining--;
+                this.burstState.lastBurstShotTime = now;
+            }
+            if (this.burstState.remaining <= 0) {
+                this.burstState = null;
+            }
+        }
     }
 
     spawnEnemyBullet({ x, y, angle, damage, speed }) {
@@ -403,6 +502,9 @@ export class CombatSystem {
     updateBurnEffects() { this.statusEffects.updateBurnEffects(); }
     updateBleedEffects() { this.statusEffects.updateBleedEffects(); }
     updateFreezeEffects() { this.statusEffects.updateFreezeEffects(); }
+    updatePoisonEffects() { this.statusEffects.updatePoisonEffects(); }
+    updateAcidPuddles() { this.statusEffects.updateAcidPuddles(); }
+    updateForceEffects() { this.statusEffects.updateForceEffects(); }
     updateParticles() { this.particleSpawner.updateParticles(); }
     spawnExplosion(x, y, damage, radius, knockback) { this.statusEffects.spawnExplosion(x, y, damage, radius, knockback); }
     spawnDebris(x, y, type) { this.particleSpawner.spawnDebris(x, y, type); }

@@ -393,6 +393,114 @@ export class BulletSystem {
                         friction: 0.9
                     });
                 }
+            } else if (b.type === 'plasma') {
+                if (Math.random() > 0.3) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 4,
+                        y: b.y + (Math.random() - 0.5) * 4,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 12,
+                        color: Math.random() > 0.5 ? '#00e676' : '#00e5ff',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.9
+                    });
+                }
+            } else if (b.type === 'homing') {
+                // Homing: track nearest enemy
+                let nearestEnemy = null;
+                let nearestDist = b.homingAcquireRange || 300;
+                const targets = b.source === 'player' ? this.enemies : [this.player];
+                for (const e of targets) {
+                    if (!e || e.hp <= 0) continue;
+                    const dx = e.x - b.x;
+                    const dy = e.y - b.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestEnemy = e;
+                    }
+                }
+                if (nearestEnemy) {
+                    const desiredAngle = Math.atan2(nearestEnemy.y - b.y, nearestEnemy.x - b.x);
+                    const currentAngle = Math.atan2(b.vy, b.vx);
+                    let angleDiff = desiredAngle - currentAngle;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    const turnRate = b.homingTurnRate || 0.06;
+                    const turn = Math.max(-turnRate, Math.min(turnRate, angleDiff));
+                    const newAngle = currentAngle + turn;
+                    const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    b.vx = Math.cos(newAngle) * speed;
+                    b.vy = Math.sin(newAngle) * speed;
+                }
+                // Smoke trail
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x, y: b.y,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 20,
+                        color: '#95a5a6',
+                        size: Math.random() * 4 + 2,
+                        friction: 0.9
+                    });
+                }
+                if (Math.random() > 0.6) {
+                    this.particles.push({
+                        x: b.x - b.vx * 0.5,
+                        y: b.y - b.vy * 0.5,
+                        vx: 0, vy: 0,
+                        life: 8,
+                        color: '#e74c3c',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.9
+                    });
+                }
+            } else if (b.type === 'acid') {
+                b.vx *= 0.99;
+                b.vy *= 0.99;
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 4,
+                        y: b.y + (Math.random() - 0.5) * 4,
+                        vx: (Math.random() - 0.5) * 0.3,
+                        vy: Math.random() * 0.5 + 0.2,
+                        life: 15,
+                        color: Math.random() > 0.5 ? '#76ff03' : '#64dd17',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.95
+                    });
+                }
+            } else if (b.type === 'cluster') {
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 4,
+                        y: b.y + (Math.random() - 0.5) * 4,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 15,
+                        color: Math.random() > 0.5 ? '#ff9800' : '#ffb74d',
+                        size: Math.random() * 3 + 1,
+                        friction: 0.9
+                    });
+                }
+            } else if (b.type === 'force') {
+                b.vx *= 0.95;
+                b.vy *= 0.95;
+                b.size *= 1.03;
+                if (Math.random() > 0.3) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 6,
+                        y: b.y + (Math.random() - 0.5) * 6,
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: (Math.random() - 0.5) * 1,
+                        life: 8,
+                        color: Math.random() > 0.5 ? '#42a5f5' : '#90caf9',
+                        size: Math.random() * 3 + 2,
+                        friction: 0.85
+                    });
+                }
             }
 
             let hit = false;
@@ -467,7 +575,7 @@ export class BulletSystem {
                     if (CollisionUtils.lineIntersectsRect(p1, p2, vRect)) {
                         hit = true;
 
-                        if (b.type !== 'rocket' && b.type !== 'grenade') {
+                        if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
                             this.particles.push({
                                 x: b.x,
                                 y: b.y,
@@ -551,7 +659,7 @@ export class BulletSystem {
                              break;
                          } else {
                              hit = true;
-                             if (b.type !== 'rocket' && b.type !== 'grenade') {
+                             if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
                                  obj.takeDamage(b.damage);
                                  if (obj.isBroken) {
                                      this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -583,7 +691,7 @@ export class BulletSystem {
                             };
 
                         if (CollisionUtils.lineIntersectsRect(p1, p2, eRect)) {
-                            if (b.type !== 'rocket' && b.type !== 'grenade') {
+                            if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
                                 // Frozen damage multiplier
@@ -615,6 +723,28 @@ export class BulletSystem {
                                 // Lightning: chain to nearby enemies
                                 if (b.type === 'lightning' && b.chainCount > 0) {
                                     this.statusEffects.chainLightning(e, b);
+                                }
+
+                                // Acid: apply poison DOT
+                                if (b.type === 'acid' && b.poisonDamage) {
+                                    if (!e.poisonTimer || e.poisonTimer <= 0) {
+                                        e.poisonTimer = b.poisonDuration;
+                                        e.poisonDamage = b.poisonDamage;
+                                        e.poisonTickInterval = b.poisonTickInterval;
+                                        e.poisonTickCounter = 0;
+                                    } else {
+                                        e.poisonTimer = Math.max(e.poisonTimer, b.poisonDuration);
+                                    }
+                                }
+
+                                // Force: apply massive knockback + wall slam check
+                                if (b.type === 'force') {
+                                    const forceAngle = Math.atan2(b.vy, b.vx);
+                                    const kbForce = b.knockback || 18;
+                                    e.knockbackX = (e.knockbackX || 0) + Math.cos(forceAngle) * kbForce;
+                                    e.knockbackY = (e.knockbackY || 0) + Math.sin(forceAngle) * kbForce;
+                                    e._forceWallSlamCheck = 10;
+                                    e._forceWallSlamDamage = b.wallSlamDamage || 15;
                                 }
 
                                 // Ice shard: stackable slow + freeze
@@ -714,7 +844,7 @@ export class BulletSystem {
                     const alreadyHitPlayer = Array.isArray(b.hitList) && b.hitList.includes(p);
                     if (!alreadyHitPlayer && CollisionUtils.lineIntersectsRect(p1, p2, pRect)) {
                         const angle = Math.atan2(b.vy, b.vx);
-                        if (b.type !== 'rocket' && b.type !== 'grenade') {
+                        if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
                             this._handleEnemyBulletHitPlayer(b, angle);
                         }
 
@@ -770,6 +900,52 @@ export class BulletSystem {
                             this.statusEffects.teleportPlayer(b);
                         } else if (b.source === 'enemy' && b.owner && b.owner.hp > 0) {
                             this.statusEffects.teleportEntity(b.owner, b);
+                        }
+                    } else if (b.type === 'homing') {
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius || 48, b.knockback || 6);
+                    } else if (b.type === 'acid') {
+                        this.statusEffects.spawnAcidPuddle(b.x, b.y, b);
+                    } else if (b.type === 'cluster') {
+                        // Spawn fragments in radial pattern
+                        const count = b.fragmentCount || 8;
+                        for (let f = 0; f < count; f++) {
+                            const angle = (Math.PI * 2 / count) * f + (Math.random() - 0.5) * 0.3;
+                            this.bullets.push({
+                                x: b.x, y: b.y,
+                                vx: Math.cos(angle) * (b.fragmentSpeed || 8),
+                                vy: Math.sin(angle) * (b.fragmentSpeed || 8),
+                                life: b.fragmentLife || 20,
+                                maxLife: b.fragmentLife || 20,
+                                damage: b.fragmentDamage || 6,
+                                color: '#ffb74d',
+                                size: b.fragmentSize || 3,
+                                type: 'standard',
+                                source: b.source,
+                                owner: b.owner,
+                                team: b.team,
+                                hitList: []
+                            });
+                        }
+                        // Burst flash
+                        this.particles.push({
+                            type: 'flash',
+                            x: b.x, y: b.y,
+                            size: 20,
+                            color: '#ff9800',
+                            alpha: 0.8,
+                            life: 8
+                        });
+                        for (let s = 0; s < 6; s++) {
+                            const a = Math.random() * Math.PI * 2;
+                            this.particles.push({
+                                x: b.x, y: b.y,
+                                vx: Math.cos(a) * (Math.random() * 3 + 1),
+                                vy: Math.sin(a) * (Math.random() * 3 + 1),
+                                life: 12,
+                                color: '#ffb74d',
+                                size: Math.random() * 2 + 1,
+                                friction: 0.9
+                            });
                         }
                     }
                     this.bullets.splice(i, 1);

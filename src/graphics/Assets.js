@@ -76,6 +76,11 @@ import { DAGGER_SPRITE } from '../assets/weapons/DaggerGenerator.js';
 import { GREATSWORD_SPRITE } from '../assets/weapons/GreatswordGenerator.js';
 import { SPEAR_SPRITE } from '../assets/weapons/SpearGenerator.js';
 import { BATTLE_AXE_SPRITE } from '../assets/weapons/BattleAxeGenerator.js';
+import { PLASMA_RIFLE_SPRITE } from '../assets/weapons/PlasmaRifleGenerator.js';
+import { HOMING_LAUNCHER_SPRITE } from '../assets/weapons/HomingLauncherGenerator.js';
+import { ACID_GUN_SPRITE } from '../assets/weapons/AcidGunGenerator.js';
+import { CLUSTER_GUN_SPRITE } from '../assets/weapons/ClusterGunGenerator.js';
+import { FORCE_GUN_SPRITE } from '../assets/weapons/ForceGunGenerator.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
@@ -322,6 +327,11 @@ export const Assets = {
     greatsword: GREATSWORD_SPRITE,
     spear: SPEAR_SPRITE,
     battle_axe: BATTLE_AXE_SPRITE,
+    plasma_rifle: PLASMA_RIFLE_SPRITE,
+    homing_launcher: HOMING_LAUNCHER_SPRITE,
+    acid_gun: ACID_GUN_SPRITE,
+    cluster_gun: CLUSTER_GUN_SPRITE,
+    force_gun: FORCE_GUN_SPRITE,
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

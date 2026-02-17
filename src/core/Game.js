@@ -38,6 +38,7 @@ export class Game {
         this.breakableObjects = [];
         this.vehicles = [];
         this.blackHoles = [];
+        this.acidPuddles = [];
         this.pets = [];
         // Portals are managed by WorldSystem but need to be passed to Renderer via Game reference or directly
 
@@ -120,7 +121,8 @@ export class Game {
             handSystem: this.handSystem,
             player: this.player,
             vehicles: this.vehicles,
-            blackHoles: this.blackHoles
+            blackHoles: this.blackHoles,
+            acidPuddles: this.acidPuddles
         });
 
         this.inventorySystem = new InventorySystem();
@@ -194,6 +196,7 @@ export class Game {
             worldSystem: this.worldSystem, // Pass WorldSystem to access portals
             buildSystem: this.buildSystem,
             blackHoles: this.blackHoles,
+            acidPuddles: this.acidPuddles,
             profiler: this.profiler,
             pets: this.pets
         });
@@ -369,6 +372,10 @@ export class Game {
         this.combatSystem.updateBurnEffects();
         this.combatSystem.updateBleedEffects();
         this.combatSystem.updateFreezeEffects();
+        this.combatSystem.updatePoisonEffects();
+        this.combatSystem.updateAcidPuddles();
+        this.combatSystem.updateForceEffects();
+        this.combatSystem.updateBurst();
         this.profiler.end('Combat');
 
         // --- World Objects ---

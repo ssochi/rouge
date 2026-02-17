@@ -216,6 +216,47 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:plasma_rifle',
+            type: 'weapon',
+            name: 'Plasma Rifle',
+            icon: 'plasma_rifle',
+            maxStack: 1,
+            data: { weaponConfigId: 'plasma_rifle' }
+        });
+        this.registerItem({
+            id: 'weapon:homing_launcher',
+            type: 'weapon',
+            name: 'Homing Launcher',
+            icon: 'homing_launcher',
+            maxStack: 1,
+            data: { weaponConfigId: 'homing_launcher' }
+        });
+        this.registerItem({
+            id: 'weapon:acid_gun',
+            type: 'weapon',
+            name: 'Acid Gun',
+            icon: 'acid_gun',
+            maxStack: 1,
+            data: { weaponConfigId: 'acid_gun' }
+        });
+        this.registerItem({
+            id: 'weapon:cluster_gun',
+            type: 'weapon',
+            name: 'Cluster Gun',
+            icon: 'cluster_gun',
+            maxStack: 1,
+            data: { weaponConfigId: 'cluster_gun' }
+        });
+        this.registerItem({
+            id: 'weapon:force_gun',
+            type: 'weapon',
+            name: 'Force Gun',
+            icon: 'force_gun',
+            maxStack: 1,
+            data: { weaponConfigId: 'force_gun' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',

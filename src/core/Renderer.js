@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, profiler, pets }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -22,6 +22,7 @@ export class Renderer {
         this.vehicles = vehicles || []; // Add vehicles
         this.buildSystem = buildSystem;
         this.blackHoles = blackHoles || [];
+        this.acidPuddles = acidPuddles || [];
         this.profiler = profiler || null;
         this.pets = pets || [];
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
@@ -476,6 +477,28 @@ export class Renderer {
             });
         });
 
+        this.acidPuddles.forEach(puddle => {
+            renderList.push({
+                y: puddle.y,
+                draw: () => {
+                    const progress = puddle.life / puddle.maxLife;
+                    this.ctx.save();
+                    this.ctx.translate(puddle.x, puddle.y);
+                    this.ctx.globalAlpha = 0.4 * progress;
+                    this.ctx.fillStyle = '#76ff03';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(0, 0, puddle.radius, puddle.radius * 0.6, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.globalAlpha = 0.6 * progress;
+                    this.ctx.fillStyle = '#64dd17';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(0, 0, puddle.radius * 0.5, puddle.radius * 0.3, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+            });
+        });
+
         this.particles.forEach(p => {
              renderList.push({
                  y: p.y,
@@ -732,6 +755,115 @@ export class Renderer {
                 this.ctx.strokeStyle = '#5d4037';
                 this.ctx.lineWidth = 1;
                 this.ctx.stroke();
+                this.ctx.restore();
+            } else if (b.type === 'plasma') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#00e676';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.8, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#00e5ff';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.4, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'homing') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const hmAngle = Math.atan2(b.vy, b.vx);
+                this.ctx.rotate(hmAngle);
+                // Missile body
+                this.ctx.fillStyle = '#e74c3c';
+                this.ctx.fillRect(-5, -2, 10, 4);
+                // Nose cone
+                this.ctx.fillStyle = '#c0392b';
+                this.ctx.beginPath();
+                this.ctx.moveTo(5, -2);
+                this.ctx.lineTo(8, 0);
+                this.ctx.lineTo(5, 2);
+                this.ctx.closePath();
+                this.ctx.fill();
+                // Fins
+                this.ctx.fillStyle = '#95a5a6';
+                this.ctx.fillRect(-5, -4, 3, 2);
+                this.ctx.fillRect(-5, 2, 3, 2);
+                // Exhaust glow
+                this.ctx.globalAlpha = 0.6;
+                this.ctx.fillStyle = '#ff6b6b';
+                this.ctx.beginPath();
+                this.ctx.arc(-5, 0, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'acid') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#76ff03';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.5, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#64dd17';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#ccff90';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.3, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'cluster') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#ff9800';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.5, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#ff9800';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Inner cluster dots
+                this.ctx.fillStyle = '#ffb74d';
+                for (let d = 0; d < 3; d++) {
+                    const clA = (Math.PI * 2 / 3) * d + ((b.maxLife - b.life) * 0.1);
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                        Math.cos(clA) * b.size * 0.4,
+                        Math.sin(clA) * b.size * 0.4,
+                        1.5, 0, Math.PI * 2
+                    );
+                    this.ctx.fill();
+                }
+                this.ctx.restore();
+            } else if (b.type === 'force') {
+                this.ctx.save();
+                const forceLifeRatio = b.life / (b.maxLife || 15);
+                this.ctx.globalAlpha = Math.max(0.2, forceLifeRatio);
+                this.ctx.translate(b.x, b.y);
+                this.ctx.strokeStyle = '#42a5f5';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.5, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.fillStyle = '#90caf9';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.globalAlpha = forceLifeRatio;
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.5, 0, Math.PI * 2);
+                this.ctx.fill();
                 this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';

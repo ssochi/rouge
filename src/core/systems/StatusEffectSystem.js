@@ -1,5 +1,5 @@
 export class StatusEffectSystem {
-    constructor({ enemies, breakableObjects, walls, particles, player, camera, blackHoles, particleSpawner }) {
+    constructor({ enemies, breakableObjects, walls, particles, player, camera, blackHoles, acidPuddles, particleSpawner }) {
         this.enemies = enemies;
         this.breakableObjects = breakableObjects;
         this.walls = walls;
@@ -7,6 +7,7 @@ export class StatusEffectSystem {
         this.player = player;
         this.camera = camera;
         this.blackHoles = blackHoles || [];
+        this.acidPuddles = acidPuddles || [];
         this.particleSpawner = particleSpawner;
     }
 
@@ -601,5 +602,194 @@ export class StatusEffectSystem {
             size: Math.random() * 2 + 1,
             friction: 0.95
         });
+    }
+
+    // --- Poison DOT (Acid Gun) ---
+    updatePoisonEffects() {
+        for (const e of this.enemies) {
+            if (!e.poisonTimer || e.poisonTimer <= 0) continue;
+            e.poisonTimer--;
+            e.poisonTickCounter = (e.poisonTickCounter || 0) + 1;
+            if (e.poisonTickCounter >= (e.poisonTickInterval || 20)) {
+                e.poisonTickCounter = 0;
+                let poisonDmg = e.poisonDamage || 3;
+                if (e.frozenTimer > 0) poisonDmg = Math.floor(poisonDmg * 1.5);
+                e.hp -= poisonDmg;
+                e.hitFlashTimer = 3;
+                e.hpBarTimer = 60;
+                this.particles.push({
+                    type: 'fire',
+                    x: e.x + (Math.random() - 0.5) * 10,
+                    y: e.y + (Math.random() - 0.5) * 10,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: -Math.random() * 1.0,
+                    size: Math.random() * 3 + 2,
+                    color: '#76ff03',
+                    life: 12,
+                    alpha: 0.7
+                });
+                if (e.hp <= 0) {
+                    this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                }
+            }
+        }
+        const p = this.player;
+        if (!p || !p.poisonTimer || p.poisonTimer <= 0) return;
+        p.poisonTimer--;
+        p.poisonTickCounter = (p.poisonTickCounter || 0) + 1;
+        if (p.poisonTickCounter >= (p.poisonTickInterval || 20)) {
+            p.poisonTickCounter = 0;
+            const poisonDmg = p.poisonDamage || 3;
+            if (p.takeDamage) {
+                p.takeDamage(poisonDmg, { x: 0, y: 0 });
+            } else {
+                p.hp -= poisonDmg;
+            }
+            this.particles.push({
+                type: 'fire',
+                x: p.x + (Math.random() - 0.5) * 10,
+                y: p.y + (Math.random() - 0.5) * 10,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: -Math.random() * 1.0,
+                size: Math.random() * 3 + 2,
+                color: '#76ff03',
+                life: 12,
+                alpha: 0.7
+            });
+        }
+    }
+
+    // --- Acid Puddles (ground hazard) ---
+    spawnAcidPuddle(x, y, b) {
+        this.acidPuddles.push({
+            x, y,
+            radius: b.puddleRadius || 30,
+            life: b.puddleDuration || 180,
+            maxLife: b.puddleDuration || 180,
+            damage: b.puddleDamage || 2,
+            tickInterval: b.puddleTickInterval || 15,
+            tickCounter: 0,
+            source: b.source || 'player'
+        });
+        for (let i = 0; i < 6; i++) {
+            const a = Math.random() * Math.PI * 2;
+            this.particles.push({
+                x: x + Math.cos(a) * 5,
+                y: y + Math.sin(a) * 5,
+                vx: Math.cos(a) * 1.5,
+                vy: Math.sin(a) * 1.5,
+                life: 15,
+                color: '#76ff03',
+                size: Math.random() * 3 + 1,
+                friction: 0.9
+            });
+        }
+    }
+
+    updateAcidPuddles() {
+        for (let i = this.acidPuddles.length - 1; i >= 0; i--) {
+            const puddle = this.acidPuddles[i];
+            puddle.life--;
+            puddle.tickCounter++;
+
+            if (puddle.tickCounter >= puddle.tickInterval) {
+                puddle.tickCounter = 0;
+                for (const e of this.enemies) {
+                    if (e.hp <= 0) continue;
+                    const dx = e.x - puddle.x;
+                    const dy = e.y - puddle.y;
+                    if (dx * dx + dy * dy < puddle.radius * puddle.radius) {
+                        if (e.takeDamage) {
+                            e.takeDamage(puddle.damage, { x: 0, y: 0 });
+                        } else {
+                            e.hp -= puddle.damage;
+                        }
+                        if (e.hp <= 0) {
+                            this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                        }
+                    }
+                }
+                if (puddle.source === 'enemy') {
+                    const p = this.player;
+                    if (p && p.hp > 0 && p.state !== 'roll') {
+                        const dx = p.x - puddle.x;
+                        const dy = p.y - puddle.y;
+                        if (dx * dx + dy * dy < puddle.radius * puddle.radius) {
+                            if (p.takeDamage) {
+                                p.takeDamage(puddle.damage, { x: 0, y: 0 });
+                            } else {
+                                p.hp -= puddle.damage;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bubbling particles
+            if (Math.random() > 0.7) {
+                const a = Math.random() * Math.PI * 2;
+                const r = Math.random() * puddle.radius * 0.8;
+                this.particles.push({
+                    x: puddle.x + Math.cos(a) * r,
+                    y: puddle.y + Math.sin(a) * r,
+                    vx: 0,
+                    vy: -Math.random() * 0.5,
+                    life: 10 + Math.random() * 5,
+                    color: Math.random() > 0.5 ? '#76ff03' : '#64dd17',
+                    size: Math.random() * 2 + 1,
+                    friction: 0.95
+                });
+            }
+
+            if (puddle.life <= 0) {
+                this.acidPuddles.splice(i, 1);
+            }
+        }
+    }
+
+    // --- Force Gun Wall Slam ---
+    updateForceEffects() {
+        for (const e of this.enemies) {
+            if (!e._forceWallSlamCheck || e._forceWallSlamCheck <= 0) continue;
+            e._forceWallSlamCheck--;
+            const hw = (e.hitboxWidth || e.width || 16) / 2;
+            const hh = (e.hitboxHeight || e.height || 16) / 2;
+            const hitbox = {
+                x: e.x - hw,
+                y: e.y - hh,
+                width: hw * 2,
+                height: hh * 2
+            };
+            for (const wall of this.walls) {
+                if (hitbox.x < wall.x + wall.w &&
+                    hitbox.x + hitbox.width > wall.x &&
+                    hitbox.y < wall.y + wall.h &&
+                    hitbox.y + hitbox.height > wall.y) {
+                    const slamDmg = e._forceWallSlamDamage || 15;
+                    if (e.takeDamage) {
+                        e.takeDamage(slamDmg, { x: 0, y: 0 });
+                    } else {
+                        e.hp -= slamDmg;
+                    }
+                    for (let s = 0; s < 5; s++) {
+                        const a = Math.random() * Math.PI * 2;
+                        this.particles.push({
+                            x: e.x, y: e.y,
+                            vx: Math.cos(a) * 2,
+                            vy: Math.sin(a) * 2,
+                            life: 15,
+                            color: '#90caf9',
+                            size: Math.random() * 3 + 2,
+                            friction: 0.85
+                        });
+                    }
+                    e._forceWallSlamCheck = 0;
+                    if (e.hp <= 0) {
+                        this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                    }
+                    break;
+                }
+            }
+        }
     }
 }
