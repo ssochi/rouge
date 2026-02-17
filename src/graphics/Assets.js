@@ -37,6 +37,16 @@ import { createFridgeSprite } from '../assets/objects/furniture/FridgeSprite.js'
 import { createStoveSprite } from '../assets/objects/furniture/StoveSprite.js';
 import { createKitchenCounterSprite } from '../assets/objects/furniture/KitchenCounterSprite.js';
 import { createKitchenSinkSprite } from '../assets/objects/furniture/KitchenSinkSprite.js';
+import { createDeskSprite } from '../assets/objects/furniture/DeskSprite.js';
+import { createChairSprite } from '../assets/objects/furniture/ChairSprite.js';
+import { createDresserSprite } from '../assets/objects/furniture/DresserSprite.js';
+import { createWashingMachineSprite } from '../assets/objects/furniture/WashingMachineSprite.js';
+import { createGrandfatherClockSprite } from '../assets/objects/furniture/GrandfatherClockSprite.js';
+import { createPianoSprite } from '../assets/objects/furniture/PianoSprite.js';
+import { createWineRackSprite } from '../assets/objects/furniture/WineRackSprite.js';
+import { createCoatRackSprite } from '../assets/objects/furniture/CoatRackSprite.js';
+import { createFishTankSprite } from '../assets/objects/furniture/FishTankSprite.js';
+import { createWorkbenchSprite } from '../assets/objects/furniture/WorkbenchSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -123,6 +133,16 @@ const fridgeSprite = createFridgeSprite();
 const stoveSprite = createStoveSprite();
 const kitchenCounterSprite = createKitchenCounterSprite();
 const kitchenSinkSprite = createKitchenSinkSprite();
+const deskSprite = createDeskSprite();
+const chairSprite = createChairSprite();
+const dresserSprite = createDresserSprite();
+const washingMachineSprite = createWashingMachineSprite();
+const grandfatherClockSprite = createGrandfatherClockSprite();
+const pianoSprite = createPianoSprite();
+const wineRackSprite = createWineRackSprite();
+const coatRackSprite = createCoatRackSprite();
+const fishTankSprite = createFishTankSprite();
+const workbenchSprite = createWorkbenchSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -268,6 +288,29 @@ export const Assets = {
         kitchen_counter_flash: PixelDraw.createSilhouette(kitchenCounterSprite),
         kitchen_sink: kitchenSinkSprite,
         kitchen_sink_flash: PixelDraw.createSilhouette(kitchenSinkSprite),
+        // New furniture
+        desk: deskSprite,
+        desk_flash: PixelDraw.createSilhouette(deskSprite),
+        chair: chairSprite,
+        chair_flash: PixelDraw.createSilhouette(chairSprite),
+        dresser: dresserSprite,
+        dresser_flash: PixelDraw.createSilhouette(dresserSprite),
+        washing_machine: washingMachineSprite,
+        washing_machine_flash: PixelDraw.createSilhouette(washingMachineSprite),
+        grandfather_clock: grandfatherClockSprite,
+        grandfather_clock_flash: PixelDraw.createSilhouette(grandfatherClockSprite),
+        piano: pianoSprite,
+        piano_flash: PixelDraw.createSilhouette(pianoSprite),
+        wine_rack: wineRackSprite,
+        wine_rack_flash: PixelDraw.createSilhouette(wineRackSprite),
+        coat_rack: coatRackSprite,
+        coat_rack_flash: PixelDraw.createSilhouette(coatRackSprite),
+        fish_tank: fishTankSprite,
+        fish_tank_flash: Array.isArray(fishTankSprite)
+            ? fishTankSprite.map(s => PixelDraw.createSilhouette(s))
+            : PixelDraw.createSilhouette(fishTankSprite),
+        workbench: workbenchSprite,
+        workbench_flash: PixelDraw.createSilhouette(workbenchSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

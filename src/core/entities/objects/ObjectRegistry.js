@@ -30,6 +30,16 @@ import { TreeObject } from './TreeObject.js';
 import { TreeSmallObject } from './TreeSmallObject.js';
 import { BushObject } from './BushObject.js';
 import { GrassTuftObject, GrassTallObject, GrassFlowerObject } from './GrassTuftObject.js';
+import { DeskObject } from './DeskObject.js';
+import { ChairObject } from './ChairObject.js';
+import { DresserObject } from './DresserObject.js';
+import { WashingMachineObject } from './WashingMachineObject.js';
+import { GrandfatherClockObject } from './GrandfatherClockObject.js';
+import { PianoObject } from './PianoObject.js';
+import { WineRackObject } from './WineRackObject.js';
+import { CoatRackObject } from './CoatRackObject.js';
+import { FishTankObject } from './FishTankObject.js';
+import { WorkbenchObject } from './WorkbenchObject.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -65,7 +75,17 @@ const OBJECT_DEFS = new Map([
     ['bush', BushObject],
     ['grass_tuft', GrassTuftObject],
     ['grass_tall', GrassTallObject],
-    ['grass_flower', GrassFlowerObject]
+    ['grass_flower', GrassFlowerObject],
+    ['desk', DeskObject],
+    ['chair', ChairObject],
+    ['dresser', DresserObject],
+    ['washing_machine', WashingMachineObject],
+    ['grandfather_clock', GrandfatherClockObject],
+    ['piano', PianoObject],
+    ['wine_rack', WineRackObject],
+    ['coat_rack', CoatRackObject],
+    ['fish_tank', FishTankObject],
+    ['workbench', WorkbenchObject]
 ]);
 
 export function getObjectDef(type) {

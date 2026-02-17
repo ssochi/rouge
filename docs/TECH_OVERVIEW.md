@@ -11,7 +11,7 @@
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
     - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
     - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
-    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台。
+    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台、书桌、椅子、梳妆台、洗衣机、落地钟、钢琴、酒架、衣帽架、鱼缸(动画)、工作台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
@@ -139,7 +139,7 @@
   - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
   - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。支持的房间语义：`living_room`、`bedroom`、`study`、`bathroom`、`storage`、`corridor`、`foyer`。
   - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。`bathroom` 作为 medium/large 建筑的 preferredRole，不设全局配额。
-  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙)。卧室可选：落地灯(25%,偏墙)。书房可选：扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%)。走廊可选：矮柜(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙)。
+  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙) + 钢琴(20%,靠墙) + 鱼缸(25%)。卧室可选：落地灯(25%,偏墙) + 梳妆台(50%,靠墙)。书房必需：书桌(靠墙)+书架；可选：椅子(60%,近桌) + 扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%) + 衣帽架(40%,靠墙) + 落地钟(30%,靠墙)。走廊可选：矮柜(20%,靠墙) + 落地钟(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙) + 洗衣机(35%,靠墙)。厨房可选：酒架(25%,靠墙) + 椅子(30%)。储藏室可选：工作台(40%,靠墙) + 洗衣机(30%,靠墙)。
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
