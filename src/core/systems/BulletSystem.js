@@ -78,6 +78,7 @@ export class BulletSystem {
 
     _handleEnemyBulletHitPlayer(bullet, angle) {
         const p = this.player;
+        if (p.state === 'roll') return;
         let damage = bullet.damage;
         if (p.frozenTimer > 0 && bullet.type !== 'ice_shard') {
             damage = Math.floor(damage * 1.5);

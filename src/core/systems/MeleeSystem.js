@@ -263,6 +263,7 @@ export class MeleeSystem {
         // Check enemies in a narrow corridor along thrust direction
         for (const enemy of this.targets) {
             if (enemy.hp <= 0) continue;
+            if (enemy.state === 'roll') continue;
             if (this.hitTargets.includes(enemy)) continue;
 
             const dx = enemy.x - this.owner.x;
@@ -391,6 +392,7 @@ export class MeleeSystem {
         // Check enemies
         for (const enemy of this.targets) {
             if (enemy.hp <= 0) continue;
+            if (enemy.state === 'roll') continue;
             if (this.hitTargets.includes(enemy)) continue;
 
             const dx = enemy.x - this.owner.x;

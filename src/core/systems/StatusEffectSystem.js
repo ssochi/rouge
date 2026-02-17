@@ -111,6 +111,7 @@ export class StatusEffectSystem {
 
         // Damage Player
         const p = this.player;
+        if (p.state === 'roll') return;
         const pdx = p.x - x;
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
@@ -267,7 +268,7 @@ export class StatusEffectSystem {
 
             // Enemy-origin black holes can affect player as well.
             const p = this.player;
-            if (bh.source === 'enemy' && p && p.hp > 0 && p.state !== 'driving') {
+            if (bh.source === 'enemy' && p && p.hp > 0 && p.state !== 'driving' && p.state !== 'roll') {
                 const dx = bh.x - p.x;
                 const dy = bh.y - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
