@@ -2,82 +2,79 @@ import { PixelDraw } from '../../../utils/PixelDraw.js';
 
 export function createFishTankSprite() {
     const w = 32;
-    const h = 32;
-    const frames = [];
-
-    // Colors
-    const cWater = '#85c1e9'; // Light blue
-    const cWaterDeep = '#3498db'; // Deep blue
-    const cGlass = '#aed6f1'; // Glass tint
-    const cSand = '#f9e79f';
-    const cWeed = '#2ecc71';
-    const cWeedDark = '#27ae60';
-    const cCabinet = '#5d4037'; // Wood cabinet
+    const h = 48; // Increased height for 2.5D perspective
     
-    // Fish colors
-    const cFish1 = '#e67e22'; // Goldfish
-    const cFish2 = '#e74c3c'; // Red fish
+    // Colors
+    const cWaterTop = '#85c1e9'; // Light blue (Top)
+    const cWaterMid = '#5dade2'; // Mid blue
+    const cWaterDeep = '#2e86c1'; // Deep blue (Bottom)
+    const cGlassFrame = '#1a5276'; // Dark blue frame
+    const cSand = '#f9e79f';
+    const cCabinetDark = '#4a235a'; // Dark purple/wood
+    const cCabinetLight = '#6c3483'; // Lighter cabinet
+    const cCabinetTop = '#884ea0'; // Top face of cabinet
 
-    for (let f = 0; f < 4; f++) {
-        const drawer = new PixelDraw(w, h);
-        
-        // 1. Cabinet Base
-        const cabY = 22;
-        drawer.rect(2, cabY, w-4, h-cabY, cCabinet);
-        // Cabinet doors
-        drawer.vLine(w/2, cabY+1, h-cabY-2, '#3e2723');
-        drawer.pixel(w/2-2, cabY+4, '#f1c40f'); // Knob
-        drawer.pixel(w/2+1, cabY+4, '#f1c40f'); // Knob
+    const drawer = new PixelDraw(w, h);
+    
+    // --- 1. Cabinet (Bottom Part) ---
+    const cabY = 32;
+    const cabH = 16;
+    
+    // Cabinet Body (Front Face)
+    drawer.rect(0, cabY, w, cabH, cCabinetDark);
+    
+    // Cabinet Doors Detail
+    drawer.rect(2, cabY + 2, w/2 - 3, cabH - 4, cCabinetLight); // Left Door
+    drawer.rect(w/2 + 1, cabY + 2, w/2 - 3, cabH - 4, cCabinetLight); // Right Door
+    
+    // Knobs
+    drawer.pixel(w/2 - 4, cabY + cabH/2 - 1, '#f1c40f');
+    drawer.pixel(w/2 + 3, cabY + cabH/2 - 1, '#f1c40f');
+    
+    // Cabinet Feet
+    drawer.rect(0, h-2, 2, 2, '#2c3e50');
+    drawer.rect(w-2, h-2, 2, 2, '#2c3e50');
 
-        // 2. Tank Glass Outline
-        const tY = 2;
-        const tH = 20;
-        drawer.rect(2, tY, w-4, tH, cWaterDeep); // Background water
-        
-        // Sand bottom
-        drawer.rect(2, tY + tH - 4, w-4, 4, cSand);
-        
-        // 3. Water Surface
-        drawer.hLine(2, tY + 1, w-4, '#d6eaf8'); // Surface reflection
+    // --- 2. Fish Tank (Top Part) ---
+    const tankX = 2;
+    const tankY = 4; // Start a bit down to leave room for lid/light
+    const tankW = w - 4;
+    const tankH = 28; // Tank height
+    
+    // Glass/Water Body (Gradient approximation)
+    // We'll draw 3 bands for gradient
+    const bandH = Math.floor(tankH / 3);
+    drawer.rect(tankX, tankY, tankW, bandH, cWaterTop);
+    drawer.rect(tankX, tankY + bandH, tankW, bandH, cWaterMid);
+    drawer.rect(tankX, tankY + bandH * 2, tankW, tankH - bandH * 2, cWaterDeep);
+    
+    // Sand at bottom of tank
+    drawer.rect(tankX, tankY + tankH - 4, tankW, 4, cSand);
 
-        // 4. Animated Seaweed
-        const weedX = 6;
-        const weedY = tY + tH - 4;
-        const sway = Math.sin(f * Math.PI / 2) * 2;
-        drawer.fillQuadCurve(weedX, weedY, weedX + sway, weedY - 6, weedX, weedY - 12, cWeed);
-        
-        const weedX2 = 24;
-        const sway2 = Math.cos(f * Math.PI / 2) * 2;
-        drawer.fillQuadCurve(weedX2, weedY, weedX2 - sway2, weedY - 5, weedX2, weedY - 10, cWeedDark);
+    // --- 3. Tank Top / Lid (Perspective) ---
+    // Top Lid (Light/Cover)
+    const lidH = 4;
+    drawer.rect(0, 0, w, lidH, '#2c3e50'); // Dark plastic/metal lid
+    drawer.hLine(0, 0, w, '#566573'); // Highlight on lid top edge
+    
+    // Frame Columns (Vertical supports)
+    drawer.rect(0, lidH, 2, tankH, cGlassFrame); // Left pillar
+    drawer.rect(w-2, lidH, 2, tankH, cGlassFrame); // Right pillar
+    
+    // Cabinet Top Face (Visible rim around tank base where it sits on cabinet)
+    // Actually the tank sits ON the cabinet.
+    // Let's draw the Cabinet Top surface that projects slightly
+    // Since we are 2.5D, we see the top of the cabinet in front of the tank? No, tank is on top.
+    // But maybe the cabinet is wider than the tank?
+    // Let's keep tank width same as cabinet for sleek look, but maybe add a rim.
+    
+    // Bottom Rim of Tank
+    drawer.rect(0, cabY - 2, w, 2, cCabinetTop);
 
-        // 5. Animated Fish
-        // Fish 1 (Swimming right)
-        const f1x = 8 + (f * 2) % 16;
-        const f1y = 10;
-        drawer.rect(f1x, f1y, 4, 2, cFish1);
-        drawer.pixel(f1x-1, f1y+1, cFish1); // Tail
-        
-        // Fish 2 (Swimming left)
-        const f2x = 24 - (f * 3) % 18;
-        const f2y = 15;
-        drawer.rect(f2x, f2y, 3, 2, cFish2);
-        drawer.pixel(f2x+3, f2y+1, cFish2); // Tail
+    // --- 4. Glass Highlights ---
+    // Vertical glare
+    drawer.vLine(tankX + 4, tankY + 2, tankH - 4, 'rgba(255, 255, 255, 0.3)');
+    drawer.vLine(tankX + 5, tankY + 2, tankH - 4, 'rgba(255, 255, 255, 0.1)');
 
-        // 6. Bubbles
-        const bubX = 14;
-        const bubY = 18 - (f * 3) % 14;
-        if (bubY > tY + 2) drawer.pixel(bubX, bubY, '#ffffff');
-        
-        const bubX2 = 20;
-        const bubY2 = 18 - ((f+2) * 3) % 14;
-        if (bubY2 > tY + 2) drawer.pixel(bubX2, bubY2, '#ffffff');
-
-        // 7. Glass Highlights (Static)
-        drawer.strokeRect(2, tY, w-4, tH, '#ffffff'); // Frame
-        drawer.line(w-8, tY+2, w-4, tY+6, 'rgba(255,255,255,0.4)'); // Glint
-
-        frames.push(drawer.getCanvas());
-    }
-
-    return frames;
+    return drawer.getCanvas();
 }

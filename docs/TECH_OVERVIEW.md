@@ -11,7 +11,7 @@
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
     - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
     - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
-    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台、书桌、椅子、梳妆台、洗衣机、落地钟、钢琴、酒架、衣帽架、鱼缸(动画)、工作台。
+    - objects/furniture/: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台、书桌、椅子、梳妆台、洗衣机、落地钟、钢琴、酒架、衣帽架、鱼缸(程序化动画)、工作台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
@@ -26,7 +26,7 @@
       - `MutantBeast.js`: 变异巨兽 BOSS (HP 800, 80×80, 90%击退抗性, 3阶段战斗)。阶段1(100%-60%HP): 重拳砸击/横扫/震地波；阶段2(60%-25%HP): 新增冲锋+跳砸，速度加快；阶段3(25%-0%HP): 新增召唤僵尸，身体变紫。跳砸空中期间无敌（`getBulletHurtbox()` 返回 null）。`isBoss=true` 标记用于 Renderer 绘制屏幕顶部 BOSS 血条。死亡掉落 2-3 把随机武器。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
-      - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
+      - objects/: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。其中 `FishTankObject.js` 包含复杂的程序化动画逻辑（鱼群游动、水草摇曳、气泡上升）。
       - `DroppedItem.js`: 掉落物逻辑与悬浮效果（支持 weapon/placeable/consumable）。
       - `Portal.js`: 传送门逻辑与粒子渲染。
       - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗，远距离自动传送）。
