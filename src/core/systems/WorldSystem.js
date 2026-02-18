@@ -4,6 +4,7 @@ import { ZombieFemale } from '../entities/ZombieFemale.js';
 import { ZombieBrute } from '../entities/ZombieBrute.js';
 import { Hunter } from '../entities/Hunter.js';
 import { Soldier } from '../entities/Soldier.js';
+import { MutantBeast } from '../entities/MutantBeast.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
@@ -232,6 +233,12 @@ export class WorldSystem {
         // Spawn Soldiers
         for (let i = 0; i < 6; i++) {
             this.spawnEnemyWithIndoorPreference('soldier', indoorPool, nonZombieIndoorRatio);
+        }
+
+        // Spawn Mutant Beast BOSS (1 per map)
+        const boss = this.spawnEnemy('mutant_beast');
+        if (boss) {
+            boss.worldSystem = this;
         }
     }
 
@@ -556,6 +563,7 @@ export class WorldSystem {
         if (type === 'soldier') return new Soldier(x, y);
         if (type === 'zombie_female') return new ZombieFemale(x, y);
         if (type === 'zombie_brute') return new ZombieBrute(x, y);
+        if (type === 'mutant_beast') return new MutantBeast(x, y);
         return new Zombie(x, y);
     }
 
@@ -1332,10 +1340,32 @@ export class WorldSystem {
     }
 
     _getEnemyDropMultiplier(enemy) {
+        if (enemy instanceof MutantBeast) return 5;
         if (enemy instanceof ZombieBrute) return 2;
         if (enemy instanceof Hunter) return 2;
         if (enemy instanceof Soldier) return 3;
         return 1;
+    }
+
+    _dropBossLoot(enemy) {
+        const pool = this._getRoomWeaponPool();
+        if (!pool || pool.length === 0) return;
+        // Drop 2-3 random weapons around the boss
+        const dropCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < dropCount; i++) {
+            const weaponId = pool[Math.floor(Math.random() * pool.length)];
+            const itemId = weaponItemIdFromConfigId(weaponId);
+            if (!itemId) continue;
+            const instanceData = createWeaponInstanceData({ weaponConfigId: weaponId });
+            const angle = (Math.PI * 2 * i) / dropCount;
+            let dropX = enemy.x + Math.cos(angle) * 24;
+            let dropY = enemy.y + Math.sin(angle) * 24;
+            if (!this._isDroppedItemPositionValid(dropX, dropY)) {
+                dropX = enemy.x;
+                dropY = enemy.y;
+            }
+            this.droppedItems.push(new DroppedItem(dropX, dropY, itemId, 1, instanceData));
+        }
     }
 
     _dropEnemyConsumable(enemy, baseChance, itemId) {
@@ -1561,7 +1591,11 @@ export class WorldSystem {
         // Filter dead enemies and remove them from the array
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             if (this.enemies[i].hp <= 0) {
-                this._dropEnemyWeapon(this.enemies[i]);
+                if (this.enemies[i].isBoss) {
+                    this._dropBossLoot(this.enemies[i]);
+                } else {
+                    this._dropEnemyWeapon(this.enemies[i]);
+                }
                 this._dropEnemyRecoveryNeedle(this.enemies[i]);
                 this._dropEnemyMedkit(this.enemies[i]);
                 this._dropEnemyHamburger(this.enemies[i]);

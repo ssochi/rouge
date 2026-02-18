@@ -7,11 +7,11 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
-    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。
+    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。`mutant_beast/` 为 80×80 BOSS 级精灵，含 3 阶段颜色方案（绿→红→紫）× Idle 16帧 + Run 12帧 + 6 种攻击各 8帧。
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
     - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
     - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
-    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台。
+    - `objects/furniture/`: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台、书桌、椅子、梳妆台、洗衣机、落地钟、钢琴、酒架、衣帽架、鱼缸(动画)、工作台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
@@ -23,6 +23,7 @@
       - `ZombieFemale.js`: 女性僵尸敌人逻辑 (HP 35, Speed 1.1, Damage 8, 冲刺技能：靠近200px时2倍速冲刺3秒，1分钟冷却，含残影/扬尘/速度线VFX)。
       - `ZombieBrute.js`: 健壮僵尸敌人逻辑 (HP 120, Speed 0.7, Damage 18, 击退抗性 0.3x)。
       - `Soldier.js`: 军人敌人逻辑 (HP 60, Speed 0.9, SMG 3发点射 + 横移战术)。
+      - `MutantBeast.js`: 变异巨兽 BOSS (HP 800, 80×80, 90%击退抗性, 3阶段战斗)。阶段1(100%-60%HP): 重拳砸击/横扫/震地波；阶段2(60%-25%HP): 新增冲锋+跳砸，速度加快；阶段3(25%-0%HP): 新增召唤僵尸，身体变紫。跳砸空中期间无敌（`getBulletHurtbox()` 返回 null）。`isBoss=true` 标记用于 Renderer 绘制屏幕顶部 BOSS 血条。死亡掉落 2-3 把随机武器。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - `objects/`: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。
@@ -45,7 +46,7 @@
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable）。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）。
-    - `Renderer.js`: 负责场景绘制与 UI 刷新。
+    - `Renderer.js`: 负责场景绘制与 UI 刷新。含 `drawBossHpBar()` 在屏幕顶部居中绘制 BOSS 血条（名称、阶段指示、HP 比例条、阶段切换标记线）。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
     - `Input.js`: 统一的键鼠输入处理。
@@ -152,7 +153,7 @@
   - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
   - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。支持的房间语义：`living_room`、`bedroom`、`study`、`bathroom`、`storage`、`corridor`、`foyer`。
   - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。`bathroom` 作为 medium/large 建筑的 preferredRole，不设全局配额。
-  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙)。卧室可选：落地灯(25%,偏墙)。书房可选：扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%)。走廊可选：矮柜(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙)。
+  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙) + 钢琴(20%,靠墙) + 鱼缸(25%)。卧室可选：落地灯(25%,偏墙) + 梳妆台(50%,靠墙)。书房必需：书桌(靠墙)+书架；可选：椅子(60%,近桌) + 扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%) + 衣帽架(40%,靠墙) + 落地钟(30%,靠墙)。走廊可选：矮柜(20%,靠墙) + 落地钟(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙) + 洗衣机(35%,靠墙)。厨房可选：酒架(25%,靠墙) + 椅子(30%)。储藏室可选：工作台(40%,靠墙) + 洗衣机(30%,靠墙)。
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。

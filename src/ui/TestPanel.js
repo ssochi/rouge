@@ -18,7 +18,8 @@ const ENEMY_TYPES = [
     { type: 'zombie_female', name: 'Zombie Female', hasWeapon: false },
     { type: 'zombie_brute', name: 'Zombie Brute', hasWeapon: false },
     { type: 'hunter', name: 'Hunter', hasWeapon: true, defaultWeapon: 'default_pistol' },
-    { type: 'soldier', name: 'Soldier', hasWeapon: true, defaultWeapon: 'smg' }
+    { type: 'soldier', name: 'Soldier', hasWeapon: true, defaultWeapon: 'smg' },
+    { type: 'mutant_beast', name: 'Mutant Beast (BOSS)', hasWeapon: false }
 ];
 
 export class TestPanel {
@@ -394,7 +395,10 @@ export class TestPanel {
                 y: pos.y,
                 weaponConfigId: weaponId
             });
-            if (enemy) spawned++;
+            if (enemy) {
+                if (enemy.isBoss) enemy.worldSystem = this.worldSystem;
+                spawned++;
+            }
         }
         this._showMsg(`Spawned ${spawned}/${count} ${entry.name}`);
     }

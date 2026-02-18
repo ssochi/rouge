@@ -130,6 +130,101 @@ export class StatusEffectSystem {
         }
     }
 
+    /**
+     * Ground slam shockwave — earthy ring + dust + rock debris.
+     * Only damages player and breakable objects, never enemies.
+     */
+    spawnGroundSlam(x, y, damage, radius, knockback, color = '#4a7c59') {
+        // Expanding colored ring
+        this.particles.push({
+            type: 'shockwave',
+            x, y, size: 8,
+            maxSize: radius * 1.2,
+            color: color,
+            alpha: 0.85,
+            life: 25
+        });
+
+        // Inner white ring
+        this.particles.push({
+            type: 'shockwave',
+            x, y, size: 4,
+            maxSize: radius * 0.6,
+            color: '#ffffff',
+            alpha: 0.4,
+            life: 15
+        });
+
+        // Dust clouds
+        const dustColors = ['#8B7355', '#A0926B', '#6B5B3A', '#C4B28E'];
+        for (let i = 0; i < 16; i++) {
+            const angle = (Math.PI * 2 / 16) * i + Math.random() * 0.4;
+            const speed = Math.random() * 2 + 1;
+            this.particles.push({
+                type: 'smoke',
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - Math.random(),
+                size: Math.random() * 8 + 6,
+                color: dustColors[Math.floor(Math.random() * dustColors.length)],
+                life: 30 + Math.random() * 15,
+                alpha: 0.6
+            });
+        }
+
+        // Rock debris fragments
+        for (let i = 0; i < 12; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 3 + 1.5;
+            this.particles.push({
+                type: 'debris',
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2 - Math.random() * 2,
+                size: Math.random() * 3 + 2,
+                width: Math.random() * 2 + 1,
+                color: Math.random() > 0.5 ? '#666' : '#888',
+                alpha: 0.9,
+                life: 25 + Math.random() * 15,
+                gravity: 0.15,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.3
+            });
+        }
+
+        // Damage breakable objects
+        this.breakableObjects.forEach(obj => {
+            if (obj.isBroken) return;
+            const cx = obj.x + obj.width / 2;
+            const cy = obj.y + obj.height / 2;
+            const dx = cx - x;
+            const dy = cy - y;
+            if (Math.sqrt(dx * dx + dy * dy) < radius) {
+                obj.takeDamage(damage);
+                if (obj.isBroken) {
+                    this.particleSpawner.spawnDebris(cx, cy, obj.type);
+                }
+            }
+        });
+
+        // Damage player only (not enemies — this is a boss attack)
+        const p = this.player;
+        const pdx = p.x - x;
+        const pdy = p.y - y;
+        const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
+        if (pdist < radius) {
+            const angle = Math.atan2(pdy, pdx);
+            if (p.takeDamage) {
+                p.takeDamage(damage, {
+                    x: Math.cos(angle) * knockback,
+                    y: Math.sin(angle) * knockback
+                });
+            } else {
+                p.hp -= damage;
+            }
+        }
+    }
+
     spawnBlackHole(b) {
         this.blackHoles.push({
             x: b.x,

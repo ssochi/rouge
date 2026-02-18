@@ -55,6 +55,36 @@ export const FURNITURE_CATALOG = Object.freeze({
     },
     kitchen_sink: {
         variants: [{ type: 'kitchen_sink', w: 1, h: 1 }]
+    },
+    desk: {
+        variants: [{ type: 'desk', w: 1, h: 1 }]
+    },
+    chair: {
+        variants: [{ type: 'chair', w: 1, h: 1 }]
+    },
+    dresser: {
+        variants: [{ type: 'dresser', w: 1, h: 1 }]
+    },
+    washing_machine: {
+        variants: [{ type: 'washing_machine', w: 1, h: 1 }]
+    },
+    grandfather_clock: {
+        variants: [{ type: 'grandfather_clock', w: 1, h: 1 }]
+    },
+    piano: {
+        variants: [{ type: 'piano', w: 2, h: 1 }]
+    },
+    wine_rack: {
+        variants: [{ type: 'wine_rack', w: 1, h: 1 }]
+    },
+    coat_rack: {
+        variants: [{ type: 'coat_rack', w: 1, h: 1 }]
+    },
+    fish_tank: {
+        variants: [{ type: 'fish_tank', w: 1, h: 1 }]
+    },
+    workbench: {
+        variants: [{ type: 'workbench', w: 2, h: 1 }]
     }
 });
 
@@ -81,7 +111,9 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
             { item: 'armchair', chance: 0.4 },
             { item: 'floor_lamp', chance: 0.35, nearTag: 'sofa' },
             { item: 'potted_plant', chance: 0.3, nearTag: 'sofa' },
-            { item: 'cabinet', chance: 0.3, requireWall: true }
+            { item: 'cabinet', chance: 0.3, requireWall: true },
+            { item: 'piano', chance: 0.2, requireWall: true },
+            { item: 'fish_tank', chance: 0.25 }
         ]
     },
     bedroom: {
@@ -92,15 +124,17 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         optional: [
             { item: 'wardrobe', chance: 0.7, requireWall: true },
             { item: 'table', chance: 0.35 },
-            { item: 'floor_lamp', chance: 0.25, nearTag: 'nightstand' }
+            { item: 'floor_lamp', chance: 0.25, nearTag: 'nightstand' },
+            { item: 'dresser', chance: 0.5, requireWall: true }
         ]
     },
     study: {
         required: [
-            { item: 'table', requireWall: true, tag: 'desk' },
+            { item: 'desk', requireWall: true, tag: 'desk' },
             { item: 'bookshelf', requireWall: true, preferFarFromTag: 'desk' }
         ],
         optional: [
+            { item: 'chair', chance: 0.6, nearTag: 'desk' },
             { item: 'nightstand', chance: 0.25, requireWall: true },
             { item: 'armchair', chance: 0.3 },
             { item: 'potted_plant', chance: 0.25, nearTag: 'desk' }
@@ -110,20 +144,25 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         required: [],
         optional: [
             { item: 'bookshelf', chance: 0.8, requireWall: true },
-            { item: 'wardrobe', chance: 0.45, requireWall: true }
+            { item: 'wardrobe', chance: 0.45, requireWall: true },
+            { item: 'workbench', chance: 0.4, requireWall: true },
+            { item: 'washing_machine', chance: 0.3, requireWall: true }
         ]
     },
     corridor: {
         required: [],
         optional: [
-            { item: 'cabinet', chance: 0.2, requireWall: true }
+            { item: 'cabinet', chance: 0.2, requireWall: true },
+            { item: 'grandfather_clock', chance: 0.2, requireWall: true }
         ]
     },
     foyer: {
         required: [],
         optional: [
             { item: 'table', chance: 0.25, tag: 'foyer_table' },
-            { item: 'potted_plant', chance: 0.35, nearTag: 'foyer_table' }
+            { item: 'potted_plant', chance: 0.35, nearTag: 'foyer_table' },
+            { item: 'coat_rack', chance: 0.4, requireWall: true },
+            { item: 'grandfather_clock', chance: 0.3, requireWall: true }
         ]
     },
     bathroom: {
@@ -132,7 +171,8 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         ],
         optional: [
             { item: 'bathtub', chance: 0.5, requireWall: true, preferFarFromTag: 'toilet' },
-            { item: 'sink', chance: 0.6, requireWall: true, nearTag: 'toilet' }
+            { item: 'sink', chance: 0.6, requireWall: true, nearTag: 'toilet' },
+            { item: 'washing_machine', chance: 0.35, requireWall: true }
         ]
     },
     kitchen: {
@@ -142,7 +182,9 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
         ],
         optional: [
             { item: 'kitchen_counter', chance: 0.5, requireWall: true },
-            { item: 'kitchen_sink', chance: 0.55, requireWall: true, nearTag: 'stove' }
+            { item: 'kitchen_sink', chance: 0.55, requireWall: true, nearTag: 'stove' },
+            { item: 'wine_rack', chance: 0.25, requireWall: true },
+            { item: 'chair', chance: 0.3 }
         ]
     }
 });
