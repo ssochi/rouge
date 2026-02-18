@@ -128,7 +128,7 @@ export class Zombie extends Enemy {
     }
 
     checkAttackHit(player) {
-        if (player.state === 'driving') return;
+        if (player.state === 'driving' || player.state === 'roll') return;
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);

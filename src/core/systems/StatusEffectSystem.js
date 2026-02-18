@@ -115,7 +115,7 @@ export class StatusEffectSystem {
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
 
-        if (pdist < radius) {
+        if (pdist < radius && p.state !== 'roll') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -210,7 +210,7 @@ export class StatusEffectSystem {
         const pdx = p.x - x;
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-        if (pdist < radius) {
+        if (pdist < radius && p.state !== 'roll') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -362,7 +362,7 @@ export class StatusEffectSystem {
 
             // Enemy-origin black holes can affect player as well.
             const p = this.player;
-            if (bh.source === 'enemy' && p && p.hp > 0 && p.state !== 'driving') {
+            if (bh.source === 'enemy' && p && p.hp > 0 && p.state !== 'driving' && p.state !== 'roll') {
                 const dx = bh.x - p.x;
                 const dy = bh.y - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -373,7 +373,7 @@ export class StatusEffectSystem {
                     p.knockbackX = (p.knockbackX || 0) + Math.cos(angle) * pullStrength;
                     p.knockbackY = (p.knockbackY || 0) + Math.sin(angle) * pullStrength;
 
-                    if (dist < bh.damageRadius && bh.tickCounter >= bh.tickInterval) {
+                    if (dist < bh.damageRadius && bh.tickCounter >= bh.tickInterval && p.state !== 'roll') {
                         if (p.takeDamage) {
                             p.takeDamage(bh.damage, { x: 0, y: 0 });
                         } else {

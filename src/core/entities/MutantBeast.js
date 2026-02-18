@@ -154,7 +154,7 @@ export class MutantBeast extends Enemy {
     executeSmash(player, timer) {
         const cfg = this.attacks.smash;
         if (timer !== cfg.hitFrame) return;
-        if (player.state === 'driving') return;
+        if (player.state === 'driving' || player.state === 'roll') return;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -177,7 +177,7 @@ export class MutantBeast extends Enemy {
     executeSweep(player, timer) {
         const cfg = this.attacks.sweep;
         if (timer !== cfg.hitFrame) return;
-        if (player.state === 'driving') return;
+        if (player.state === 'driving' || player.state === 'roll') return;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -251,7 +251,7 @@ export class MutantBeast extends Enemy {
 
         // Check player collision during charge
         let hitPlayer = false;
-        if (player.state !== 'driving') {
+        if (player.state !== 'driving' && player.state !== 'roll') {
             const dx = player.x - this.x;
             const dy = player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);

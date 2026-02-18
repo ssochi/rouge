@@ -1,7 +1,7 @@
 import { PixelDraw } from '../../../../utils/PixelDraw.js';
 
 /**
- * Procedural Generator for the MechaGolem (机械魔偶) BOSS Enemy
+ * Procedural Generator for the MechaGolem BOSS Enemy
  * Style: 35-degree Top-Down 2.5D Pixel Art (Chibi Style)
  * Archetype: Half-mechanized cyborg with built-in weapons -
  *            asymmetric arms (gatling gun left, rocket launcher right),
@@ -23,13 +23,20 @@ export class MechaGolemGenerator {
                 bodyLight: '#6a8a9a',   // Light highlight
                 core: '#3498db',        // Blue energy core
                 coreGlow: '#5dade2',    // Core glow
+                coreRing: '#2980b9',    // Core housing ring
                 barrel: '#7f8c8d',      // Gatling barrel metal
+                barrelDark: '#5a6a6a',  // Barrel shadow
                 launcher: '#95a5a6',    // Launcher tube
+                launcherDark: '#7a8a8a',// Launcher shadow
                 armor: '#34495e',       // Armor plating
+                armorLight: '#4a6a7e',  // Armor highlight
                 joint: '#636e72',       // Mechanical joints
+                jointGlow: '#8a9a9a',   // Joint highlight
                 eye: '#3498db',         // Blue optical eye
-                crack: null,            // No cracks in phase 1
-                spark: null             // No sparks in phase 1
+                eyeBright: '#85c1e9',   // Eye highlight
+                rivet: '#556a7a',       // Rivet dots
+                crack: null,
+                spark: null
             },
             // Phase 2: Overload - heated reds/oranges, damaged
             2: {
@@ -38,22 +45,24 @@ export class MechaGolemGenerator {
                 bodyLight: '#8a6a5a',   // Light
                 core: '#e74c3c',        // Red core
                 coreGlow: '#ff6b6b',    // Intense glow
+                coreRing: '#c0392b',    // Heated ring
                 barrel: '#c0392b',      // Heated barrels
+                barrelDark: '#8a2a1a',  // Barrel shadow
                 launcher: '#e67e22',    // Orange heat
+                launcherDark: '#b06020',// Launcher shadow
                 armor: '#5a3a2a',       // Damaged armor
+                armorLight: '#7a5a4a',  // Armor highlight
                 joint: '#d35400',       // Glowing joints
+                jointGlow: '#f39c12',   // Joint bright
                 eye: '#e74c3c',         // Red eye
+                eyeBright: '#ff9999',   // Eye highlight
+                rivet: '#7a5a4a',       // Heated rivets
                 crack: '#2c3e50',       // Crack lines
                 spark: '#f39c12'        // Sparks
             }
         };
     }
 
-    /**
-     * Get color palette for the given phase
-     * @param {number} phase - 1 or 2
-     * @returns {Object} Color palette
-     */
     getColors(phase) {
         return this.phases[phase || 1];
     }
@@ -62,7 +71,7 @@ export class MechaGolemGenerator {
      * Generate a single frame
      * @param {Object} pose - {
      *   headOffset: { x, y },
-     *   bodySquash: number (-1 to 1),
+     *   bodySquash: number (-2 to 2),
      *   legFrame: string or { left, right },
      *   pulsePhase: number (0-1),
      *   barrelRot: number (0-2),
@@ -80,9 +89,12 @@ export class MechaGolemGenerator {
         const cx = 32;
         const groundY = 58;
 
-        const bodyY = groundY - 20 + (pose.bodySquash || 0);
+        const bodyY = groundY - 22 + (pose.bodySquash || 0);
         const headX = cx + (pose.headOffset?.x || 0);
-        const headY = groundY - 28 + (pose.headOffset?.y || 0);
+        const headY = groundY - 34 + (pose.headOffset?.y || 0);
+
+        // 0. Ground shadow
+        this.drawShadow(drawer, cx, groundY);
 
         // 1. Draw legs (bottom layer)
         this.drawLegs(drawer, cx, groundY, pose.legFrame || 'idle', c);
@@ -112,7 +124,16 @@ export class MechaGolemGenerator {
     }
 
     // ========================================================================
-    //  LEGS - Mechanical piston legs, 7-pose system
+    //  GROUND SHADOW
+    // ========================================================================
+    drawShadow(drawer, cx, groundY) {
+        // Dark elliptical shadow under feet
+        drawer.ellipse(cx, groundY + 1, 14, 4, 'rgba(0,0,0,0.25)');
+        drawer.ellipse(cx, groundY + 1, 10, 3, 'rgba(0,0,0,0.15)');
+    }
+
+    // ========================================================================
+    //  LEGS - Heavy mechanical piston legs, 7-pose system
     // ========================================================================
     drawLegs(drawer, cx, groundY, pose, c) {
         let leftPose = 'idle';
@@ -127,354 +148,372 @@ export class MechaGolemGenerator {
         }
 
         // Left leg (back) - offset left from center
-        this.drawOneLeg(drawer, cx - 7, groundY, leftPose, c);
+        this.drawOneLeg(drawer, cx - 8, groundY, leftPose, c, false);
         // Right leg (front) - offset right from center
-        this.drawOneLeg(drawer, cx + 2, groundY, rightPose, c);
+        this.drawOneLeg(drawer, cx + 2, groundY, rightPose, c, true);
     }
 
-    drawOneLeg(drawer, x, y, pose, c) {
-        const upperW = 4;
-        const upperH = 6;
-        const lowerW = 3;
-        const lowerH = 6;
-        const bootW = 5;
-        const bootH = 3;
+    drawOneLeg(drawer, x, y, pose, c, isFront) {
+        const upperW = 6;
+        const upperH = 7;
+        const lowerW = 5;
+        const lowerH = 7;
+        const bootW = 8;
+        const bootH = 4;
         const hipY = y - upperH - lowerH - bootH;
 
         // Map legacy poses
         if (pose === 'drag') pose = 'back2';
         if (pose === 'step') pose = 'fwd1';
 
-        if (pose === 'idle' || pose === 'stand') {
-            // Upper piston
-            drawer.rect(x, hipY, upperW, upperH, c.armor);
-            drawer.vLine(x + 1, hipY, upperH, c.bodyLight);
-            drawer.vLine(x + upperW - 1, hipY, upperH, c.bodyDark);
-            // Joint
-            drawer.hLine(x - 1, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston
-            drawer.rect(x, hipY + upperH + 1, lowerW, lowerH, c.body);
-            drawer.vLine(x + 1, hipY + upperH + 1, lowerH, c.bodyLight);
-            // Heavy boot
-            drawer.rect(x - 1, hipY + upperH + lowerH + 1, bootW, bootH, c.bodyDark);
-            drawer.hLine(x - 1, hipY + upperH + lowerH + bootH, bootW, '#1a1a1a');
-        }
-        else if (pose === 'fwd1') {
-            // Upper piston
-            drawer.rect(x, hipY, upperW, upperH, c.armor);
-            drawer.vLine(x + 1, hipY, upperH, c.bodyLight);
-            // Joint
-            drawer.hLine(x - 2, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (angled forward)
-            drawer.rect(x - 2, hipY + upperH + 1, lowerW, lowerH, c.body);
-            drawer.vLine(x - 1, hipY + upperH + 1, lowerH, c.bodyLight);
-            // Boot
-            drawer.rect(x - 3, hipY + upperH + lowerH + 1, bootW, bootH, c.bodyDark);
-            drawer.hLine(x - 3, hipY + upperH + lowerH + bootH, bootW, '#1a1a1a');
-        }
-        else if (pose === 'fwd2') {
-            // Upper piston
-            drawer.rect(x, hipY, upperW, upperH, c.armor);
-            drawer.vLine(x + 1, hipY, upperH, c.bodyLight);
-            // Joint
-            drawer.hLine(x - 4, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (extended forward)
-            drawer.rect(x - 4, hipY + upperH + 1, lowerW, lowerH, c.body);
-            // Boot
-            drawer.rect(x - 5, hipY + upperH + lowerH + 1, bootW, bootH, c.bodyDark);
-            drawer.hLine(x - 5, hipY + upperH + lowerH + bootH, bootW, '#1a1a1a');
-        }
-        else if (pose === 'back1') {
-            // Upper piston
-            drawer.rect(x, hipY, upperW, upperH, c.armor);
-            drawer.vLine(x + 1, hipY, upperH, c.bodyLight);
-            // Joint
-            drawer.hLine(x + 2, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (angled back)
-            drawer.rect(x + 2, hipY + upperH + 1, lowerW, lowerH, c.body);
-            // Boot
-            drawer.rect(x + 2, hipY + upperH + lowerH + 1, bootW, bootH, c.bodyDark);
-            drawer.hLine(x + 2, hipY + upperH + lowerH + bootH, bootW, '#1a1a1a');
-        }
-        else if (pose === 'back2') {
-            // Upper piston
-            drawer.rect(x, hipY, upperW, upperH, c.armor);
-            drawer.vLine(x + 1, hipY, upperH, c.bodyLight);
-            // Joint
-            drawer.hLine(x + 4, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (extended back)
-            drawer.rect(x + 4, hipY + upperH + 1, lowerW, lowerH, c.body);
-            // Boot
-            drawer.rect(x + 4, hipY + upperH + lowerH + 1, bootW, bootH, c.bodyDark);
-            drawer.hLine(x + 4, hipY + upperH + lowerH + bootH, bootW, '#1a1a1a');
-        }
-        else if (pose === 'knee') {
-            // Upper piston (shorter, compressed)
-            drawer.rect(x, hipY + 1, upperW, upperH - 1, c.armor);
-            drawer.vLine(x + 1, hipY + 1, upperH - 1, c.bodyLight);
-            // Joint
-            drawer.hLine(x - 1, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (bent)
-            drawer.rect(x - 1, hipY + upperH + 1, lowerW, lowerH - 1, c.body);
-            // Boot
-            drawer.rect(x - 2, hipY + upperH + lowerH, bootW, bootH, c.bodyDark);
-            drawer.hLine(x - 2, hipY + upperH + lowerH + bootH - 1, bootW, '#1a1a1a');
-        }
-        else if (pose === 'tuck') {
-            // Upper piston
-            drawer.rect(x, hipY + 1, upperW, upperH - 1, c.armor);
-            drawer.vLine(x + 1, hipY + 1, upperH - 1, c.bodyLight);
-            // Joint
-            drawer.hLine(x + 3, hipY + upperH, upperW + 2, c.joint);
-            // Lower piston (tucked under)
-            drawer.rect(x + 3, hipY + upperH, lowerW, lowerH - 2, c.body);
-            // Boot (higher, tucked)
-            drawer.rect(x + 4, hipY + upperH + lowerH - 2, bootW, bootH, c.bodyDark);
-            drawer.hLine(x + 4, hipY + upperH + lowerH + bootH - 3, bootW, '#1a1a1a');
+        const offsets = this._getLegOffsets(pose);
+
+        // Upper piston (thigh)
+        drawer.rect(x + offsets.upperX, hipY, upperW, upperH, c.armor);
+        // Piston rod highlight
+        drawer.vLine(x + offsets.upperX + 1, hipY + 1, upperH - 2, c.bodyLight);
+        // Piston rod shadow
+        drawer.vLine(x + offsets.upperX + upperW - 1, hipY + 1, upperH - 2, c.bodyDark);
+        // Hydraulic detail line
+        drawer.vLine(x + offsets.upperX + 3, hipY + 1, upperH - 2, c.joint);
+
+        // Knee joint (mechanical ring)
+        const kneeY = hipY + upperH;
+        drawer.hLine(x + offsets.kneeX - 1, kneeY, upperW + 2, c.joint);
+        drawer.hLine(x + offsets.kneeX - 1, kneeY + 1, upperW + 2, c.bodyDark);
+        // Knee rivet
+        drawer.pixel(x + offsets.kneeX + 2, kneeY, c.jointGlow);
+
+        // Lower piston (shin)
+        drawer.rect(x + offsets.lowerX, kneeY + 2, lowerW, lowerH - 2, c.body);
+        drawer.vLine(x + offsets.lowerX + 1, kneeY + 2, lowerH - 3, c.bodyLight);
+        // Piston cylinder detail
+        drawer.vLine(x + offsets.lowerX + 3, kneeY + 3, lowerH - 4, c.armor);
+
+        // Heavy boot (armored foot)
+        const bootY = kneeY + lowerH;
+        drawer.rect(x + offsets.bootX - 1, bootY, bootW, bootH, c.bodyDark);
+        // Boot top edge
+        drawer.hLine(x + offsets.bootX - 1, bootY, bootW, c.armor);
+        // Boot sole
+        drawer.hLine(x + offsets.bootX - 1, bootY + bootH - 1, bootW, '#1a1a1a');
+        // Boot tread marks
+        drawer.pixel(x + offsets.bootX + 1, bootY + bootH - 1, '#0e0e0e');
+        drawer.pixel(x + offsets.bootX + 4, bootY + bootH - 1, '#0e0e0e');
+    }
+
+    _getLegOffsets(pose) {
+        switch (pose) {
+            case 'fwd1':
+                return { upperX: 0, kneeX: -2, lowerX: -2, bootX: -3 };
+            case 'fwd2':
+                return { upperX: 0, kneeX: -4, lowerX: -4, bootX: -5 };
+            case 'back1':
+                return { upperX: 0, kneeX: 2, lowerX: 2, bootX: 2 };
+            case 'back2':
+                return { upperX: 0, kneeX: 4, lowerX: 4, bootX: 4 };
+            case 'knee':
+                return { upperX: 0, kneeX: -1, lowerX: -1, bootX: -2 };
+            case 'tuck':
+                return { upperX: 0, kneeX: 3, lowerX: 3, bootX: 4 };
+            default: // idle/stand
+                return { upperX: 0, kneeX: 0, lowerX: 0, bootX: 0 };
         }
     }
 
     // ========================================================================
-    //  BODY - Heavy rectangular torso with shoulder pauldrons
+    //  BODY - Heavy rectangular torso with layered armor plates
     // ========================================================================
     drawBody(drawer, cx, cy, c, pose) {
-        const w = 18;
-        const h = 16;
+        const w = 24;
+        const h = 18;
         const x = cx - w / 2;
         const y = cy - h + 4;
 
-        // -- Main torso (heavy rectangular shape) --
-        // Wider at shoulders, tapering slightly at waist
+        // -- Main torso (heavy rectangular, wider at shoulders) --
         drawer.fillPath([
-            { x: x - 1, y: y },
-            { x: x + w + 1, y: y },
-            { x: x + w + 2, y: y + 3 },
-            { x: x + w, y: y + h },
-            { x: x, y: y + h },
-            { x: x - 2, y: y + 3 }
+            { x: x - 2, y: y },
+            { x: x + w + 2, y: y },
+            { x: x + w + 3, y: y + 4 },
+            { x: x + w + 1, y: y + h },
+            { x: x - 1, y: y + h },
+            { x: x - 3, y: y + 4 }
         ], c.body);
 
-        // Shadow contours (vertical)
+        // Shadow contours (vertical edges)
+        drawer.vLine(x, y + 1, h - 2, c.bodyDark);
         drawer.vLine(x + 1, y + 1, h - 2, c.bodyDark);
         drawer.vLine(x + w - 1, y + 1, h - 2, c.bodyDark);
+        drawer.vLine(x + w - 2, y + 1, h - 2, c.bodyDark);
 
-        // Armor plate texture - horizontal seam lines
+        // Armor plate horizontal seams
         drawer.hLine(x + 2, y + 4, w - 4, c.armor);
-        drawer.hLine(x + 2, y + 8, w - 4, c.armor);
-        drawer.hLine(x + 2, y + 12, w - 4, c.armor);
+        drawer.hLine(x + 2, y + 9, w - 4, c.armor);
+        drawer.hLine(x + 2, y + 14, w - 4, c.armor);
 
         // Highlight on upper plates
-        drawer.hLine(x + 3, y + 1, 4, c.bodyLight);
-        drawer.hLine(x + w - 7, y + 1, 4, c.bodyLight);
+        drawer.hLine(x + 3, y + 1, 5, c.bodyLight);
+        drawer.hLine(x + w - 8, y + 1, 5, c.bodyLight);
 
         // Center sternum line
-        drawer.vLine(cx, y + 2, 6, c.bodyDark);
+        drawer.vLine(cx, y + 2, 7, c.bodyDark);
+        drawer.vLine(cx + 1, y + 2, 7, c.bodyDark);
 
-        // -- Shoulder pauldrons (wider than torso, angular) --
-        // Left pauldron
+        // Core housing frame (rectangular frame around core area)
+        const coreFrameX = cx - 5;
+        const coreFrameY = y + 5;
+        drawer.rect(coreFrameX, coreFrameY, 10, 8, c.armor);
+        drawer.rect(coreFrameX + 1, coreFrameY + 1, 8, 6, c.bodyDark);
+
+        // Rivet dots on armor
+        drawer.pixel(x + 3, y + 2, c.rivet);
+        drawer.pixel(x + w - 4, y + 2, c.rivet);
+        drawer.pixel(x + 3, y + 6, c.rivet);
+        drawer.pixel(x + w - 4, y + 6, c.rivet);
+        drawer.pixel(x + 3, y + 11, c.rivet);
+        drawer.pixel(x + w - 4, y + 11, c.rivet);
+
+        // -- Massive shoulder pauldrons --
+        // Left pauldron (angular, extends far)
         drawer.fillPath([
-            { x: x - 4, y: y - 1 },
-            { x: x + 3, y: y - 1 },
-            { x: x + 4, y: y + 3 },
-            { x: x - 3, y: y + 3 },
-            { x: x - 5, y: y + 1 }
+            { x: x - 7, y: y - 2 },
+            { x: x + 4, y: y - 2 },
+            { x: x + 5, y: y + 5 },
+            { x: x - 4, y: y + 5 },
+            { x: x - 8, y: y + 1 }
         ], c.armor);
-        drawer.hLine(x - 3, y, 6, c.bodyLight);
-        drawer.pixel(x - 4, y + 2, c.bodyDark);
+        drawer.hLine(x - 6, y - 1, 9, c.armorLight);
+        drawer.hLine(x - 5, y + 1, 8, c.bodyDark);
+        drawer.pixel(x - 6, y + 3, c.bodyDark);
+        // Pauldron edge highlight
+        drawer.pixel(x - 7, y - 1, c.bodyLight);
+        // Pauldron rivet
+        drawer.pixel(x - 3, y + 1, c.rivet);
 
         // Right pauldron
         drawer.fillPath([
-            { x: x + w - 3, y: y - 1 },
-            { x: x + w + 4, y: y - 1 },
-            { x: x + w + 5, y: y + 1 },
-            { x: x + w + 3, y: y + 3 },
-            { x: x + w - 4, y: y + 3 }
+            { x: x + w - 4, y: y - 2 },
+            { x: x + w + 7, y: y - 2 },
+            { x: x + w + 8, y: y + 1 },
+            { x: x + w + 4, y: y + 5 },
+            { x: x + w - 5, y: y + 5 }
         ], c.armor);
-        drawer.hLine(x + w - 2, y, 6, c.bodyLight);
-        drawer.pixel(x + w + 4, y + 2, c.bodyDark);
+        drawer.hLine(x + w - 3, y - 1, 9, c.armorLight);
+        drawer.hLine(x + w - 3, y + 1, 8, c.bodyDark);
+        drawer.pixel(x + w + 6, y + 3, c.bodyDark);
+        // Pauldron edge highlight
+        drawer.pixel(x + w + 7, y - 1, c.bodyLight);
+        // Pauldron rivet
+        drawer.pixel(x + w + 3, y + 1, c.rivet);
 
         // -- Waist/hip armor band --
-        drawer.hLine(x + 1, y + h - 2, w - 2, c.armor);
-        drawer.hLine(x + 1, y + h - 1, w - 2, c.bodyDark);
+        drawer.hLine(x + 1, y + h - 3, w - 2, c.armor);
+        drawer.hLine(x + 1, y + h - 2, w - 2, c.bodyDark);
+        drawer.hLine(x + 1, y + h - 1, w - 2, '#1a1a1a');
+        // Waist belt rivets
+        drawer.pixel(x + 5, y + h - 3, c.rivet);
+        drawer.pixel(x + w - 6, y + h - 3, c.rivet);
     }
 
     // ========================================================================
-    //  ENERGY CORE - Circular glowing core in center of chest
+    //  ENERGY CORE - Glowing reactor in center chest
     // ========================================================================
     drawCore(drawer, cx, cy, c, pose, phase) {
-        const bodyY = cy - 16 + 4; // Same calculation as body y
-        const coreSize = phase === 2 ? 8 : 6;
+        const bodyY = cy - 18 + 4;
         const coreCX = cx;
-        const coreCY = bodyY + 7;
-
+        const coreCY = bodyY + 8;
         const pulsePhase = pose.pulsePhase || 0;
-
-        // Determine pulse color alternation
         const pulse = Math.sin(pulsePhase * Math.PI * 2);
-        const primaryColor = pulse > 0 ? c.core : c.coreGlow;
-        const secondaryColor = pulse > 0 ? c.coreGlow : c.core;
+        const primary = pulse > 0 ? c.core : c.coreGlow;
+        const secondary = pulse > 0 ? c.coreGlow : c.core;
 
         if (phase === 2) {
-            // Phase 2: larger core (8x8)
-            // Outer glow ring
-            drawer.ellipse(coreCX, coreCY, 5, 5, secondaryColor);
-            // Inner core
-            drawer.ellipse(coreCX, coreCY, 3, 3, primaryColor);
-            // Bright center pixel
+            // Phase 2: larger, more intense core
+            // Outer glow halo
+            drawer.ellipse(coreCX, coreCY, 5, 5, secondary);
+            // Housing ring
+            drawer.ellipse(coreCX, coreCY, 4, 4, c.coreRing);
+            // Inner bright core
+            drawer.ellipse(coreCX, coreCY, 3, 3, primary);
+            // Bright center cross
             drawer.pixel(coreCX, coreCY, '#ffffff');
-            drawer.pixel(coreCX - 1, coreCY, secondaryColor);
-            drawer.pixel(coreCX + 1, coreCY, secondaryColor);
-            drawer.pixel(coreCX, coreCY - 1, secondaryColor);
-            drawer.pixel(coreCX, coreCY + 1, secondaryColor);
+            drawer.pixel(coreCX - 1, coreCY, '#ffffff');
+            drawer.pixel(coreCX + 1, coreCY, '#ffffff');
+            drawer.pixel(coreCX, coreCY - 1, '#ffffff');
+            drawer.pixel(coreCX, coreCY + 1, '#ffffff');
+            // Corner glow
+            drawer.pixel(coreCX - 2, coreCY - 2, secondary);
+            drawer.pixel(coreCX + 2, coreCY - 2, secondary);
+            drawer.pixel(coreCX - 2, coreCY + 2, secondary);
+            drawer.pixel(coreCX + 2, coreCY + 2, secondary);
         } else {
-            // Phase 1: standard core (6x6)
+            // Phase 1: standard core
             // Outer glow
-            drawer.ellipse(coreCX, coreCY, 4, 4, secondaryColor);
+            drawer.ellipse(coreCX, coreCY, 4, 4, secondary);
+            // Housing ring
+            drawer.ellipse(coreCX, coreCY, 3, 3, c.coreRing);
             // Inner core
-            drawer.ellipse(coreCX, coreCY, 2, 2, primaryColor);
+            drawer.ellipse(coreCX, coreCY, 2, 2, primary);
             // Bright center
             drawer.pixel(coreCX, coreCY, '#ffffff');
+            drawer.pixel(coreCX - 1, coreCY, secondary);
+            drawer.pixel(coreCX + 1, coreCY, secondary);
         }
     }
 
     // ========================================================================
-    //  LEFT ARM - Gatling Gun Assembly
+    //  LEFT ARM - Gatling Gun Assembly (multi-barrel rotating cannon)
     // ========================================================================
     drawGatlingArm(drawer, cx, cy, c, pose) {
-        const sy = cy - 12;
-        const lx = cx - 10;
+        const sy = cy - 14;
+        const lx = cx - 12;
         const barrelRot = pose.barrelRot || 0;
         const armAngle = pose.armAngle || 0;
         const angleOffset = Math.round(Math.sin(armAngle * Math.PI / 180) * 2);
 
-        // -- Upper arm (mechanical strut) --
+        // -- Upper arm (thick mechanical strut) --
         drawer.fillPath([
             { x: lx + 2, y: sy },
-            { x: lx + 6, y: sy },
-            { x: lx + 5, y: sy + 6 },
-            { x: lx + 1, y: sy + 6 }
+            { x: lx + 8, y: sy },
+            { x: lx + 7, y: sy + 7 },
+            { x: lx + 1, y: sy + 7 }
         ], c.body);
-        // Joint highlight
-        drawer.pixel(lx + 3, sy + 1, c.bodyLight);
-        // Joint shadow
-        drawer.pixel(lx + 2, sy + 4, c.bodyDark);
+        // Highlight
+        drawer.vLine(lx + 3, sy + 1, 5, c.bodyLight);
+        // Shadow
+        drawer.vLine(lx + 7, sy + 1, 5, c.bodyDark);
+        // Piston detail
+        drawer.vLine(lx + 5, sy + 1, 5, c.joint);
+        drawer.pixel(lx + 5, sy + 2, c.jointGlow);
 
-        // Piston detail on upper arm
-        drawer.vLine(lx + 4, sy + 1, 4, c.joint);
+        // -- Elbow joint (wide mechanical ring) --
+        drawer.hLine(lx, sy + 7, 9, c.joint);
+        drawer.hLine(lx, sy + 8, 9, c.bodyDark);
+        // Joint rivets
+        drawer.pixel(lx + 1, sy + 7, c.jointGlow);
+        drawer.pixel(lx + 7, sy + 7, c.jointGlow);
 
-        // -- Elbow joint (mechanical ring) --
-        drawer.hLine(lx, sy + 6, 7, c.joint);
-        drawer.hLine(lx, sy + 7, 7, c.bodyDark);
-
-        // -- Gatling gun assembly --
+        // -- Gatling gun housing --
         const gunX = lx - 2 + angleOffset;
-        const gunY = sy + 8;
+        const gunY = sy + 9;
 
-        // Gun housing (boxy, wider than arm)
-        drawer.fillPath([
-            { x: gunX, y: gunY },
-            { x: gunX + 8, y: gunY },
-            { x: gunX + 8, y: gunY + 4 },
-            { x: gunX, y: gunY + 4 }
-        ], c.armor);
-        // Housing shadow
-        drawer.hLine(gunX + 1, gunY + 1, 6, c.bodyDark);
-        // Housing highlight
-        drawer.pixel(gunX + 1, gunY, c.bodyLight);
+        // Housing body (wider, more detailed)
+        drawer.rect(gunX, gunY, 10, 6, c.armor);
+        // Housing top highlight
+        drawer.hLine(gunX + 1, gunY, 8, c.armorLight);
+        // Housing bottom shadow
+        drawer.hLine(gunX + 1, gunY + 5, 8, c.bodyDark);
+        // Housing side shadow
+        drawer.vLine(gunX + 9, gunY + 1, 4, c.bodyDark);
+        // Housing detail lines
+        drawer.hLine(gunX + 2, gunY + 2, 6, c.bodyDark);
+        // Ammo feed detail (belt from housing)
+        drawer.pixel(gunX + 8, gunY + 3, c.joint);
+        drawer.pixel(gunX + 9, gunY + 4, c.joint);
 
-        // -- Barrel cluster (3 barrel tips in triangle pattern) --
-        const barrelBaseX = gunX - 4;
-        const barrelBaseY = gunY + 1;
+        // -- Barrel cluster (3 barrel tubes, rotating) --
+        const barrelBaseX = gunX - 2;
+        const barrelBaseY = gunY + 2;
+        const rotPhase = Math.floor(barrelRot * 3) % 3;
 
-        // Barrel rotation visual - shift barrel positions based on barrelRot
-        const rotPhase = barrelRot % 3;
+        // Barrel shroud (cylindrical ring connecting barrels)
+        drawer.vLine(barrelBaseX, barrelBaseY - 1, 5, c.barrel);
+        drawer.vLine(barrelBaseX + 1, barrelBaseY - 1, 5, c.barrelDark);
+
+        // 3 barrels extending left
         const barrelPositions = [
-            { dx: 0, dy: -1 },   // Top barrel
-            { dx: 0, dy: 2 },    // Bottom barrel
-            { dx: -1, dy: 1 }    // Left barrel (closest to viewer)
+            { dy: -1 },  // Top
+            { dy: 1 },   // Middle
+            { dy: 3 },   // Bottom
         ];
-
-        // Draw 3 barrel tubes extending left (toward facing direction)
         for (let i = 0; i < 3; i++) {
-            const bp = barrelPositions[(i + Math.floor(rotPhase)) % 3];
-            const bx = barrelBaseX + bp.dx;
+            const bp = barrelPositions[(i + rotPhase) % 3];
             const by = barrelBaseY + bp.dy;
-
-            // Each barrel is a 4px long, 1px wide tube
-            drawer.hLine(bx - 3, by, 4, c.barrel);
-            // Barrel highlight on alternating barrels based on rotation
-            if (i === Math.floor(rotPhase) % 3) {
-                drawer.pixel(bx - 3, by, c.bodyLight);
+            // Each barrel: 6px long tube
+            drawer.hLine(barrelBaseX - 5, by, 6, c.barrel);
+            // Highlight on active barrel
+            if (i === rotPhase % 3) {
+                drawer.hLine(barrelBaseX - 5, by, 3, c.bodyLight);
             }
             // Dark muzzle tip
-            drawer.pixel(bx - 4, by, c.bodyDark);
+            drawer.pixel(barrelBaseX - 6, by, c.barrelDark);
         }
 
-        // Barrel shroud (connecting ring around barrels)
-        drawer.vLine(barrelBaseX, barrelBaseY - 1, 4, c.barrel);
-        drawer.pixel(barrelBaseX, barrelBaseY - 1, c.bodyLight);
+        // Second shroud ring near muzzle
+        drawer.vLine(barrelBaseX - 3, barrelBaseY - 1, 5, c.barrel);
     }
 
     // ========================================================================
-    //  RIGHT ARM - Rocket Launcher Tube
+    //  RIGHT ARM - Quad-Tube Missile Launcher Pod
     // ========================================================================
     drawLauncherArm(drawer, cx, cy, c, pose) {
-        const sy = cy - 12;
-        const rx = cx + 10;
+        const sy = cy - 14;
+        const rx = cx + 12;
         const armAngle = pose.armAngle || 0;
         const angleOffset = Math.round(Math.sin(armAngle * Math.PI / 180) * 2);
 
-        // -- Upper arm (mechanical strut) --
+        // -- Upper arm (thick mechanical strut) --
         drawer.fillPath([
-            { x: rx - 4, y: sy },
+            { x: rx - 6, y: sy },
             { x: rx, y: sy },
-            { x: rx - 1, y: sy + 6 },
-            { x: rx - 5, y: sy + 6 }
+            { x: rx - 1, y: sy + 7 },
+            { x: rx - 7, y: sy + 7 }
         ], c.body);
-        // Joint highlight
-        drawer.pixel(rx - 2, sy + 1, c.bodyLight);
-        // Joint shadow
-        drawer.pixel(rx - 3, sy + 4, c.bodyDark);
-
+        // Highlight
+        drawer.vLine(rx - 5, sy + 1, 5, c.bodyLight);
+        // Shadow
+        drawer.vLine(rx - 1, sy + 1, 5, c.bodyDark);
         // Piston detail
-        drawer.vLine(rx - 4, sy + 1, 4, c.joint);
+        drawer.vLine(rx - 3, sy + 1, 5, c.joint);
+        drawer.pixel(rx - 3, sy + 2, c.jointGlow);
 
         // -- Elbow joint --
-        drawer.hLine(rx - 5, sy + 6, 7, c.joint);
-        drawer.hLine(rx - 5, sy + 7, 7, c.bodyDark);
+        drawer.hLine(rx - 7, sy + 7, 9, c.joint);
+        drawer.hLine(rx - 7, sy + 8, 9, c.bodyDark);
+        drawer.pixel(rx - 6, sy + 7, c.jointGlow);
+        drawer.pixel(rx, sy + 7, c.jointGlow);
 
-        // -- Launcher tube (cylindrical, angled forward-down ~30 degrees) --
-        const tubeX = rx - 3 + angleOffset;
-        const tubeY = sy + 8;
+        // -- Quad-tube launcher pod --
+        const tubeX = rx - 5 + angleOffset;
+        const tubeY = sy + 9;
 
-        // Main tube body (5px wide x 10px long, angled)
+        // Pod housing (boxy, angled slightly)
         drawer.fillPath([
             { x: tubeX - 1, y: tubeY },
-            { x: tubeX + 4, y: tubeY },
-            { x: tubeX + 2, y: tubeY + 10 },
-            { x: tubeX - 3, y: tubeY + 10 }
+            { x: tubeX + 7, y: tubeY },
+            { x: tubeX + 5, y: tubeY + 12 },
+            { x: tubeX - 3, y: tubeY + 12 }
         ], c.launcher);
 
-        // Tube shadow (left side)
-        drawer.vLine(tubeX - 2, tubeY + 2, 7, c.bodyDark);
-        // Tube highlight (right side)
-        drawer.vLine(tubeX + 3, tubeY + 1, 7, c.bodyLight);
+        // Pod shadow (left side)
+        drawer.vLine(tubeX - 2, tubeY + 2, 9, c.launcherDark);
+        // Pod highlight (right side)
+        drawer.vLine(tubeX + 6, tubeY + 1, 9, c.bodyLight);
 
-        // Tube opening (dark circle at top-left / muzzle end)
-        drawer.rect(tubeX - 2, tubeY + 9, 5, 2, c.bodyDark);
-        drawer.hLine(tubeX - 1, tubeY + 10, 3, '#1a1a1a');
+        // 4 tube openings (2x2 grid at bottom/muzzle)
+        const muzzleY = tubeY + 10;
+        // Top-left tube
+        drawer.rect(tubeX - 1, muzzleY, 3, 2, '#1a1a1a');
+        drawer.pixel(tubeX, muzzleY, c.barrelDark);
+        // Top-right tube
+        drawer.rect(tubeX + 2, muzzleY, 3, 2, '#1a1a1a');
+        drawer.pixel(tubeX + 3, muzzleY, c.barrelDark);
 
-        // Mounting bracket
-        drawer.hLine(tubeX - 1, tubeY + 3, 4, c.armor);
-        drawer.hLine(tubeX - 1, tubeY + 6, 4, c.armor);
+        // Mounting brackets
+        drawer.hLine(tubeX - 1, tubeY + 3, 7, c.armor);
+        drawer.hLine(tubeX - 1, tubeY + 7, 7, c.armor);
 
-        // -- Missile tip visible inside tube --
-        drawer.pixel(tubeX, tubeY + 9, '#c0392b');
-        drawer.pixel(tubeX + 1, tubeY + 9, '#e74c3c');
+        // Missile tips visible in upper tubes
+        drawer.pixel(tubeX, muzzleY + 1, '#c0392b');
+        drawer.pixel(tubeX + 3, muzzleY + 1, '#e74c3c');
+
+        // Pod side panel detail
+        drawer.pixel(tubeX + 1, tubeY + 5, c.rivet);
+        drawer.pixel(tubeX + 4, tubeY + 5, c.rivet);
     }
 
     // ========================================================================
-    //  ARMS - Combined idle drawing (gatling left, launcher right)
+    //  ARMS - Combined idle drawing
     // ========================================================================
     drawArms(drawer, cx, cy, c, pose) {
         this.drawGatlingArm(drawer, cx, cy, c, pose);
@@ -487,47 +526,38 @@ export class MechaGolemGenerator {
     drawAttackArms(drawer, cx, cy, c, pose) {
         const phase = pose.attackPhase || 0;
         const attackType = pose.attackType || 'gatling_sweep';
-        const sy = cy - 12;
 
         if (attackType === 'gatling_sweep') {
-            // Gatling arm sweeps left to right while firing
             this.drawGatlingAttack(drawer, cx, cy, c, pose, phase);
-            // Launcher arm stays in idle
             this.drawLauncherArm(drawer, cx, cy, c, pose);
         } else if (attackType === 'ring_burst') {
-            // Both arms raise for omnidirectional burst
             this.drawBurstPose(drawer, cx, cy, c, pose, phase);
         } else if (attackType === 'rocket_salvo') {
-            // Launcher arm aims and fires
             this.drawGatlingArm(drawer, cx, cy, c, pose);
             this.drawLauncherAttack(drawer, cx, cy, c, pose, phase);
         } else {
-            // Default: draw normal arms
             this.drawArms(drawer, cx, cy, c, pose);
         }
     }
 
     drawGatlingAttack(drawer, cx, cy, c, pose, phase) {
-        const sy = cy - 12;
-        const lx = cx - 10;
+        const sy = cy - 14;
+        const lx = cx - 12;
 
-        // Sweep: arm moves from upper-right to lower-left
+        // Sweep: arm sweeps from upper-right to lower-left
         let armOffsetX, armOffsetY;
         if (phase < 0.3) {
-            // Wind up: arm raises
             const t = phase / 0.3;
-            armOffsetX = t * 3;
-            armOffsetY = -t * 4;
+            armOffsetX = t * 4;
+            armOffsetY = -t * 5;
         } else if (phase < 0.8) {
-            // Sweep: arm sweeps down-left
             const t = (phase - 0.3) / 0.5;
-            armOffsetX = 3 - t * 8;
-            armOffsetY = -4 + t * 6;
+            armOffsetX = 4 - t * 10;
+            armOffsetY = -5 + t * 8;
         } else {
-            // Recovery
             const t = (phase - 0.8) / 0.2;
-            armOffsetX = -5 + t * 5;
-            armOffsetY = 2 - t * 2;
+            armOffsetX = -6 + t * 6;
+            armOffsetY = 3 - t * 3;
         }
 
         armOffsetX = Math.round(armOffsetX);
@@ -536,61 +566,61 @@ export class MechaGolemGenerator {
         // Upper arm
         drawer.fillPath([
             { x: lx + 2, y: sy },
-            { x: lx + 6, y: sy },
-            { x: lx + 5 + armOffsetX, y: sy + 6 + armOffsetY },
-            { x: lx + 1 + armOffsetX, y: sy + 6 + armOffsetY }
+            { x: lx + 8, y: sy },
+            { x: lx + 7 + armOffsetX, y: sy + 7 + armOffsetY },
+            { x: lx + 1 + armOffsetX, y: sy + 7 + armOffsetY }
         ], c.body);
-        drawer.pixel(lx + 3, sy + 1, c.bodyLight);
+        drawer.vLine(lx + 3, sy + 1, 4, c.bodyLight);
 
         // Elbow joint
-        drawer.hLine(lx + armOffsetX, sy + 6 + armOffsetY, 7, c.joint);
+        drawer.hLine(lx + armOffsetX, sy + 7 + armOffsetY, 9, c.joint);
 
         // Gun housing
         const gunX = lx - 2 + armOffsetX;
-        const gunY = sy + 8 + armOffsetY;
-        drawer.rect(gunX, gunY, 8, 4, c.armor);
-        drawer.hLine(gunX + 1, gunY + 1, 6, c.bodyDark);
+        const gunY = sy + 9 + armOffsetY;
+        drawer.rect(gunX, gunY, 10, 6, c.armor);
+        drawer.hLine(gunX + 1, gunY, 8, c.armorLight);
+        drawer.hLine(gunX + 1, gunY + 5, 8, c.bodyDark);
 
         // Barrels
-        const barrelBaseX = gunX - 4;
-        const barrelBaseY = gunY + 1;
+        const barrelBaseX = gunX - 2;
+        const barrelBaseY = gunY + 2;
+        drawer.vLine(barrelBaseX, barrelBaseY - 1, 5, c.barrel);
         for (let i = 0; i < 3; i++) {
-            const by = barrelBaseY + (i - 1);
-            drawer.hLine(barrelBaseX - 3, by, 4, c.barrel);
-            drawer.pixel(barrelBaseX - 4, by, c.bodyDark);
+            const by = barrelBaseY + (i - 1) * 2;
+            drawer.hLine(barrelBaseX - 5, by, 6, c.barrel);
+            drawer.pixel(barrelBaseX - 6, by, c.barrelDark);
         }
-        drawer.vLine(barrelBaseX, barrelBaseY - 1, 3, c.barrel);
 
         // Muzzle flash during sweep phase
         if (phase >= 0.3 && phase < 0.8) {
-            const flashX = barrelBaseX - 6;
+            const flashX = barrelBaseX - 7;
             const flashY = barrelBaseY;
             drawer.pixel(flashX, flashY, '#ffff00');
             drawer.pixel(flashX - 1, flashY, '#ffaa00');
             drawer.pixel(flashX, flashY - 1, '#ffcc00');
             drawer.pixel(flashX, flashY + 1, '#ffcc00');
+            drawer.pixel(flashX + 1, flashY - 1, '#ff8800');
+            drawer.pixel(flashX + 1, flashY + 1, '#ff8800');
         }
     }
 
     drawLauncherAttack(drawer, cx, cy, c, pose, phase) {
-        const sy = cy - 12;
-        const rx = cx + 10;
+        const sy = cy - 14;
+        const rx = cx + 12;
 
         let armOffsetX, armOffsetY;
         if (phase < 0.2) {
-            // Aim: arm tilts forward
             const t = phase / 0.2;
             armOffsetX = -t * 2;
-            armOffsetY = t * 2;
+            armOffsetY = t * 3;
         } else if (phase < 0.5) {
-            // Fire: recoil
             const t = (phase - 0.2) / 0.3;
-            armOffsetX = -2 + t * 3;
-            armOffsetY = 2 - t * 4;
+            armOffsetX = -2 + t * 4;
+            armOffsetY = 3 - t * 5;
         } else {
-            // Return
             const t = (phase - 0.5) / 0.5;
-            armOffsetX = 1 - t;
+            armOffsetX = 2 - t * 2;
             armOffsetY = -2 + t * 2;
         }
 
@@ -599,149 +629,196 @@ export class MechaGolemGenerator {
 
         // Upper arm
         drawer.fillPath([
-            { x: rx - 4, y: sy },
+            { x: rx - 6, y: sy },
             { x: rx, y: sy },
-            { x: rx - 1 + armOffsetX, y: sy + 6 + armOffsetY },
-            { x: rx - 5 + armOffsetX, y: sy + 6 + armOffsetY }
+            { x: rx - 1 + armOffsetX, y: sy + 7 + armOffsetY },
+            { x: rx - 7 + armOffsetX, y: sy + 7 + armOffsetY }
         ], c.body);
-        drawer.pixel(rx - 2, sy + 1, c.bodyLight);
+        drawer.vLine(rx - 5, sy + 1, 4, c.bodyLight);
 
         // Elbow joint
-        drawer.hLine(rx - 5 + armOffsetX, sy + 6 + armOffsetY, 7, c.joint);
+        drawer.hLine(rx - 7 + armOffsetX, sy + 7 + armOffsetY, 9, c.joint);
 
-        // Launcher tube
-        const tubeX = rx - 3 + armOffsetX;
-        const tubeY = sy + 8 + armOffsetY;
+        // Launcher pod
+        const tubeX = rx - 5 + armOffsetX;
+        const tubeY = sy + 9 + armOffsetY;
         drawer.fillPath([
             { x: tubeX - 1, y: tubeY },
-            { x: tubeX + 4, y: tubeY },
-            { x: tubeX + 2, y: tubeY + 10 },
-            { x: tubeX - 3, y: tubeY + 10 }
+            { x: tubeX + 7, y: tubeY },
+            { x: tubeX + 5, y: tubeY + 12 },
+            { x: tubeX - 3, y: tubeY + 12 }
         ], c.launcher);
-        drawer.vLine(tubeX - 2, tubeY + 2, 7, c.bodyDark);
-        drawer.rect(tubeX - 2, tubeY + 9, 5, 2, c.bodyDark);
+        drawer.vLine(tubeX - 2, tubeY + 2, 9, c.launcherDark);
+        // Tube openings
+        drawer.rect(tubeX - 1, tubeY + 10, 3, 2, '#1a1a1a');
+        drawer.rect(tubeX + 2, tubeY + 10, 3, 2, '#1a1a1a');
 
-        // Smoke trail on fire phase
+        // Smoke/fire trail on fire phase
         if (phase >= 0.2 && phase < 0.5) {
-            drawer.pixel(tubeX, tubeY + 11, '#aaaaaa');
-            drawer.pixel(tubeX - 1, tubeY + 12, '#888888');
-            drawer.pixel(tubeX + 1, tubeY + 12, '#999999');
+            const smokeY = tubeY + 13;
+            drawer.pixel(tubeX + 1, smokeY, '#ffaa00');
+            drawer.pixel(tubeX, smokeY + 1, '#aaaaaa');
+            drawer.pixel(tubeX + 2, smokeY + 1, '#888888');
+            drawer.pixel(tubeX - 1, smokeY + 2, '#666666');
+            drawer.pixel(tubeX + 3, smokeY + 2, '#777777');
         }
     }
 
     drawBurstPose(drawer, cx, cy, c, pose, phase) {
-        const sy = cy - 12;
+        const sy = cy - 14;
 
         let raiseAmount;
         if (phase < 0.3) {
-            raiseAmount = Math.round((phase / 0.3) * 5);
+            raiseAmount = Math.round((phase / 0.3) * 6);
         } else if (phase < 0.6) {
-            raiseAmount = 5;
+            raiseAmount = 6;
         } else {
-            raiseAmount = Math.round((1 - (phase - 0.6) / 0.4) * 5);
+            raiseAmount = Math.round((1 - (phase - 0.6) / 0.4) * 6);
         }
 
         // Left arm (gatling) raised
-        const lx = cx - 10;
+        const lx = cx - 12;
         drawer.fillPath([
             { x: lx + 2, y: sy - raiseAmount },
-            { x: lx + 6, y: sy - raiseAmount },
-            { x: lx + 5, y: sy + 6 - raiseAmount },
-            { x: lx + 1, y: sy + 6 - raiseAmount }
+            { x: lx + 8, y: sy - raiseAmount },
+            { x: lx + 7, y: sy + 7 - raiseAmount },
+            { x: lx + 1, y: sy + 7 - raiseAmount }
         ], c.body);
-        drawer.hLine(lx, sy + 6 - raiseAmount, 7, c.joint);
+        drawer.hLine(lx, sy + 7 - raiseAmount, 9, c.joint);
         // Compact gatling at raised position
-        const gunY = sy + 8 - raiseAmount;
-        drawer.rect(lx - 2, gunY, 8, 4, c.armor);
+        const gunY = sy + 9 - raiseAmount;
+        drawer.rect(lx - 2, gunY, 10, 6, c.armor);
         for (let i = 0; i < 3; i++) {
-            drawer.hLine(lx - 6, gunY + 1 + (i - 1), 4, c.barrel);
+            drawer.hLine(lx - 8, gunY + 2 + (i - 1) * 2, 6, c.barrel);
         }
+        drawer.vLine(lx - 2, gunY + 1, 5, c.barrel);
 
         // Right arm (launcher) raised
-        const rx = cx + 10;
+        const rx = cx + 12;
         drawer.fillPath([
-            { x: rx - 4, y: sy - raiseAmount },
+            { x: rx - 6, y: sy - raiseAmount },
             { x: rx, y: sy - raiseAmount },
-            { x: rx - 1, y: sy + 6 - raiseAmount },
-            { x: rx - 5, y: sy + 6 - raiseAmount }
+            { x: rx - 1, y: sy + 7 - raiseAmount },
+            { x: rx - 7, y: sy + 7 - raiseAmount }
         ], c.body);
-        drawer.hLine(rx - 5, sy + 6 - raiseAmount, 7, c.joint);
+        drawer.hLine(rx - 7, sy + 7 - raiseAmount, 9, c.joint);
         // Launcher tube at raised position
-        const tubeY = sy + 8 - raiseAmount;
+        const tubeY = sy + 9 - raiseAmount;
         drawer.fillPath([
-            { x: rx - 4, y: tubeY },
-            { x: rx + 1, y: tubeY },
-            { x: rx - 1, y: tubeY + 8 },
-            { x: rx - 6, y: tubeY + 8 }
+            { x: rx - 6, y: tubeY },
+            { x: rx + 2, y: tubeY },
+            { x: rx, y: tubeY + 10 },
+            { x: rx - 8, y: tubeY + 10 }
         ], c.launcher);
+        // Tube openings
+        drawer.rect(rx - 6, tubeY + 8, 3, 2, '#1a1a1a');
+        drawer.rect(rx - 3, tubeY + 8, 3, 2, '#1a1a1a');
 
         // Energy burst glow during active phase
         if (phase >= 0.3 && phase < 0.6) {
             const glowColor = c.coreGlow;
-            drawer.pixel(cx - 6, sy - raiseAmount + 3, glowColor);
-            drawer.pixel(cx + 6, sy - raiseAmount + 3, glowColor);
-            drawer.pixel(cx, sy - raiseAmount - 1, glowColor);
+            // Energy radiating from core
+            drawer.pixel(cx - 8, sy - raiseAmount + 4, glowColor);
+            drawer.pixel(cx + 8, sy - raiseAmount + 4, glowColor);
+            drawer.pixel(cx, sy - raiseAmount - 2, glowColor);
+            drawer.pixel(cx - 4, sy - raiseAmount, glowColor);
+            drawer.pixel(cx + 4, sy - raiseAmount, glowColor);
         }
     }
 
     // ========================================================================
-    //  HEAD - Rectangular mechanical head with optical sensor
+    //  HEAD - Large mechanical head with visor, chin guard, crest
     // ========================================================================
     drawHead(drawer, cx, cy, c, phase) {
-        const w = 10;
-        const h = 8;
+        const w = 16;
+        const h = 12;
         const x = cx - w / 2;
         const y = cy - h + 2;
 
-        // -- Main head shape (rectangular, mechanical) --
-        drawer.rect(x, y, w, h, c.armor);
+        // -- Head crest / antenna array on top --
+        // Central crest (3px tall fin)
+        drawer.vLine(cx, y - 3, 3, c.armor);
+        drawer.pixel(cx, y - 3, c.eye);
+        drawer.pixel(cx - 1, y - 2, c.armor);
+        drawer.pixel(cx + 1, y - 2, c.armor);
+
+        // Side antenna stalks
+        drawer.vLine(x + 3, y - 3, 3, c.barrel);
+        drawer.pixel(x + 3, y - 3, c.eye);
+        drawer.vLine(x + w - 4, y - 3, 3, c.barrel);
+        drawer.pixel(x + w - 4, y - 3, c.eye);
+
+        // -- Main head casing (angular rectangular) --
+        drawer.fillPath([
+            { x: x + 1, y: y },
+            { x: x + w - 1, y: y },
+            { x: x + w, y: y + 2 },
+            { x: x + w, y: y + h - 2 },
+            { x: x + w - 2, y: y + h },
+            { x: x + 2, y: y + h },
+            { x: x, y: y + h - 2 },
+            { x: x, y: y + 2 }
+        ], c.armor);
 
         // Top edge highlight
-        drawer.hLine(x + 1, y, w - 2, c.bodyLight);
+        drawer.hLine(x + 2, y, w - 4, c.armorLight);
         // Bottom shadow
-        drawer.hLine(x + 1, y + h - 1, w - 2, c.bodyDark);
+        drawer.hLine(x + 2, y + h - 1, w - 4, c.bodyDark);
         // Side shadows
-        drawer.vLine(x, y + 1, h - 2, c.bodyDark);
-        drawer.vLine(x + w - 1, y + 1, h - 2, c.bodyDark);
+        drawer.vLine(x + 1, y + 2, h - 4, c.bodyDark);
+        drawer.vLine(x + w - 2, y + 2, h - 4, c.bodyDark);
 
-        // -- Optical sensor bar (wide glowing stripe) --
-        const eyeY = y + 3;
-        drawer.rect(x + 2, eyeY, 6, 2, c.eye);
-        // Bright center of sensor
-        drawer.pixel(x + 4, eyeY, '#ffffff');
-        drawer.pixel(x + 5, eyeY, '#ffffff');
-        // Dimmer edges
-        drawer.pixel(x + 2, eyeY + 1, c.bodyDark);
-        drawer.pixel(x + 7, eyeY + 1, c.bodyDark);
+        // Forehead armor plate seam
+        drawer.hLine(x + 3, y + 2, w - 6, c.body);
 
-        // -- Head plating details --
-        // Forehead seam
-        drawer.hLine(x + 2, y + 1, w - 4, c.body);
-        // Chin plate
-        drawer.hLine(x + 3, y + h - 2, w - 6, c.body);
+        // -- Optical visor (wide glowing horizontal bar) --
+        const visorY = y + 4;
+        // Visor frame
+        drawer.rect(x + 2, visorY - 1, w - 4, 4, c.bodyDark);
+        // Visor glow (main light bar)
+        drawer.rect(x + 3, visorY, w - 6, 2, c.eye);
+        // Bright center of visor
+        drawer.hLine(cx - 2, visorY, 4, c.eyeBright);
+        drawer.hLine(cx - 1, visorY + 1, 2, '#ffffff');
+        // Visor edge dimming
+        drawer.pixel(x + 3, visorY + 1, c.bodyDark);
+        drawer.pixel(x + w - 4, visorY + 1, c.bodyDark);
 
-        // Cheek vents (small horizontal lines)
-        drawer.pixel(x + 1, y + 4, c.joint);
+        // -- Chin guard (armored lower face) --
+        const chinY = y + h - 3;
+        drawer.rect(x + 3, chinY, w - 6, 3, c.body);
+        drawer.hLine(x + 4, chinY, w - 8, c.bodyLight);
+        // Chin vent slits
+        drawer.pixel(x + 5, chinY + 1, c.bodyDark);
+        drawer.pixel(x + 7, chinY + 1, c.bodyDark);
+        drawer.pixel(x + 9, chinY + 1, c.bodyDark);
+
+        // -- Cheek vents / side sensors --
         drawer.pixel(x + 1, y + 5, c.joint);
-        drawer.pixel(x + w - 2, y + 4, c.joint);
+        drawer.pixel(x + 1, y + 6, c.joint);
+        drawer.pixel(x + 1, y + 7, c.joint);
         drawer.pixel(x + w - 2, y + 5, c.joint);
+        drawer.pixel(x + w - 2, y + 6, c.joint);
+        drawer.pixel(x + w - 2, y + 7, c.joint);
 
-        // -- Antennae (two small lines on top) --
-        // Left antenna
-        drawer.vLine(x + 3, y - 2, 2, c.barrel);
-        drawer.pixel(x + 3, y - 2, c.eye);
-        // Right antenna
-        drawer.vLine(x + w - 4, y - 2, 2, c.barrel);
-        drawer.pixel(x + w - 4, y - 2, c.eye);
+        // Head rivets
+        drawer.pixel(x + 2, y + 1, c.rivet);
+        drawer.pixel(x + w - 3, y + 1, c.rivet);
 
-        // Phase 2: cracked faceplate
+        // Phase 2: cracked faceplate + sparks
         if (phase === 2) {
-            drawer.pixel(x + 2, y + 2, c.crack);
-            drawer.pixel(x + 3, y + 3, c.crack);
-            drawer.pixel(x + 4, y + 4, c.crack);
-            // Sparking antenna
-            drawer.pixel(x + 3, y - 3, c.spark);
-            drawer.pixel(x + w - 4, y - 3, c.spark);
+            // Crack across visor
+            drawer.pixel(x + 4, y + 3, c.crack);
+            drawer.pixel(x + 5, y + 4, c.crack);
+            drawer.pixel(x + 6, y + 5, c.crack);
+            drawer.pixel(x + 7, y + 6, c.crack);
+            // Crack on right side
+            drawer.pixel(x + w - 5, y + 2, c.crack);
+            drawer.pixel(x + w - 6, y + 3, c.crack);
+            // Sparking antenna tips
+            drawer.pixel(x + 3, y - 4, c.spark);
+            drawer.pixel(x + w - 4, y - 4, c.spark);
+            drawer.pixel(cx, y - 4, c.spark);
         }
     }
 
@@ -749,66 +826,73 @@ export class MechaGolemGenerator {
     //  PHASE 2 OVERLOAD EFFECTS - Cracks, sparks, heat distortion
     // ========================================================================
     drawOverloadEffects(drawer, cx, cy, c, pose) {
-        const bodyY = cy - 16 + 4;
+        const bodyY = cy - 18 + 4;
         const pulsePhase = pose.pulsePhase || 0;
-        const w = 18;
+        const w = 24;
         const x = cx - w / 2;
 
-        // -- Jagged crack lines across armor (2-3 diagonal lines) --
-        // Crack 1: upper-left to center-right diagonal
-        drawer.pixel(x + 2, bodyY + 2, c.crack);
-        drawer.pixel(x + 3, bodyY + 3, c.crack);
-        drawer.pixel(x + 4, bodyY + 3, c.bodyDark);
-        drawer.pixel(x + 5, bodyY + 4, c.crack);
-        drawer.pixel(x + 6, bodyY + 5, c.crack);
-        drawer.pixel(x + 7, bodyY + 5, c.bodyDark);
+        // -- Jagged crack lines across armor --
+        // Crack 1: upper-left diagonal across chest
+        drawer.pixel(x + 3, bodyY + 2, c.crack);
+        drawer.pixel(x + 4, bodyY + 3, c.crack);
+        drawer.pixel(x + 5, bodyY + 3, c.bodyDark);
+        drawer.pixel(x + 6, bodyY + 4, c.crack);
+        drawer.pixel(x + 7, bodyY + 5, c.crack);
+        drawer.pixel(x + 8, bodyY + 5, c.bodyDark);
+        drawer.pixel(x + 9, bodyY + 6, c.crack);
 
         // Crack 2: upper-right descending
         drawer.pixel(x + w - 3, bodyY + 1, c.crack);
         drawer.pixel(x + w - 4, bodyY + 2, c.bodyDark);
-        drawer.pixel(x + w - 4, bodyY + 3, c.crack);
+        drawer.pixel(x + w - 5, bodyY + 3, c.crack);
         drawer.pixel(x + w - 5, bodyY + 4, c.crack);
         drawer.pixel(x + w - 6, bodyY + 5, c.bodyDark);
+        drawer.pixel(x + w - 7, bodyY + 6, c.crack);
 
-        // Crack 3: across waist area
-        drawer.pixel(x + 4, bodyY + 10, c.crack);
-        drawer.pixel(x + 5, bodyY + 11, c.crack);
-        drawer.pixel(x + 6, bodyY + 11, c.bodyDark);
-        drawer.pixel(x + 7, bodyY + 12, c.crack);
-        drawer.pixel(x + 8, bodyY + 12, c.crack);
+        // Crack 3: across waist
+        drawer.pixel(x + 5, bodyY + 12, c.crack);
+        drawer.pixel(x + 6, bodyY + 13, c.crack);
+        drawer.pixel(x + 7, bodyY + 13, c.bodyDark);
+        drawer.pixel(x + 8, bodyY + 14, c.crack);
+        drawer.pixel(x + 9, bodyY + 14, c.crack);
+        drawer.pixel(x + 10, bodyY + 15, c.crack);
 
         // -- Random spark pixels near joints --
-        // Use pulsePhase to vary spark positions
         const sparkOffset1 = Math.floor(pulsePhase * 5) % 3;
         const sparkOffset2 = Math.floor(pulsePhase * 7) % 4;
 
         // Left shoulder spark
-        drawer.pixel(x - 3 + sparkOffset1, bodyY + sparkOffset2, c.spark);
+        drawer.pixel(x - 5 + sparkOffset1, bodyY + sparkOffset2, c.spark);
+        drawer.pixel(x - 4 + sparkOffset1, bodyY + sparkOffset2 + 1, '#ffffff');
         // Right shoulder spark
-        drawer.pixel(x + w + 2 - sparkOffset1, bodyY + 1 + sparkOffset2, c.spark);
+        drawer.pixel(x + w + 4 - sparkOffset1, bodyY + 1 + sparkOffset2, c.spark);
+        drawer.pixel(x + w + 3 - sparkOffset1, bodyY + 2 + sparkOffset2, '#ffffff');
         // Left knee spark
-        drawer.pixel(cx - 8 + sparkOffset2, cy + 4 + sparkOffset1, c.spark);
+        drawer.pixel(cx - 10 + sparkOffset2, cy + 4 + sparkOffset1, c.spark);
         // Right elbow spark
-        drawer.pixel(cx + 9 - sparkOffset1, bodyY + 6 + sparkOffset2, c.spark);
+        drawer.pixel(cx + 11 - sparkOffset1, bodyY + 7 + sparkOffset2, c.spark);
 
         // Additional bright spark flicker
         if (pulsePhase > 0.5) {
-            drawer.pixel(x + 3 + sparkOffset1, bodyY + 7, '#ffffff');
-            drawer.pixel(x + w - 2 - sparkOffset2, bodyY + 9, '#ffffff');
+            drawer.pixel(x + 4 + sparkOffset1, bodyY + 8, '#ffffff');
+            drawer.pixel(x + w - 3 - sparkOffset2, bodyY + 10, '#ffffff');
+            drawer.pixel(cx + sparkOffset1 - 1, bodyY - 2, c.spark);
         }
 
         // -- Heat distortion lines near core --
-        const coreY = bodyY + 7;
+        const coreY = bodyY + 8;
         const distPhase = Math.floor(pulsePhase * 4) % 2;
 
         // Wavy heat lines above and below core
-        drawer.pixel(cx - 4, coreY - 3 + distPhase, c.coreGlow);
-        drawer.pixel(cx + 4, coreY - 2 - distPhase, c.coreGlow);
-        drawer.pixel(cx - 3, coreY + 5 + distPhase, c.coreGlow);
-        drawer.pixel(cx + 3, coreY + 4 - distPhase, c.coreGlow);
+        drawer.pixel(cx - 5, coreY - 4 + distPhase, c.coreGlow);
+        drawer.pixel(cx + 5, coreY - 3 - distPhase, c.coreGlow);
+        drawer.pixel(cx - 4, coreY + 6 + distPhase, c.coreGlow);
+        drawer.pixel(cx + 4, coreY + 5 - distPhase, c.coreGlow);
 
         // Side heat shimmer
-        drawer.pixel(cx - 6, coreY + distPhase, c.core);
-        drawer.pixel(cx + 6, coreY - distPhase, c.core);
+        drawer.pixel(cx - 8, coreY + distPhase, c.core);
+        drawer.pixel(cx + 8, coreY - distPhase, c.core);
+        drawer.pixel(cx - 7, coreY + 2 - distPhase, c.core);
+        drawer.pixel(cx + 7, coreY + 1 + distPhase, c.core);
     }
 }

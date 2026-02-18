@@ -169,7 +169,7 @@ export class BulletSystem {
                 }
             }
         } else if (source === 'enemy') {
-            if (this.player && this.player.state !== 'driving') {
+            if (this.player && this.player.state !== 'driving' && this.player.state !== 'roll') {
                 const pRect = this._getPlayerHurtbox();
                 if (CollisionUtils.lineIntersectsRect(beamP1, beamEnd, pRect)) {
                     this._handleEnemyBulletHitPlayer({
@@ -696,8 +696,8 @@ export class BulletSystem {
                     // Check Player
                     const p = this.player;
 
-                    // If Player is Driving, Bullet hits Vehicle instead
-                    if (p.state === 'driving') {
+                    // If Player is Driving or Rolling, skip bullet hit
+                    if (p.state === 'driving' || p.state === 'roll') {
                         continue;
                     }
 

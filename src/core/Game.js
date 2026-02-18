@@ -82,6 +82,7 @@ export class Game {
         };
         
         this.player.takeDamage = (amount, knockback) => {
+            if (this.player.state === 'roll') return;
             this.player.hp -= amount;
             if (knockback) {
                 this.player.knockbackX = knockback.x;
