@@ -186,10 +186,11 @@ export class Renderer {
                 y: e.y + e.height/2,
                 draw: () => {
                     e.draw(this.ctx);
-                    // Ice effect overlay
-                    if (e.frozenTimer > 0) {
+                    // Ice effect overlay (boss handles its own overlays)
+                    if (e.frozenTimer > 0 && !e.isBoss) {
                         const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
                             { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        if (hb) {
                         this.ctx.save();
                         // Ice block body
                         this.ctx.globalAlpha = 0.45;
@@ -232,9 +233,11 @@ export class Renderer {
                         this.ctx.lineTo(bx + bw * 0.7, by + bh * 0.4);
                         this.ctx.stroke();
                         this.ctx.restore();
-                    } else if (e.slowTimer > 0) {
+                        }
+                    } else if (e.slowTimer > 0 && !e.isBoss) {
                         const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
                             { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        if (hb) {
                         const slowRatio = e.slowAmount || 0;
                         this.ctx.save();
                         // Frost overlay scales with slow amount
@@ -256,17 +259,20 @@ export class Renderer {
                             this.ctx.fillRect(hb.x + hb.width - 1, hb.y - 1, 2, 2);
                         }
                         this.ctx.restore();
+                        }
                     }
-                    // Bleed overlay (Battle Axe DOT)
-                    if (e.bleedTimer > 0) {
+                    // Bleed overlay (Battle Axe DOT) - boss handles its own
+                    if (e.bleedTimer > 0 && !e.isBoss) {
                         const bleedHb = e.getBulletHurtbox ? e.getBulletHurtbox() :
                             { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        if (bleedHb) {
                         this.ctx.save();
                         const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
                         this.ctx.globalAlpha = pulse;
                         this.ctx.fillStyle = '#c0392b';
                         this.ctx.fillRect(bleedHb.x, bleedHb.y, bleedHb.width, bleedHb.height);
                         this.ctx.restore();
+                        }
                     }
                 }
             });
@@ -846,6 +852,9 @@ export class Renderer {
         this.ctx.lineTo(mouse.x + 12, mouse.y);
         this.ctx.stroke();
 
+        // Boss HP Bar
+        this.drawBossHpBar(this.ctx);
+
         // Profiler Overlay
         if (this.profiler && this.profiler.visible) {
             this.drawProfiler(this.ctx);
@@ -853,6 +862,61 @@ export class Renderer {
 
         this.uiManager.updatePlayerStatus(this.player);
         this.uiManager.updateWeapon(this.handSystem.currentWeapon, this.handSystem.getWeaponState());
+    }
+
+    drawBossHpBar(ctx) {
+        const boss = this.enemies.find(e => e.isBoss && e.hp > 0);
+        if (!boss) return;
+
+        const canvasW = this.canvas.width;
+        const BAR_W = 300;
+        const BAR_H = 14;
+        const x = (canvasW - BAR_W) / 2;
+        const y = 20;
+
+        ctx.save();
+
+        // Name
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('MUTANT BEAST', canvasW / 2, y - 4);
+
+        // Phase indicator
+        const phaseColors = ['#4a7c59', '#8b3a3a', '#5c2d82'];
+        const phaseNames = ['I', 'II', 'III'];
+        ctx.font = '10px monospace';
+        ctx.fillStyle = phaseColors[boss.phase - 1] || '#fff';
+        ctx.fillText('Phase ' + phaseNames[boss.phase - 1], canvasW / 2, y + BAR_H + 14);
+
+        // Bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x - 2, y - 2, BAR_W + 4, BAR_H + 4);
+
+        // HP fill
+        const hpRatio = Math.max(0, boss.hp / boss.maxHp);
+        const fillColor = boss.phase === 1 ? '#4a7c59'
+            : boss.phase === 2 ? '#c0392b'
+            : '#8e44ad';
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(x, y, BAR_W * hpRatio, BAR_H);
+
+        // Phase transition markers
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
+        // 60% marker
+        const mark60 = x + BAR_W * 0.6;
+        ctx.beginPath(); ctx.moveTo(mark60, y); ctx.lineTo(mark60, y + BAR_H); ctx.stroke();
+        // 25% marker
+        const mark25 = x + BAR_W * 0.25;
+        ctx.beginPath(); ctx.moveTo(mark25, y); ctx.lineTo(mark25, y + BAR_H); ctx.stroke();
+
+        // Border
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, BAR_W, BAR_H);
+
+        ctx.restore();
     }
 
     drawProfiler(ctx) {

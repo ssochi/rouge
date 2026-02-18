@@ -99,6 +99,15 @@ import { SOLDIER_IDLE_FRAMES } from '../assets/characters/enemies/soldier/Soldie
 import { SOLDIER_RUN_FRAMES } from '../assets/characters/enemies/soldier/SoldierRun.js';
 import { ZOMBIE_BRUTE_RUN_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteRun.js';
 import { ZOMBIE_BRUTE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteAttack.js';
+import { MUTANT_BEAST_IDLE_PHASE1, MUTANT_BEAST_IDLE_PHASE2, MUTANT_BEAST_IDLE_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastIdle.js';
+import { MUTANT_BEAST_RUN_PHASE1, MUTANT_BEAST_RUN_PHASE2, MUTANT_BEAST_RUN_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastRun.js';
+import {
+    MUTANT_BEAST_SMASH_PHASE1, MUTANT_BEAST_SWEEP_PHASE1, MUTANT_BEAST_STOMP_PHASE1, MUTANT_BEAST_ROAR_PHASE1,
+    MUTANT_BEAST_SMASH_PHASE2, MUTANT_BEAST_SWEEP_PHASE2, MUTANT_BEAST_STOMP_PHASE2,
+    MUTANT_BEAST_CHARGE_PHASE2, MUTANT_BEAST_LEAP_PHASE2, MUTANT_BEAST_ROAR_PHASE2,
+    MUTANT_BEAST_SMASH_PHASE3, MUTANT_BEAST_SWEEP_PHASE3, MUTANT_BEAST_STOMP_PHASE3,
+    MUTANT_BEAST_CHARGE_PHASE3, MUTANT_BEAST_LEAP_PHASE3, MUTANT_BEAST_ROAR_PHASE3
+} from '../assets/characters/enemies/mutant_beast/MutantBeastAttack.js';
 
 import { createSuvSprite } from '../assets/vehicles/SuvSprite.js';
 import { createTruckSprite } from '../assets/vehicles/TruckSprite.js';
@@ -206,6 +215,36 @@ export const Assets = {
     soldier: {
         idle: SOLDIER_IDLE_FRAMES,
         run: SOLDIER_RUN_FRAMES
+    },
+    mutantBeast: {
+        phase1: {
+            idle: MUTANT_BEAST_IDLE_PHASE1,
+            run: MUTANT_BEAST_RUN_PHASE1,
+            smash: MUTANT_BEAST_SMASH_PHASE1,
+            sweep: MUTANT_BEAST_SWEEP_PHASE1,
+            stomp: MUTANT_BEAST_STOMP_PHASE1,
+            roar: MUTANT_BEAST_ROAR_PHASE1
+        },
+        phase2: {
+            idle: MUTANT_BEAST_IDLE_PHASE2,
+            run: MUTANT_BEAST_RUN_PHASE2,
+            smash: MUTANT_BEAST_SMASH_PHASE2,
+            sweep: MUTANT_BEAST_SWEEP_PHASE2,
+            stomp: MUTANT_BEAST_STOMP_PHASE2,
+            charge: MUTANT_BEAST_CHARGE_PHASE2,
+            leap_slam: MUTANT_BEAST_LEAP_PHASE2,
+            roar: MUTANT_BEAST_ROAR_PHASE2
+        },
+        phase3: {
+            idle: MUTANT_BEAST_IDLE_PHASE3,
+            run: MUTANT_BEAST_RUN_PHASE3,
+            smash: MUTANT_BEAST_SMASH_PHASE3,
+            sweep: MUTANT_BEAST_SWEEP_PHASE3,
+            stomp: MUTANT_BEAST_STOMP_PHASE3,
+            charge: MUTANT_BEAST_CHARGE_PHASE3,
+            leap_slam: MUTANT_BEAST_LEAP_PHASE3,
+            roar: MUTANT_BEAST_ROAR_PHASE3
+        }
     },
     dog: {
         idle: DOG_IDLE_FRAMES,

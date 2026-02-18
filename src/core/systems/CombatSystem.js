@@ -405,6 +405,7 @@ export class CombatSystem {
     updateFreezeEffects() { this.statusEffects.updateFreezeEffects(); }
     updateParticles() { this.particleSpawner.updateParticles(); }
     spawnExplosion(x, y, damage, radius, knockback) { this.statusEffects.spawnExplosion(x, y, damage, radius, knockback); }
+    spawnGroundSlam(x, y, damage, radius, knockback, color) { this.statusEffects.spawnGroundSlam(x, y, damage, radius, knockback, color); }
     spawnDebris(x, y, type) { this.particleSpawner.spawnDebris(x, y, type); }
     spawnBloodExplosion(x, y) { this.particleSpawner.spawnBloodExplosion(x, y); }
     spawnBloodSplatter(x, y, angle) { this.particleSpawner.spawnBloodSplatter(x, y, angle); }

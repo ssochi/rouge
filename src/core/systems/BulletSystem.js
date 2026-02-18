@@ -151,7 +151,7 @@ export class BulletSystem {
                 const eRect = e.getBulletHurtbox
                     ? e.getBulletHurtbox()
                     : { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
-                if (CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) {
+                if (eRect && CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) {
                     const force = 2;
                     if (e.takeDamage) {
                         e.takeDamage(weapon.damage, {
@@ -186,7 +186,7 @@ export class BulletSystem {
                     const eRect = e.getBulletHurtbox
                         ? e.getBulletHurtbox()
                         : { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
-                    if (!CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) continue;
+                    if (!eRect || !CollisionUtils.lineIntersectsRect(beamP1, beamEnd, eRect)) continue;
 
                     const force = 2;
                     if (e.takeDamage) {
@@ -581,7 +581,7 @@ export class BulletSystem {
                                 height: e.height
                             };
 
-                        if (CollisionUtils.lineIntersectsRect(p1, p2, eRect)) {
+                        if (eRect && CollisionUtils.lineIntersectsRect(p1, p2, eRect)) {
                             if (b.type !== 'rocket' && b.type !== 'grenade') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
