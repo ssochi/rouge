@@ -501,6 +501,65 @@ export class BulletSystem {
                         friction: 0.85
                     });
                 }
+            } else if (b.type === 'vampyre') {
+                // Blood trail
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 4,
+                        y: b.y + (Math.random() - 0.5) * 4,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 15,
+                        color: Math.random() > 0.5 ? '#e74c3c' : '#8b0000',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.9
+                    });
+                }
+            } else if (b.type === 'needle') {
+                // Metallic trail
+                if (Math.random() > 0.6) {
+                    this.particles.push({
+                        x: b.x, y: b.y,
+                        vx: (Math.random() - 0.5) * 0.2,
+                        vy: (Math.random() - 0.5) * 0.2,
+                        life: 8,
+                        color: '#b0bec5',
+                        size: 1,
+                        friction: 0.9
+                    });
+                }
+            } else if (b.type === 'railgun') {
+                // Accelerate
+                const currentSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                const maxSpeed = b.railMaxSpeed || 25;
+                if (currentSpeed < maxSpeed) {
+                    const accel = b.railAccel || 0.35;
+                    const angle = Math.atan2(b.vy, b.vx);
+                    b.vx += Math.cos(angle) * accel;
+                    b.vy += Math.sin(angle) * accel;
+                }
+                // Dynamic damage based on speed
+                const newSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                b.currentDamage = b.damage + Math.floor(newSpeed * (b.railDamageMultiplier || 0.15) * b.damage);
+                // Enable piercing at high speed
+                if (newSpeed >= (b.railPierceSpeedThreshold || 15) && !b._piercingEnabled) {
+                    b.piercing = 3;
+                    b._piercingEnabled = true;
+                }
+                // Electromagnetic trail (intensity scales with speed)
+                const trailIntensity = Math.min(1.0, newSpeed / maxSpeed);
+                if (Math.random() > (0.7 - trailIntensity * 0.5)) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 3,
+                        y: b.y + (Math.random() - 0.5) * 3,
+                        vx: (Math.random() - 0.5) * trailIntensity,
+                        vy: (Math.random() - 0.5) * trailIntensity,
+                        life: 10 + Math.floor(trailIntensity * 10),
+                        color: Math.random() > 0.5 ? '#00bcd4' : '#4dd0e1',
+                        size: Math.random() * 2 + 1 + trailIntensity,
+                        friction: 0.9
+                    });
+                }
             }
 
             let hit = false;
@@ -694,8 +753,9 @@ export class BulletSystem {
                             if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
+                                // Use dynamic damage for railgun
+                                let finalDamage = b.type === 'railgun' ? (b.currentDamage || b.damage) : b.damage;
                                 // Frozen damage multiplier
-                                let finalDamage = b.damage;
                                 if (e.frozenTimer > 0 && b.type !== 'ice_shard') {
                                     finalDamage = Math.floor(finalDamage * 1.5);
                                 }
@@ -772,6 +832,44 @@ export class BulletSystem {
                                                 friction: 0.88
                                             });
                                         }
+                                    }
+                                }
+
+                                // Vampyre: lifesteal
+                                if (b.type === 'vampyre' && b.source === 'player') {
+                                    const healAmt = Math.min(
+                                        Math.floor(finalDamage * (b.lifestealPercent || 0.25)),
+                                        b.lifestealCap || 10
+                                    );
+                                    const pl = this.player;
+                                    if (pl.hp < (pl.maxHp || 100)) {
+                                        pl.hp = Math.min(pl.maxHp || 100, pl.hp + healAmt);
+                                        for (let h = 0; h < 3; h++) {
+                                            const ha = Math.random() * Math.PI * 2;
+                                            this.particles.push({
+                                                x: e.x + Math.cos(ha) * 5,
+                                                y: e.y + Math.sin(ha) * 5,
+                                                vx: (pl.x - e.x) * 0.05 + (Math.random() - 0.5),
+                                                vy: (pl.y - e.y) * 0.05 + (Math.random() - 0.5),
+                                                life: 20,
+                                                color: '#2ecc71',
+                                                size: 2,
+                                                friction: 0.92
+                                            });
+                                        }
+                                    }
+                                }
+
+                                // Needle: embed in enemy
+                                if (b.type === 'needle' && b.source === 'player') {
+                                    const maxStacks = b.needleMaxStacks || 6;
+                                    e.needleStacks = (e.needleStacks || 0);
+                                    if (e.needleStacks < maxStacks) {
+                                        e.needleStacks++;
+                                        e.needleDamage = b.needleDamage || 4;
+                                        e.needleTickInterval = b.needleTickInterval || 15;
+                                        e.needleTimer = Math.max(e.needleTimer || 0, b.needleDuration || 150);
+                                        e.needleTickCounter = e.needleTickCounter || 0;
                                     }
                                 }
 

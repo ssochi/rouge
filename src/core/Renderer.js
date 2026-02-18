@@ -269,6 +269,25 @@ export class Renderer {
                         this.ctx.fillRect(bleedHb.x, bleedHb.y, bleedHb.width, bleedHb.height);
                         this.ctx.restore();
                     }
+                    // Needle stacks indicator
+                    if (e.needleStacks > 0 && e.needleTimer > 0) {
+                        const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
+                            { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        this.ctx.save();
+                        const topY = hb.y - 6;
+                        const centerX = hb.x + hb.width / 2;
+                        const spacing = 3;
+                        const startX = centerX - (e.needleStacks - 1) * spacing / 2;
+                        for (let s = 0; s < e.needleStacks; s++) {
+                            const sx = startX + s * spacing;
+                            this.ctx.globalAlpha = 0.9;
+                            this.ctx.fillStyle = '#bdc3c7';
+                            this.ctx.fillRect(sx, topY, 1, 4);
+                            this.ctx.fillStyle = '#ecf0f1';
+                            this.ctx.fillRect(sx, topY, 1, 1);
+                        }
+                        this.ctx.restore();
+                    }
                 }
             });
         });
@@ -863,6 +882,62 @@ export class Renderer {
                 this.ctx.globalAlpha = forceLifeRatio;
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, b.size * 0.5, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'vampyre') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const pulse = 0.3 + Math.sin((b.maxLife - b.life) * 0.3) * 0.15;
+                this.ctx.globalAlpha = pulse;
+                this.ctx.fillStyle = '#8b0000';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.8, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#e74c3c';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#ff6b6b';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 0.4, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            } else if (b.type === 'needle') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                this.ctx.rotate(Math.atan2(b.vy, b.vx));
+                this.ctx.fillStyle = '#e0e0e0';
+                this.ctx.fillRect(-5, -0.5, 10, 1);
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillRect(4, -1, 2, 2);
+                this.ctx.fillStyle = '#78909c';
+                this.ctx.fillRect(-5, -1, 2, 2);
+                this.ctx.restore();
+            } else if (b.type === 'railgun') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                const maxSpd = b.railMaxSpeed || 25;
+                const intensity = Math.min(1.0, speed / maxSpd);
+                const rAngle = Math.atan2(b.vy, b.vx);
+                this.ctx.rotate(rAngle);
+                // Speed trail
+                const trailLen = 3 + intensity * 12;
+                this.ctx.globalAlpha = 0.3 * intensity;
+                this.ctx.fillStyle = '#00bcd4';
+                this.ctx.fillRect(-trailLen, -2, trailLen, 4);
+                // Core
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = intensity > 0.6 ? '#ffffff' : '#00bcd4';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * (0.8 + intensity * 0.4), 0, Math.PI * 2);
+                this.ctx.fill();
+                // Outer glow
+                this.ctx.globalAlpha = 0.3 + intensity * 0.3;
+                this.ctx.fillStyle = '#4dd0e1';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.size * 1.5 + intensity * 3, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
             } else {

@@ -229,6 +229,29 @@ export class CombatSystem {
                 bullet.wallSlamDamage = weapon.wallSlamDamage || 15;
             }
 
+            // Vampyre: carry lifesteal params
+            if (weapon.bulletType === 'vampyre') {
+                bullet.lifestealPercent = weapon.lifestealPercent || 0.25;
+                bullet.lifestealCap = weapon.lifestealCap || 10;
+            }
+
+            // Needle: carry embed DOT params
+            if (weapon.bulletType === 'needle') {
+                bullet.needleDamage = weapon.needleDamage || 4;
+                bullet.needleDuration = weapon.needleDuration || 150;
+                bullet.needleTickInterval = weapon.needleTickInterval || 15;
+                bullet.needleMaxStacks = weapon.needleMaxStacks || 6;
+            }
+
+            // Railgun: carry acceleration params
+            if (weapon.bulletType === 'railgun') {
+                bullet.railAccel = weapon.railAccel || 0.35;
+                bullet.railMaxSpeed = weapon.railMaxSpeed || 25;
+                bullet.railDamageMultiplier = weapon.railDamageMultiplier || 0.15;
+                bullet.railPierceSpeedThreshold = weapon.railPierceSpeedThreshold || 15;
+                bullet.currentDamage = bullet.damage;
+            }
+
             this.bullets.push(bullet);
             created++;
         }
@@ -432,6 +455,29 @@ export class CombatSystem {
                     bullet.wallSlamDamage = weapon.wallSlamDamage || 15;
                 }
 
+                // Vampyre: carry lifesteal params
+                if (weapon.bulletType === 'vampyre') {
+                    bullet.lifestealPercent = weapon.lifestealPercent || 0.25;
+                    bullet.lifestealCap = weapon.lifestealCap || 10;
+                }
+
+                // Needle: carry embed DOT params
+                if (weapon.bulletType === 'needle') {
+                    bullet.needleDamage = weapon.needleDamage || 4;
+                    bullet.needleDuration = weapon.needleDuration || 150;
+                    bullet.needleTickInterval = weapon.needleTickInterval || 15;
+                    bullet.needleMaxStacks = weapon.needleMaxStacks || 6;
+                }
+
+                // Railgun: carry acceleration params
+                if (weapon.bulletType === 'railgun') {
+                    bullet.railAccel = weapon.railAccel || 0.35;
+                    bullet.railMaxSpeed = weapon.railMaxSpeed || 25;
+                    bullet.railDamageMultiplier = weapon.railDamageMultiplier || 0.15;
+                    bullet.railPierceSpeedThreshold = weapon.railPierceSpeedThreshold || 15;
+                    bullet.currentDamage = bullet.damage;
+                }
+
                 this.bullets.push(bullet);
             }
 
@@ -505,6 +551,7 @@ export class CombatSystem {
     updatePoisonEffects() { this.statusEffects.updatePoisonEffects(); }
     updateAcidPuddles() { this.statusEffects.updateAcidPuddles(); }
     updateForceEffects() { this.statusEffects.updateForceEffects(); }
+    updateNeedleEffects() { this.statusEffects.updateNeedleEffects(); }
     updateParticles() { this.particleSpawner.updateParticles(); }
     spawnExplosion(x, y, damage, radius, knockback) { this.statusEffects.spawnExplosion(x, y, damage, radius, knockback); }
     spawnDebris(x, y, type) { this.particleSpawner.spawnDebris(x, y, type); }

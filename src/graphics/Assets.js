@@ -81,6 +81,9 @@ import { HOMING_LAUNCHER_SPRITE } from '../assets/weapons/HomingLauncherGenerato
 import { ACID_GUN_SPRITE } from '../assets/weapons/AcidGunGenerator.js';
 import { CLUSTER_GUN_SPRITE } from '../assets/weapons/ClusterGunGenerator.js';
 import { FORCE_GUN_SPRITE } from '../assets/weapons/ForceGunGenerator.js';
+import { VAMPYRE_GUN_SPRITE } from '../assets/weapons/VampyreGunGenerator.js';
+import { NEEDLE_GUN_SPRITE } from '../assets/weapons/NeedleGunGenerator.js';
+import { RAILGUN_SPRITE } from '../assets/weapons/RailgunGenerator.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
@@ -332,6 +335,9 @@ export const Assets = {
     acid_gun: ACID_GUN_SPRITE,
     cluster_gun: CLUSTER_GUN_SPRITE,
     force_gun: FORCE_GUN_SPRITE,
+    vampyre_gun: VAMPYRE_GUN_SPRITE,
+    needle_gun: NEEDLE_GUN_SPRITE,
+    railgun: RAILGUN_SPRITE,
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

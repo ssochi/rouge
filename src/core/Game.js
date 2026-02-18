@@ -375,6 +375,7 @@ export class Game {
         this.combatSystem.updatePoisonEffects();
         this.combatSystem.updateAcidPuddles();
         this.combatSystem.updateForceEffects();
+        this.combatSystem.updateNeedleEffects();
         this.combatSystem.updateBurst();
         this.profiler.end('Combat');
 

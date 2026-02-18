@@ -747,6 +747,42 @@ export class StatusEffectSystem {
         }
     }
 
+    // --- Needle DOT (Embed) ---
+    updateNeedleEffects() {
+        for (const e of this.enemies) {
+            if (!e.needleStacks || e.needleStacks <= 0 || !e.needleTimer || e.needleTimer <= 0) continue;
+            e.needleTimer--;
+            e.needleTickCounter = (e.needleTickCounter || 0) + 1;
+
+            if (e.needleTickCounter >= (e.needleTickInterval || 15)) {
+                e.needleTickCounter = 0;
+                let dmg = (e.needleDamage || 4) * e.needleStacks;
+                if (e.frozenTimer > 0) dmg = Math.floor(dmg * 1.5);
+                e.hp -= dmg;
+                e.hitFlashTimer = 3;
+                e.hpBarTimer = 60;
+                // Metallic spark particles
+                this.particles.push({
+                    x: e.x + (Math.random() - 0.5) * 8,
+                    y: e.y + (Math.random() - 0.5) * 8,
+                    vx: (Math.random() - 0.5) * 1,
+                    vy: -Math.random() * 0.5,
+                    life: 10,
+                    color: '#b0bec5',
+                    size: 1.5,
+                    friction: 0.9
+                });
+                if (e.hp <= 0) {
+                    this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                }
+            }
+
+            if (e.needleTimer <= 0) {
+                e.needleStacks = 0;
+            }
+        }
+    }
+
     // --- Force Gun Wall Slam ---
     updateForceEffects() {
         for (const e of this.enemies) {

@@ -257,6 +257,33 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:vampyre_gun',
+            type: 'weapon',
+            name: 'Vampyre',
+            icon: 'vampyre_gun',
+            maxStack: 1,
+            data: { weaponConfigId: 'vampyre_gun' }
+        });
+
+        this.registerItem({
+            id: 'weapon:needle_gun',
+            type: 'weapon',
+            name: 'Needle Gun',
+            icon: 'needle_gun',
+            maxStack: 1,
+            data: { weaponConfigId: 'needle_gun' }
+        });
+
+        this.registerItem({
+            id: 'weapon:railgun',
+            type: 'weapon',
+            name: 'Railgun',
+            icon: 'railgun',
+            maxStack: 1,
+            data: { weaponConfigId: 'railgun' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',
