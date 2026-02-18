@@ -107,9 +107,11 @@ export class MutantBeast extends Enemy {
     // Return null when airborne so bullets pass through
     getBulletHurtbox() {
         if (this.isAirborne) return null;
-        const width = 50;
-        const height = 64;
-        const bottomY = this.y + 16;
+        // Sprite drawn at (-40,-40), body spans roughly sprite y=20..73
+        // In world coords: this.y-20 (head) to this.y+33 (boots)
+        const width = 44;
+        const height = 50;
+        const bottomY = this.y + 28;
         return {
             x: this.x - width / 2,
             y: bottomY - height,
