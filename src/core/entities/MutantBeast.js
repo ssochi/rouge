@@ -107,9 +107,11 @@ export class MutantBeast extends Enemy {
     // Return null when airborne so bullets pass through
     getBulletHurtbox() {
         if (this.isAirborne) return null;
-        const width = 50;
-        const height = 64;
-        const bottomY = this.y + 16;
+        // Sprite drawn at (-40,-40), body spans roughly sprite y=20..73
+        // In world coords: this.y-20 (head) to this.y+33 (boots)
+        const width = 44;
+        const height = 50;
+        const bottomY = this.y + 28;
         return {
             x: this.x - width / 2,
             y: bottomY - height,
@@ -152,7 +154,7 @@ export class MutantBeast extends Enemy {
     executeSmash(player, timer) {
         const cfg = this.attacks.smash;
         if (timer !== cfg.hitFrame) return;
-        if (player.state === 'driving') return;
+        if (player.state === 'driving' || player.state === 'roll') return;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -175,7 +177,7 @@ export class MutantBeast extends Enemy {
     executeSweep(player, timer) {
         const cfg = this.attacks.sweep;
         if (timer !== cfg.hitFrame) return;
-        if (player.state === 'driving') return;
+        if (player.state === 'driving' || player.state === 'roll') return;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -249,7 +251,7 @@ export class MutantBeast extends Enemy {
 
         // Check player collision during charge
         let hitPlayer = false;
-        if (player.state !== 'driving') {
+        if (player.state !== 'driving' && player.state !== 'roll') {
             const dx = player.x - this.x;
             const dy = player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);

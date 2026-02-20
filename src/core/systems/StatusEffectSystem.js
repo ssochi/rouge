@@ -117,7 +117,7 @@ export class StatusEffectSystem {
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
 
-        if (pdist < radius) {
+        if (pdist < radius && p.state !== 'roll') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -212,7 +212,7 @@ export class StatusEffectSystem {
         const pdx = p.x - x;
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-        if (pdist < radius) {
+        if (pdist < radius && p.state !== 'roll') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -375,7 +375,7 @@ export class StatusEffectSystem {
                     p.knockbackX = (p.knockbackX || 0) + Math.cos(angle) * pullStrength;
                     p.knockbackY = (p.knockbackY || 0) + Math.sin(angle) * pullStrength;
 
-                    if (dist < bh.damageRadius && bh.tickCounter >= bh.tickInterval) {
+                    if (dist < bh.damageRadius && bh.tickCounter >= bh.tickInterval && p.state !== 'roll') {
                         if (p.takeDamage) {
                             p.takeDamage(bh.damage, { x: 0, y: 0 });
                         } else {

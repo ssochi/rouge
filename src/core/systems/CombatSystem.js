@@ -527,20 +527,26 @@ export class CombatSystem {
         }
     }
 
-    spawnEnemyBullet({ x, y, angle, damage, speed }) {
-        this.bullets.push({
+    spawnEnemyBullet({ x, y, angle, damage, speed, color = '#e74c3c', size = 4, life = 100, type = 'standard', blastRadius, knockback }) {
+        const bullet = {
             x: x,
             y: y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            life: 100,
+            life: life,
+            maxLife: life,
             damage: damage,
-            color: '#e74c3c',
-            size: 4,
-            type: 'standard',
+            color: color,
+            size: size,
+            type: type,
             source: 'enemy'
-        });
+        };
+        if (blastRadius) bullet.blastRadius = blastRadius;
+        if (knockback) bullet.knockback = knockback;
+        this.bullets.push(bullet);
     }
+
+    setObstacleIndex(index) { this.bulletSystem.setObstacleIndex(index); }
 
     // Delegated methods — external API unchanged
     updateBullets() { this.bulletSystem.update(); }

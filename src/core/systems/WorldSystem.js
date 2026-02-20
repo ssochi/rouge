@@ -5,6 +5,7 @@ import { ZombieBrute } from '../entities/ZombieBrute.js';
 import { Hunter } from '../entities/Hunter.js';
 import { Soldier } from '../entities/Soldier.js';
 import { MutantBeast } from '../entities/MutantBeast.js';
+import { MechaGolem } from '../entities/MechaGolem.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
@@ -577,6 +578,7 @@ export class WorldSystem {
         if (type === 'zombie_female') return new ZombieFemale(x, y);
         if (type === 'zombie_brute') return new ZombieBrute(x, y);
         if (type === 'mutant_beast') return new MutantBeast(x, y);
+        if (type === 'mecha_golem') return new MechaGolem(x, y);
         return new Zombie(x, y);
     }
 
@@ -1354,6 +1356,7 @@ export class WorldSystem {
 
     _getEnemyDropMultiplier(enemy) {
         if (enemy instanceof MutantBeast) return 5;
+        if (enemy instanceof MechaGolem) return 5;
         if (enemy instanceof ZombieBrute) return 2;
         if (enemy instanceof Hunter) return 2;
         if (enemy instanceof Soldier) return 3;

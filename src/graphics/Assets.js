@@ -115,6 +115,14 @@ import { SOLDIER_IDLE_FRAMES } from '../assets/characters/enemies/soldier/Soldie
 import { SOLDIER_RUN_FRAMES } from '../assets/characters/enemies/soldier/SoldierRun.js';
 import { ZOMBIE_BRUTE_RUN_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteRun.js';
 import { ZOMBIE_BRUTE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie_brute/ZombieBruteAttack.js';
+import { MECHA_GOLEM_IDLE_PHASE1, MECHA_GOLEM_IDLE_PHASE2 } from '../assets/characters/enemies/mecha_golem/MechaGolemIdle.js';
+import { MECHA_GOLEM_RUN_PHASE1, MECHA_GOLEM_RUN_PHASE2 } from '../assets/characters/enemies/mecha_golem/MechaGolemRun.js';
+import {
+    MECHA_GOLEM_GATLING_PHASE1, MECHA_GOLEM_RING_PHASE1, MECHA_GOLEM_AIMED_PHASE1, MECHA_GOLEM_ROCKET_PHASE1,
+    MECHA_GOLEM_GATLING_PHASE2, MECHA_GOLEM_RING_PHASE2, MECHA_GOLEM_AIMED_PHASE2, MECHA_GOLEM_ROCKET_PHASE2,
+    MECHA_GOLEM_SPIRAL_PHASE2, MECHA_GOLEM_CROSS_PHASE2, MECHA_GOLEM_DESPERATION_PHASE2,
+    MECHA_GOLEM_TRANSITION_PHASE2
+} from '../assets/characters/enemies/mecha_golem/MechaGolemAttack.js';
 import { MUTANT_BEAST_IDLE_PHASE1, MUTANT_BEAST_IDLE_PHASE2, MUTANT_BEAST_IDLE_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastIdle.js';
 import { MUTANT_BEAST_RUN_PHASE1, MUTANT_BEAST_RUN_PHASE2, MUTANT_BEAST_RUN_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastRun.js';
 import {
@@ -260,6 +268,28 @@ export const Assets = {
             charge: MUTANT_BEAST_CHARGE_PHASE3,
             leap_slam: MUTANT_BEAST_LEAP_PHASE3,
             roar: MUTANT_BEAST_ROAR_PHASE3
+        }
+    },
+    mechaGolem: {
+        phase1: {
+            idle: MECHA_GOLEM_IDLE_PHASE1,
+            run: MECHA_GOLEM_RUN_PHASE1,
+            gatling_sweep: MECHA_GOLEM_GATLING_PHASE1,
+            ring_burst: MECHA_GOLEM_RING_PHASE1,
+            aimed_triple: MECHA_GOLEM_AIMED_PHASE1,
+            rocket_salvo: MECHA_GOLEM_ROCKET_PHASE1
+        },
+        phase2: {
+            idle: MECHA_GOLEM_IDLE_PHASE2,
+            run: MECHA_GOLEM_RUN_PHASE2,
+            gatling_sweep: MECHA_GOLEM_GATLING_PHASE2,
+            ring_burst: MECHA_GOLEM_RING_PHASE2,
+            aimed_triple: MECHA_GOLEM_AIMED_PHASE2,
+            rocket_salvo: MECHA_GOLEM_ROCKET_PHASE2,
+            spiral_storm: MECHA_GOLEM_SPIRAL_PHASE2,
+            cross_fire: MECHA_GOLEM_CROSS_PHASE2,
+            desperation: MECHA_GOLEM_DESPERATION_PHASE2,
+            transition: MECHA_GOLEM_TRANSITION_PHASE2
         }
     },
     dog: {
