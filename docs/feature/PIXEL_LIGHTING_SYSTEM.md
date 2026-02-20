@@ -2,43 +2,61 @@
 
 ## 目标
 
-为游戏提供“电影沉浸感”光照效果，并保持中端设备 60FPS 可运行：
+为游戏提供具备遮挡关系的像素风光照，并保证在高并发战斗中仍可用：
 
-- 不是简单全屏明暗，而是局部光源 + 遮挡阴影 + 像素化光线终点。
-- 自动扫描可发光对象与战斗特效，减少手动维护成本。
-- 具备预算与质量自适应能力，避免高并发战斗下掉帧失控。
+- 局部光源 + 阴影遮挡 + 彩色光晕。
+- 遮挡几何与物体素材形状一致（基于 alpha 像素）。
+- 避免“物体只能挡光但自身不受光”的视觉断层。
 
-## 代码结构
+## 当前实现结构
 
-新增目录：`src/core/lighting/`
+目录：`src/core/lighting/`
 
 - `LightSystem.js`
   - 光照主协调器。
-  - 负责静态/动态发光体收集、优先级裁剪、可见性裁剪、质量自适应。
+  - 负责静态/动态发光体收集、可见性裁剪、预算与质量自适应。
 - `LightEmitterRegistry.js`
   - 发光规则注册中心。
   - 根据 object / bullet / particle / portal 类型映射光源参数。
 - `ShadowCasterBuilder.js`
-  - 从 `walls + breakableObjects.getHurtboxes()` 构建遮挡体缓存（与子弹命中判定一致）。
-  - 仅在哈希变化时重建，减少重复计算。
+  - 构建遮挡源缓存（墙体矩形 + 物体精灵 alpha 遮挡数据）。
+  - 物体遮挡默认使用**当前显示帧**的 alpha mask（非动画并集）。
+  - 仅在障碍状态哈希变化时重建。
+- `PixelOcclusionField.js`
+  - 低分辨率光照缓冲上的像素遮挡场。
+  - 提供遮挡光栅化与射线步进求交。
 - `LightBufferRenderer.js`
-  - 离屏低分辨率光照缓冲渲染。
-  - 使用 `multiply + lighter` 合成到主画布。
+  - 离屏低分辨率渲染与合成（`multiply + lighter`）。
+  - 负责逐像素射线可见域、主光/辉光叠加；轮廓补光为可选项（当前默认关闭）。
 - `LightingConfig.js`
-  - 质量档配置（high / medium / low）。
+  - high / medium / low 质量档参数（含 `enableContourGlow` 开关）。
+
+共享缓存：`src/core/shared/SpriteMaskCache.js`
+
+- 提供物体精灵 alpha 分析结果：帧 mask、轮廓采样、动画并集最小包围盒。
+- 被光照遮挡构建和可破坏物自动 hurtbox 共用。
 
 ## 集成点
 
 - `src/core/Game.js`
-  - 构造时创建 `LightSystem`。
-  - 在 `update()` 中增加 `LightingUpdate` 采样：
-    - 发光体扫描
-    - 遮挡缓存检查
-    - 预算裁剪
+  - 构造时创建 `LightSystem`（当前默认画质：`high`）。
+  - 在 `update()` 中执行 `LightingUpdate`。
 - `src/core/Renderer.js`
-  - 在世界绘制完成后、Debug/UI 之前执行 `LightingRender`：
-    - 绘制离屏光照缓冲
-    - 合成到世界画面
+  - 世界绘制结束、Debug/UI 之前执行 `LightingRender`。
+
+## 阴影算法（当前）
+
+1. 按光源半径查询遮挡候选（墙体 + 物体）。
+2. 将候选遮挡体光栅化到 `PixelOcclusionField`。
+3. 以离散角度发射射线，在遮挡场中逐像素步进：
+   - 命中第一个遮挡像素即停止（首命中），避免背光侧漏光缝与重叠体 owner 切换伪影。
+4. 用所有终点构造可见多边形，裁剪主光与辉光绘制。
+5. 可选：对命中轮廓点补光（当前默认关闭，用于避免背光面不规则光晕）。
+
+该流程解决了：
+
+- 非规则物体阴影仍是矩形的问题（现为像素轮廓级）。
+- 遮挡物只挡光不受光的问题（可通过开启轮廓补光增强；当前为关闭状态以优先稳定画面）。
 
 ## 光源扫描策略
 
@@ -46,65 +64,49 @@
 
 - `floor_lamp`: 主暖光源，支持阴影。
 - `fish_tank`: 冷色弱光，支持阴影。
-- `explosive_barrel`: 低亮红色警示光。
+- `explosive_barrel`: 红色警示光。
 - `portal`: 中心 + 外圈双层光。
 
 ### 动态光源（每帧更新）
 
-- 玩家/敌人枪口火光（`HandSystem.showFlash` / `EnemyHandSystem.showFlash`）。
-- 子弹类型映射（`rocket/flame/laser_beam/lightning/plasma/acid/railgun/...`）。
-- 粒子类型映射（`flash/fire/laser_beam/lightning_arc`）。
+- 玩家/敌人枪口火光。
+- 子弹发光映射（`rocket/flame/lightning/plasma/acid/railgun/...`）。
+- 粒子发光映射（`flash/fire/laser_beam/lightning_arc`）。
 - 持续区域（`blackHoles`、`acidPuddles`）。
-- 玩家弱环境补光（保证暗场可读性）。
-
-## 阴影与像素光线
-
-- 每个可投影光源按离散角度发射射线。
-- 射线与遮挡矩形（AABB）求交，取最近命中点。
-- 由命中点构建可见多边形并裁剪光照绘制区域。
-- 光照缓冲按低分辨率渲染并放大回贴，保持像素风格。
+- 玩家补光（暗场可读性保障）。
 
 ## 性能策略
 
 ### 预算控制
 
-`medium` 默认配置（当前）
+默认参数（`high`）：
 
-- `bufferScale = 0.35`
-- `shadowRays = 80`
-- `maxTotalLights = 56`
-- `maxDynamicLights = 24`
-- `maxStaticLights = 40`
-- `maxParticleLights = 12`
-- `maxBlockersPerLight = 64`
+- `bufferScale = 0.45`
+- `shadowRays = 112`
+- `maxTotalLights = 72`
+- `maxDynamicLights = 32`
+- `maxStaticLights = 56`
+- `maxParticleLights = 20`
+- `maxBlockersPerLight = 320`
 
-### 静态缓存
+### 缓存策略
 
-- 遮挡体通过哈希检测变化后才重建。
-- 静态光源按 `staticUpdateInterval` 分帧更新。
+- 遮挡源哈希变化时才重建缓存。
+- 精灵 alpha 分析结果按类型缓存，避免重复 `getImageData`。
+- 静态光源按 `staticUpdateInterval` 分帧刷新。
 
-### 自适应降级
+### 自适应调档
 
-- 根据 `LightingRender` 耗时自动调档（high/medium/low）。
-- 超预算持续若干帧后降档，低预算持续若干帧后升档。
+- 按 `LightingRender` 开销在 high/medium/low 之间自动升降档。
+- 当候选遮挡体超过 `maxBlockersPerLight` 时，按“距光源中心最近”优先裁剪，减少大场景截断伪影。
 
 ## Profiler 标签
 
-新增两个标签：
-
 - `LightingUpdate`
 - `LightingRender`
-
-可用于区分“逻辑扫描开销”和“绘制合成开销”。
-
-## 当前默认视觉方向
-
-- 风格：电影沉浸
-- 设备目标：中端机 60FPS
-- 范围：第一版不包含昼夜循环
 
 ## 后续可扩展
 
 - 室内/室外环境光分区。
 - 时间系统驱动的昼夜色温曲线。
-- 可编辑光照调试面板（运行时调半径、射线数、预算）。
+- 运行时光照调试面板（射线数、缓冲比例、预算上限）。

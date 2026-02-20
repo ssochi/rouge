@@ -1,45 +1,25 @@
+import { PixelOcclusionField } from './PixelOcclusionField.js';
+
 const TWO_PI = Math.PI * 2;
-const EPS = 1e-6;
 
 function clampByte(v) {
     return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-function rayRectDistance(ox, oy, dx, dy, rect, maxDist) {
-    let tNear = -Infinity;
-    let tFar = Infinity;
-
-    // X slab
-    if (Math.abs(dx) < EPS) {
-        if (ox < rect.x || ox > rect.x + rect.w) return null;
-    } else {
-        const tx1 = (rect.x - ox) / dx;
-        const tx2 = (rect.x + rect.w - ox) / dx;
-        const txMin = Math.min(tx1, tx2);
-        const txMax = Math.max(tx1, tx2);
-        tNear = Math.max(tNear, txMin);
-        tFar = Math.min(tFar, txMax);
+function toBufferRect(entry) {
+    if (!entry) return null;
+    const width = entry.w ?? entry.width;
+    const height = entry.h ?? entry.height;
+    if (!Number.isFinite(entry.x) || !Number.isFinite(entry.y) || !Number.isFinite(width) || !Number.isFinite(height)) {
+        return null;
     }
-
-    // Y slab
-    if (Math.abs(dy) < EPS) {
-        if (oy < rect.y || oy > rect.y + rect.h) return null;
-    } else {
-        const ty1 = (rect.y - oy) / dy;
-        const ty2 = (rect.y + rect.h - oy) / dy;
-        const tyMin = Math.min(ty1, ty2);
-        const tyMax = Math.max(ty1, ty2);
-        tNear = Math.max(tNear, tyMin);
-        tFar = Math.min(tFar, tyMax);
-    }
-
-    if (tNear > tFar) return null;
-
-    // If inside rect, use exit distance.
-    const dist = tNear > EPS ? tNear : tFar;
-    if (!Number.isFinite(dist) || dist <= EPS || dist > maxDist) return null;
-
-    return dist;
+    if (width <= 0 || height <= 0) return null;
+    return {
+        x: entry.x,
+        y: entry.y,
+        width,
+        height
+    };
 }
 
 export class LightBufferRenderer {
@@ -57,6 +37,7 @@ export class LightBufferRenderer {
 
         this.bufferWidth = 0;
         this.bufferHeight = 0;
+        this.occlusionField = new PixelOcclusionField();
     }
 
     updateConfig(config) {
@@ -118,55 +99,68 @@ export class LightBufferRenderer {
 
         this.lightCtx.imageSmoothingEnabled = false;
         this.glowCtx.imageSmoothingEnabled = false;
+        this.occlusionField.ensureSize(w, h);
     }
 
-    _computeVisibilityPolygon(light, blockers, rayCount) {
-        if (!blockers || blockers.length === 0) return null;
+    _buildOcclusionField(blockers, viewX, viewY, scale) {
+        this.occlusionField.clear();
+        for (const blocker of blockers) {
+            if (!blocker) continue;
+            if (blocker.kind === 'sprite') {
+                this.occlusionField.rasterizeSpriteMask(blocker, viewX, viewY, scale, blocker.ownerId | 0);
+                continue;
+            }
 
+            const rect = toBufferRect(blocker);
+            if (!rect) continue;
+            this.occlusionField.rasterizeWorldRect(rect, viewX, viewY, scale, blocker.ownerId | 0);
+        }
+    }
+
+    _computeVisibilityPolygon(light, rayCount, viewX, viewY, scale, includeContourPoints = false) {
         const points = new Array(rayCount);
+        const contourPoints = includeContourPoints ? [] : null;
+        const contourSeen = includeContourPoints ? new Set() : null;
+
         const angleStep = TWO_PI / rayCount;
         const startAngle = ((light.x * 0.0017 + light.y * 0.0023) % 1) * angleStep;
+
+        const ox = (light.x - viewX) * scale;
+        const oy = (light.y - viewY) * scale;
+        const maxDist = Math.max(1, light.radius * scale);
 
         for (let i = 0; i < rayCount; i++) {
             const angle = startAngle + angleStep * i;
             const dx = Math.cos(angle);
             const dy = Math.sin(angle);
 
-            let nearest = light.radius;
-            for (const blocker of blockers) {
-                const dist = rayRectDistance(light.x, light.y, dx, dy, blocker, nearest);
-                if (dist !== null && dist < nearest) {
-                    nearest = dist;
+            const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
+            points[i] = { x: result.x, y: result.y };
+
+            if (includeContourPoints && result.hit && result.ownerId > 0) {
+                const qx = Math.floor(result.x);
+                const qy = Math.floor(result.y);
+                const key = `${qx},${qy}`;
+                if (!contourSeen.has(key)) {
+                    contourSeen.add(key);
+                    contourPoints.push({ x: qx, y: qy });
                 }
             }
-
-            points[i] = {
-                x: light.x + dx * nearest,
-                y: light.y + dy * nearest
-            };
         }
 
-        return points;
+        return { points, contourPoints };
     }
 
-    _clipByPolygon(ctx, points, viewX, viewY, scale) {
+    _clipByPolygon(ctx, points) {
         if (!points || points.length < 3) return false;
 
         ctx.beginPath();
         const first = points[0];
-        ctx.moveTo(
-            Math.round((first.x - viewX) * scale),
-            Math.round((first.y - viewY) * scale)
-        );
-
+        ctx.moveTo(first.x, first.y);
         for (let i = 1; i < points.length; i++) {
             const p = points[i];
-            ctx.lineTo(
-                Math.round((p.x - viewX) * scale),
-                Math.round((p.y - viewY) * scale)
-            );
+            ctx.lineTo(p.x, p.y);
         }
-
         ctx.closePath();
         ctx.clip();
         return true;
@@ -204,6 +198,25 @@ export class LightBufferRenderer {
         }
     }
 
+    _drawContourGlow(ctx, points, radius, color, intensity) {
+        if (!points || points.length === 0) return;
+
+        const rgb = this._parseColor(color);
+        const localSize = Math.max(1, Math.round(radius * 0.08));
+        const half = Math.floor(localSize / 2);
+        const alpha = Math.min(0.65, Math.max(0.05, intensity * 0.28));
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(4)})`;
+        for (const p of points) {
+            const px = Math.round(p.x) - half;
+            const py = Math.round(p.y) - half;
+            ctx.fillRect(px, py, localSize, localSize);
+        }
+        ctx.restore();
+    }
+
     render({ ctx, camera, viewportWidth, viewportHeight, lights, shadowBuilder }) {
         const begin = performance.now();
 
@@ -218,6 +231,7 @@ export class LightBufferRenderer {
         const rayCount = this.config.shadowRays;
         const gradientSteps = this.config.gradientSteps;
         const glowSteps = this.config.glowSteps;
+        const enableContourGlow = this.config.enableContourGlow === true;
 
         const ambient = clampByte(this.config.ambientBrightness);
 
@@ -241,36 +255,51 @@ export class LightBufferRenderer {
                 continue;
             }
 
-            let blockers = null;
             let polygon = null;
+            let contourPoints = null;
             if (light.castsShadows && shadowBuilder) {
-                blockers = shadowBuilder.query(
+                const blockers = shadowBuilder.query(
                     light.x,
                     light.y,
                     light.radius,
                     this.config.maxBlockersPerLight,
                     light.ignoreSelfShadow ? light.owner : null
                 );
+
                 if (blockers.length > 0) {
-                    polygon = this._computeVisibilityPolygon(light, blockers, rayCount);
+                    this._buildOcclusionField(blockers, viewX, viewY, bufferScale);
+                    const result = this._computeVisibilityPolygon(
+                        light,
+                        rayCount,
+                        viewX,
+                        viewY,
+                        bufferScale,
+                        enableContourGlow
+                    );
+                    polygon = result.points;
+                    contourPoints = result.contourPoints;
                 }
             }
 
             lctx.save();
             if (polygon) {
-                this._clipByPolygon(lctx, polygon, viewX, viewY, bufferScale);
+                this._clipByPolygon(lctx, polygon);
             }
             lctx.globalCompositeOperation = 'lighter';
-            this._drawLightBands(lctx, Math.round(lx), Math.round(ly), rr, light.color, light.intensity, gradientSteps);
+            this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity, gradientSteps);
             lctx.restore();
 
             gctx.save();
             if (polygon) {
-                this._clipByPolygon(gctx, polygon, viewX, viewY, bufferScale);
+                this._clipByPolygon(gctx, polygon);
             }
             gctx.globalCompositeOperation = 'lighter';
-            this._drawGlowBands(gctx, Math.round(lx), Math.round(ly), rr, light.color, light.intensity, glowSteps);
+            this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
             gctx.restore();
+
+            if (enableContourGlow) {
+                this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
+            }
         }
 
         ctx.save();

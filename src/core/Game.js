@@ -198,7 +198,7 @@ export class Game {
             worldSystem: this.worldSystem,
             blackHoles: this.blackHoles,
             acidPuddles: this.acidPuddles,
-            quality: 'medium'
+            quality: 'high'
         });
 
         this.renderer = new Renderer({
