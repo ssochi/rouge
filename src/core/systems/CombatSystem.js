@@ -401,6 +401,8 @@ export class CombatSystem {
         this.bullets.push(bullet);
     }
 
+    setObstacleIndex(index) { this.bulletSystem.setObstacleIndex(index); }
+
     // Delegated methods — external API unchanged
     updateBullets() { this.bulletSystem.update(); }
     updateBlackHoles() { this.statusEffects.updateBlackHoles(); }

@@ -138,6 +138,9 @@ export class Game {
             pets: this.pets
         });
 
+        // Inject spatial index into CombatSystem for broad-phase bullet collision
+        this.combatSystem.setObstacleIndex(this.worldSystem.obstacleIndex);
+
         this.buildSystem = new BuildSystem(this);
 
         this.meleeSystem = new MeleeSystem({

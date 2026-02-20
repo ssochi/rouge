@@ -9,29 +9,39 @@ export const CollisionUtils = {
     },
 
     // Check if a line segment (p1-p2) intersects with a rectangle (rect)
-    // rect: {x, y, width, height}
+    // rect: {x, y, width, height} or {x, y, w, h}
     lineIntersectsRect(p1, p2, rect) {
-        const r = CollisionUtils.normalizeRect(rect);
+        // Inline normalizeRect to avoid temporary object allocation
+        const rx = rect.x;
+        const ry = rect.y;
+        const rw = rect.width ?? rect.w ?? 0;
+        const rh = rect.height ?? rect.h ?? 0;
 
-        // 1. Check if either endpoint is inside (Simple inclusion)
-        if (CollisionUtils.pointInRect(p1, r) || CollisionUtils.pointInRect(p2, r)) {
-            return true;
+        // AABB fast-reject: skip if line segment AABB doesn't overlap rect
+        const minX = p1.x < p2.x ? p1.x : p2.x;
+        const maxX = p1.x > p2.x ? p1.x : p2.x;
+        const minY = p1.y < p2.y ? p1.y : p2.y;
+        const maxY = p1.y > p2.y ? p1.y : p2.y;
+        if (maxX < rx || minX > rx + rw || maxY < ry || minY > ry + rh) {
+            return false;
         }
 
-        // 2. Check intersection with each of the 4 edges
-        const rLeft = r.x;
-        const rRight = r.x + r.width;
-        const rTop = r.y;
-        const rBottom = r.y + r.height;
+        // Inline pointInRect for both endpoints
+        if (p1.x >= rx && p1.x <= rx + rw && p1.y >= ry && p1.y <= ry + rh) return true;
+        if (p2.x >= rx && p2.x <= rx + rw && p2.y >= ry && p2.y <= ry + rh) return true;
+
+        // Check intersection with each of the 4 edges
+        const rRight = rx + rw;
+        const rBottom = ry + rh;
 
         // Top Edge
-        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rLeft, y: rTop}, {x: rRight, y: rTop})) return true;
+        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rx, y: ry}, {x: rRight, y: ry})) return true;
         // Bottom Edge
-        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rLeft, y: rBottom}, {x: rRight, y: rBottom})) return true;
+        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rx, y: rBottom}, {x: rRight, y: rBottom})) return true;
         // Left Edge
-        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rLeft, y: rTop}, {x: rLeft, y: rBottom})) return true;
+        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rx, y: ry}, {x: rx, y: rBottom})) return true;
         // Right Edge
-        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rRight, y: rTop}, {x: rRight, y: rBottom})) return true;
+        if (CollisionUtils.lineIntersectsLine(p1, p2, {x: rRight, y: ry}, {x: rRight, y: rBottom})) return true;
 
         return false;
     },

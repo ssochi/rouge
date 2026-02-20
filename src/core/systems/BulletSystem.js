@@ -13,6 +13,11 @@ export class BulletSystem {
         this.handSystem = handSystem;
         this.particleSpawner = particleSpawner;
         this.statusEffects = statusEffects;
+        this.obstacleIndex = null;
+    }
+
+    setObstacleIndex(index) {
+        this.obstacleIndex = index;
     }
 
     _getPlayerHurtbox() {
@@ -221,6 +226,20 @@ export class BulletSystem {
     }
 
     update() {
+        // Bullet cap: remove oldest enemy bullets when over limit
+        const MAX_BULLETS = 500;
+        if (this.bullets.length > MAX_BULLETS) {
+            let excess = this.bullets.length - MAX_BULLETS;
+            for (let i = 0; i < this.bullets.length && excess > 0; i++) {
+                if (this.bullets[i].source === 'enemy') {
+                    this.bullets[i] = this.bullets[this.bullets.length - 1];
+                    this.bullets.pop();
+                    excess--;
+                    i--; // Re-check swapped element
+                }
+            }
+        }
+
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             const b = this.bullets[i];
 
@@ -409,44 +428,92 @@ export class BulletSystem {
 
             // Wall Collision
             if (!b.gravityZ) {
-            for (const wall of this.walls) {
-                // Check if line segment intersects wall rect
-                if (CollisionUtils.lineIntersectsRect(p1, p2, {x: wall.x, y: wall.y, width: wall.w, height: wall.h})) {
-                    if (b.type === 'ricochet' && b.bounceCount > 0) {
-                        // Reflect off wall
-                        const wallLeft = wall.x;
-                        const wallRight = wall.x + wall.w;
-                        const wallTop = wall.y;
-                        const wallBottom = wall.y + wall.h;
-                        const wasOutsideX = (prevX <= wallLeft || prevX >= wallRight);
-                        const wasOutsideY = (prevY <= wallTop || prevY >= wallBottom);
-                        if (wasOutsideX && wasOutsideY) {
-                            b.vx = -b.vx;
-                            b.vy = -b.vy;
-                        } else if (wasOutsideX) {
-                            b.vx = -b.vx;
+            // Compute bullet path AABB for spatial queries
+            const _pMinX = prevX < b.x ? prevX : b.x;
+            const _pMinY = prevY < b.y ? prevY : b.y;
+            const _pMaxX = prevX > b.x ? prevX : b.x;
+            const _pMaxY = prevY > b.y ? prevY : b.y;
+
+            if (this.obstacleIndex) {
+                // Broad-phase: spatial index query for nearby walls
+                const wallAABB = { x: _pMinX - 1, y: _pMinY - 1, width: _pMaxX - _pMinX + 2, height: _pMaxY - _pMinY + 2 };
+                const wallCandidates = this.obstacleIndex.queryRect(wallAABB, { wallsOnly: true });
+                for (const entry of wallCandidates) {
+                    if (CollisionUtils.lineIntersectsRect(p1, p2, entry.rect)) {
+                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                            const wallLeft = entry.rect.x;
+                            const wallRight = entry.rect.x + entry.rect.width;
+                            const wallTop = entry.rect.y;
+                            const wallBottom = entry.rect.y + entry.rect.height;
+                            const wasOutsideX = (prevX <= wallLeft || prevX >= wallRight);
+                            const wasOutsideY = (prevY <= wallTop || prevY >= wallBottom);
+                            if (wasOutsideX && wasOutsideY) {
+                                b.vx = -b.vx;
+                                b.vy = -b.vy;
+                            } else if (wasOutsideX) {
+                                b.vx = -b.vx;
+                            } else {
+                                b.vy = -b.vy;
+                            }
+                            b.x = prevX;
+                            b.y = prevY;
+                            b.bounceCount--;
+                            for (let s = 0; s < 3; s++) {
+                                this.particles.push({
+                                    x: b.x, y: b.y,
+                                    vx: (Math.random() - 0.5) * 3,
+                                    vy: (Math.random() - 0.5) * 3,
+                                    life: 15,
+                                    color: '#2ecc71',
+                                    size: Math.random() * 3 + 2,
+                                    friction: 0.85
+                                });
+                            }
+                            break;
                         } else {
-                            b.vy = -b.vy;
+                            hit = true;
+                            break;
                         }
-                        b.x = prevX;
-                        b.y = prevY;
-                        b.bounceCount--;
-                        // Bounce spark
-                        for (let s = 0; s < 3; s++) {
-                            this.particles.push({
-                                x: b.x, y: b.y,
-                                vx: (Math.random() - 0.5) * 3,
-                                vy: (Math.random() - 0.5) * 3,
-                                life: 15,
-                                color: '#2ecc71',
-                                size: Math.random() * 3 + 2,
-                                friction: 0.85
-                            });
+                    }
+                }
+            } else {
+                // Fallback: brute-force wall iteration
+                for (const wall of this.walls) {
+                    if (CollisionUtils.lineIntersectsRect(p1, p2, {x: wall.x, y: wall.y, width: wall.w, height: wall.h})) {
+                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                            const wallLeft = wall.x;
+                            const wallRight = wall.x + wall.w;
+                            const wallTop = wall.y;
+                            const wallBottom = wall.y + wall.h;
+                            const wasOutsideX = (prevX <= wallLeft || prevX >= wallRight);
+                            const wasOutsideY = (prevY <= wallTop || prevY >= wallBottom);
+                            if (wasOutsideX && wasOutsideY) {
+                                b.vx = -b.vx;
+                                b.vy = -b.vy;
+                            } else if (wasOutsideX) {
+                                b.vx = -b.vx;
+                            } else {
+                                b.vy = -b.vy;
+                            }
+                            b.x = prevX;
+                            b.y = prevY;
+                            b.bounceCount--;
+                            for (let s = 0; s < 3; s++) {
+                                this.particles.push({
+                                    x: b.x, y: b.y,
+                                    vx: (Math.random() - 0.5) * 3,
+                                    vy: (Math.random() - 0.5) * 3,
+                                    life: 15,
+                                    color: '#2ecc71',
+                                    size: Math.random() * 3 + 2,
+                                    friction: 0.85
+                                });
+                            }
+                            break;
+                        } else {
+                            hit = true;
+                            break;
                         }
-                        break;
-                    } else {
-                        hit = true;
-                        break;
                     }
                 }
             }
@@ -488,79 +555,154 @@ export class BulletSystem {
             }
 
             if (!hit) {
-                for (const obj of this.breakableObjects) {
-                    if (obj.isBroken) continue;
-                    const hurtboxes = obj.getHurtboxes
-                        ? obj.getHurtboxes()
-                        : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+                // Breakable Object Collision
+                if (this.obstacleIndex) {
+                    // Broad-phase: spatial index query with padding for hurtbox extent
+                    const objAABB = { x: _pMinX - 16, y: _pMinY - 16, width: _pMaxX - _pMinX + 32, height: _pMaxY - _pMinY + 32 };
+                    const objCandidates = this.obstacleIndex.queryRect(objAABB, { objectsOnly: true });
+                    for (let ci = 0; ci < objCandidates.length; ci++) {
+                        const obj = objCandidates[ci].object;
+                        if (obj.isBroken) continue;
+                        // Dedup: same object may have multiple hitbox entries
+                        let dup = false;
+                        for (let cj = 0; cj < ci; cj++) {
+                            if (objCandidates[cj].object === obj) { dup = true; break; }
+                        }
+                        if (dup) continue;
 
-                    let intersectedBox = null;
-                    for (const box of hurtboxes) {
-                        if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
-                            intersectedBox = box;
-                            break;
+                        const hurtboxes = obj.getHurtboxes
+                            ? obj.getHurtboxes()
+                            : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+
+                        let intersectedBox = null;
+                        for (const box of hurtboxes) {
+                            if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
+                                intersectedBox = box;
+                                break;
+                            }
+                        }
+
+                        if (intersectedBox) {
+                            if (b.type === 'ricochet' && b.bounceCount > 0) {
+                                const boxLeft = intersectedBox.x;
+                                const boxRight = intersectedBox.x + intersectedBox.width;
+                                const boxTop = intersectedBox.y;
+                                const boxBottom = intersectedBox.y + intersectedBox.height;
+                                const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
+                                const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
+                                if (wasOutsideX && wasOutsideY) {
+                                    b.vx = -b.vx;
+                                    b.vy = -b.vy;
+                                } else if (wasOutsideX) {
+                                    b.vx = -b.vx;
+                                } else {
+                                    b.vy = -b.vy;
+                                }
+                                b.x = prevX;
+                                b.y = prevY;
+                                b.bounceCount--;
+                                obj.takeDamage(b.damage);
+                                if (obj.isBroken) {
+                                    this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                    if (obj.type === 'explosive_barrel') {
+                                        this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                    }
+                                }
+                                for (let s = 0; s < 3; s++) {
+                                    this.particles.push({
+                                        x: b.x, y: b.y,
+                                        vx: (Math.random() - 0.5) * 3,
+                                        vy: (Math.random() - 0.5) * 3,
+                                        life: 15,
+                                        color: '#2ecc71',
+                                        size: Math.random() * 3 + 2,
+                                        friction: 0.85
+                                    });
+                                }
+                                break;
+                            } else {
+                                hit = true;
+                                if (b.type !== 'rocket' && b.type !== 'grenade') {
+                                    obj.takeDamage(b.damage);
+                                    if (obj.isBroken) {
+                                        this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                        if (obj.type === 'explosive_barrel') {
+                                            this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                        }
+                                    }
+                                }
+                                break;
+                            }
                         }
                     }
+                } else {
+                    // Fallback: brute-force breakable object iteration
+                    for (const obj of this.breakableObjects) {
+                        if (obj.isBroken) continue;
+                        const hurtboxes = obj.getHurtboxes
+                            ? obj.getHurtboxes()
+                            : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
 
-                    if (intersectedBox) {
-                         if (b.type === 'ricochet' && b.bounceCount > 0) {
-                             // Reflect off object
-                             const boxLeft = intersectedBox.x;
-                             const boxRight = intersectedBox.x + intersectedBox.width;
-                             const boxTop = intersectedBox.y;
-                             const boxBottom = intersectedBox.y + intersectedBox.height;
-                             
-                             const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
-                             const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
-                             
-                             if (wasOutsideX && wasOutsideY) {
-                                 b.vx = -b.vx;
-                                 b.vy = -b.vy;
-                             } else if (wasOutsideX) {
-                                 b.vx = -b.vx;
-                             } else {
-                                 b.vy = -b.vy;
-                             }
-                             b.x = prevX;
-                             b.y = prevY;
-                             b.bounceCount--;
-                             
-                             // Damage object on bounce
-                             obj.takeDamage(b.damage);
-                             if (obj.isBroken) {
-                                 this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
-                                 if (obj.type === 'explosive_barrel') {
-                                     this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
-                                 }
-                             }
+                        let intersectedBox = null;
+                        for (const box of hurtboxes) {
+                            if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
+                                intersectedBox = box;
+                                break;
+                            }
+                        }
 
-                             // Bounce spark
-                             for (let s = 0; s < 3; s++) {
-                                 this.particles.push({
-                                     x: b.x, y: b.y,
-                                     vx: (Math.random() - 0.5) * 3,
-                                     vy: (Math.random() - 0.5) * 3,
-                                     life: 15,
-                                     color: '#2ecc71',
-                                     size: Math.random() * 3 + 2,
-                                     friction: 0.85
-                                 });
-                             }
-                             // Do not set hit=true, allowing bullet to continue
-                             break;
-                         } else {
-                             hit = true;
-                             if (b.type !== 'rocket' && b.type !== 'grenade') {
-                                 obj.takeDamage(b.damage);
-                                 if (obj.isBroken) {
-                                     this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
-                                     if (obj.type === 'explosive_barrel') {
-                                         this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
-                                     }
-                                 }
-                             }
-                             break;
-                         }
+                        if (intersectedBox) {
+                            if (b.type === 'ricochet' && b.bounceCount > 0) {
+                                const boxLeft = intersectedBox.x;
+                                const boxRight = intersectedBox.x + intersectedBox.width;
+                                const boxTop = intersectedBox.y;
+                                const boxBottom = intersectedBox.y + intersectedBox.height;
+                                const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
+                                const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
+                                if (wasOutsideX && wasOutsideY) {
+                                    b.vx = -b.vx;
+                                    b.vy = -b.vy;
+                                } else if (wasOutsideX) {
+                                    b.vx = -b.vx;
+                                } else {
+                                    b.vy = -b.vy;
+                                }
+                                b.x = prevX;
+                                b.y = prevY;
+                                b.bounceCount--;
+                                obj.takeDamage(b.damage);
+                                if (obj.isBroken) {
+                                    this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                    if (obj.type === 'explosive_barrel') {
+                                        this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                    }
+                                }
+                                for (let s = 0; s < 3; s++) {
+                                    this.particles.push({
+                                        x: b.x, y: b.y,
+                                        vx: (Math.random() - 0.5) * 3,
+                                        vy: (Math.random() - 0.5) * 3,
+                                        life: 15,
+                                        color: '#2ecc71',
+                                        size: Math.random() * 3 + 2,
+                                        friction: 0.85
+                                    });
+                                }
+                                break;
+                            } else {
+                                hit = true;
+                                if (b.type !== 'rocket' && b.type !== 'grenade') {
+                                    obj.takeDamage(b.damage);
+                                    if (obj.isBroken) {
+                                        this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                        if (obj.type === 'explosive_barrel') {
+                                            this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -771,7 +913,8 @@ export class BulletSystem {
                             this.statusEffects.teleportEntity(b.owner, b);
                         }
                     }
-                    this.bullets.splice(i, 1);
+                    this.bullets[i] = this.bullets[this.bullets.length - 1];
+                    this.bullets.pop();
                 }
         }
     }
