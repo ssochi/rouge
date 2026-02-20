@@ -48,7 +48,13 @@
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）。
-    - `Renderer.js`: 负责场景绘制与 UI 刷新。含 `drawBossHpBar()` 在屏幕顶部居中绘制 BOSS 血条（名称、阶段指示、HP 比例条、阶段切换标记线）。
+    - `lighting/`: 像素光影子系统。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体 + 可破坏物 bullet hurtbox）与增量缓存。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`）。
+      - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放等参数）。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` 在屏幕顶部居中绘制 BOSS 血条（名称、阶段指示、HP 比例条、阶段切换标记线）。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
     - `Input.js`: 统一的键鼠输入处理。
@@ -68,7 +74,8 @@
 ### 渲染流程
 1. **字符生成**: 使用 `SpriteGenerator` 将 ASCII 字符数组 + 调色板转换为 Canvas 图像。部分物体（如 BreakableObjects）使用 `PixelDraw` 进行程序化绘制。
 2. **绘制循环**: `Renderer.js` 负责每帧清屏并按 Z 排序绘制场景元素。
-3. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
+3. **像素光照**: `LightSystem` 生成低分辨率光照缓冲并在 `Renderer` 中合成。包含环境暗层、动态光源、遮挡射线与彩色光晕。
+4. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
 
 ### 游戏循环
 - 采用标准的 `requestAnimationFrame` 循环。
@@ -136,6 +143,9 @@
   - 子系统耗时分解面板（毫秒 + 百分比 + 比例条）
 - 接入新系统只需 2 行代码，详见 `docs/PROFILER_GUIDE.md`。
 - `WorldObjects` 已细分为 `Breakables` / `Particles` / `EnemyUpdate` / `Portals` / `DroppedItems`，便于定位高并发场景下的真实热点。
+- 光影系统新增两个热点标签：
+  - `LightingUpdate`: 光源扫描、遮挡缓存与可见性裁剪。
+  - `LightingRender`: 离屏光照缓冲绘制与主画布合成。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品+服装）。快捷栏（Hotbar）支持键盘选择。服装物品拾取后可在背包界面左侧的装备槽中装备。

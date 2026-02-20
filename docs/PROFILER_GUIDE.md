@@ -42,9 +42,11 @@
 | Particles | 粒子系统 | 粒子生命周期更新 |
 | EnemyUpdate | 敌人更新 | 敌人 AI、网格分离、破障行为 |
 | Portals | 传送门系统 | 传送门粒子与提示刷新 |
+| LightingUpdate | 光照更新 | 发光体扫描、遮挡体缓存、光源裁剪与预算 |
 | DroppedItems | 掉落物系统 | 掉落物动画与交互检测 |
 | Build | 建造系统 | 建造模式更新 |
 | UI | 界面更新 | 快捷栏刷新 |
+| LightingRender | 光照渲染 | 低分辨率光照缓冲绘制 + 主画布合成 |
 | Render | 渲染管线 | Renderer.draw() 全过程 |
 
 ## 接入新系统
@@ -85,7 +87,7 @@ profiler.getSystemColor(label) // 系统颜色
 
 - **关闭时**：每帧约 0.03ms（仅 `performance.now()` 调用 + 环形缓冲区写入）
 - **开启时**：额外约 0.2ms Canvas 叠加层绘制
-- **内存**：约 57KB（300 帧 × 12 系统 × 16 字节）
+- **内存**：约 67KB（300 帧 × 14 系统 × 16 字节）
 
 ## 文件位置
 

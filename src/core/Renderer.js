@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets, costumeSystem }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets, costumeSystem, lightSystem }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -26,6 +26,7 @@ export class Renderer {
         this.profiler = profiler || null;
         this.pets = pets || [];
         this.costumeSystem = costumeSystem || null;
+        this.lightSystem = lightSystem || null;
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
@@ -1038,6 +1039,17 @@ export class Renderer {
         // Draw Blueprint
         if (this.buildSystem) {
             this.buildSystem.drawPreview(this.ctx, this.camera);
+        }
+
+        // Pixel lighting pass (world-space, before debug overlays and UI).
+        if (this.lightSystem) {
+            if (this.profiler) this.profiler.begin('LightingRender');
+            this.lightSystem.render(this.ctx, {
+                camera: this.camera,
+                viewportWidth: viewportW,
+                viewportHeight: viewportH
+            });
+            if (this.profiler) this.profiler.end('LightingRender');
         }
 
         // Debug Drawing
