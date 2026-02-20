@@ -5,103 +5,137 @@ export function createPianoSprite() {
     const h = 32;
     const drawer = new PixelDraw(w, h);
 
-    // Piano Palette
-    const cBlack = '#2c3e50'; // Slightly blueish black for better shading
-    const cBlackDark = '#1a252f';
-    const cBlackLight = '#34495e';
-    const cHighlight = '#5d6d7e'; // For glossy edges
-    const cWhite = '#ecf0f1';
-    const cGold = '#f1c40f';
-    const cGoldDark = '#b7950b';
-    const cRed = '#c0392b'; // For velvet seat/felt
-
-    // 1. Main Body Box
-    const bodyH = 24;
-    const topH = 8;
+    // 🎨 优化后的高级调色板
+    const cShadow = '#0d1117';     // 最深阴影 (环境光遮蔽)
+    const cBlackDark = '#161b22';  // 钢琴暗部
+    const cBlack = '#21262d';      // 钢琴主体色 (乌木黑)
+    const cBlackLight = '#30363d'; // 受光面
+    const cHighlight = '#8b949e';  // 烤漆高光反光
     
-    // Left Side Panel (Curved front)
-    drawer.fillPath([
-        {x: 4, y: topH}, {x: 12, y: topH},
-        {x: 12, y: 20}, {x: 8, y: 24}, {x: 4, y: 24}
-    ], cBlackDark);
-
-    // Right Side Panel
-    drawer.fillPath([
-        {x: w-12, y: topH}, {x: w-4, y: topH},
-        {x: w-4, y: 24}, {x: w-8, y: 24}, {x: w-12, y: 20}
-    ], cBlackDark);
-
-    // Center Body (Front Panel)
-    drawer.rect(12, topH, w-24, 12, cBlack);
+    const cWhite = '#f0f6fc';      // 白键/琴谱
+    const cWhiteDim = '#c9d1d9';   // 白键阴影/纸张暗部
     
-    // Glossy Reflection on Front Panel (Diagonal)
-    drawer.line(16, topH+2, 24, topH+10, cBlackLight);
-    drawer.line(20, topH+2, 26, topH+8, cBlackLight);
-
-    // 2. Top Lid
-    drawer.fillPath([
-        {x: 2, y: 2}, {x: w-2, y: 2},
-        {x: w, y: topH}, {x: 0, y: topH}
-    ], cBlackLight);
-    drawer.hLine(2, 2, w-4, cHighlight); // Top edge highlight
+    const cGold = '#e3b341';       // 黄铜高光 (踏板/轮子)
+    const cGoldDark = '#9e7a27';   // 黄铜暗部
     
-    // Music Stand (On top)
-    const standX = w/2 - 8;
-    const standY = 1;
-    drawer.rect(standX, standY, 16, 6, cBlackDark);
-    // Sheet Music
-    drawer.rect(standX + 2, standY + 1, 12, 4, cWhite);
-    drawer.hLine(standX + 3, standY + 2, 10, '#bdc3c7'); // Notes
-    drawer.hLine(standX + 3, standY + 3, 10, '#bdc3c7');
+    const cRed = '#a41e22';        // 丝绒红
+    const cRedBright = '#d22c31';  // 丝绒高光
+    const cRedDark = '#5c1013';    // 丝绒阴影
 
-    // 3. Keyboard
+    // 1. 背景与下半部分 (Lower Body & Back)
+    const lowerY = 22;
+    drawer.rect(8, lowerY, 48, 10, cShadow); // 键盘下方的深邃阴影区
+    drawer.rect(12, lowerY, 40, 8, cBlackDark); // 下挡板
+
+    // 2. 上半部分琴体 (Upper Panel)
+    const upperY = 4;
+    drawer.rect(8, upperY, 48, 13, cBlack); 
+    // 上挡板的烤漆对角线高光 (抛光质感)
+    drawer.line(14, 6, 22, 14, cBlackLight);
+    drawer.line(18, 6, 24, 12, cBlackLight);
+    drawer.rect(15, 6, 1, 1, cHighlight); // 替换 setPixel 烤漆高光点
+
+    // 3. 顶盖 (Top Lid)
+    drawer.rect(6, 2, 52, 3, cBlackDark);
+    drawer.hLine(6, 2, 52, cBlackLight); // 顶盖受光面
+    drawer.hLine(7, 2, 10, cHighlight);  // 顶盖边缘高光
+
+    // 4. 乐谱架与琴谱 (Music Stand & Sheet Music)
+    const standX = 20;
+    const standY = 7;
+    // 谱架
+    drawer.rect(standX, standY, 24, 10, cShadow);
+    // 乐谱 (左侧蓝色封面，右侧白色内页)
+    drawer.rect(standX + 2, standY + 1, 10, 9, '#1f6feb'); // 蓝色封面
+    drawer.vLine(standX + 4, standY + 3, 5, '#58a6ff');    // 封面装饰纹
+    drawer.rect(standX + 12, standY + 1, 10, 9, cWhite);   // 白色内页
+    drawer.hLine(standX + 13, standY + 3, 6, cWhiteDim);   // 音符线条1
+    drawer.hLine(standX + 13, standY + 5, 8, cWhiteDim);   // 音符线条2
+    drawer.hLine(standX + 13, standY + 7, 5, cWhiteDim);   // 音符线条3
+    drawer.rect(standX + 14, standY + 4, 1, 1, cRedBright); // 替换 setPixel 乐谱红色标记
+
+    // 5. 键盘盖/防尘呢毡 (Fallboard & Felt)
+    drawer.rect(6, 15, 52, 3, cBlackLight); // 倾斜的键盘盖
+    drawer.hLine(8, 17, 48, cRedBright);    // 琴键底部的红色防尘毡
+    drawer.rect(32, 16, 1, 1, cGold);       // 替换 setPixel 键盘盖中央的金色Logo
+
+    // 6. 琴键区域 (Keyboard)
     const keyY = 18;
-    const keyH = 4;
-    const keyX = 13;
-    const keyW = w - 26;
+    const keyW = 48; // 总宽度
+    const keyX = 8;
     
-    // Red Felt under keys
-    drawer.hLine(keyX, keyY - 1, keyW, cRed);
-    
-    // White Keys
-    drawer.rect(keyX, keyY, keyW, keyH, cWhite);
-    
-    // Black Keys (Pattern: 2, 3, 2, 3...)
-    const blackKeyColor = '#000000';
-    let kx = keyX + 2;
-    const pattern = [1, 1, 0, 1, 1, 1, 0]; // 1=black, 0=gap
-    let pIdx = 0;
-    
-    while(kx < keyX + keyW - 2) {
-        if (pattern[pIdx % 7] === 1) {
-            drawer.vLine(kx, keyY, 2, blackKeyColor);
-        } else {
-            drawer.vLine(kx, keyY, 4, '#bdc3c7'); // Key separator for gaps
+    // 铺底白键
+    drawer.rect(keyX, keyY, keyW, 4, cWhite);
+    drawer.hLine(keyX, keyY + 3, keyW, cWhiteDim); // 白键下边缘立体感
+
+    // 精准绘制黑键与白键缝隙 (2-3-2-3 模式)
+    let gapIndex = 0;
+    const blackKeyPattern = [1, 1, 0, 1, 1, 1, 0]; // 1:有黑键, 0:无黑键
+    for (let x = keyX + 2; x < keyX + keyW; x += 2) {
+        // 白键之间的缝隙
+        drawer.vLine(x, keyY, 4, cWhiteDim);
+        
+        // 判断是否需要画黑键
+        if (blackKeyPattern[gapIndex % 7] === 1) {
+            drawer.vLine(x, keyY, 2, cShadow); // 黑键本体
         }
-        kx += 3;
-        pIdx++;
+        gapIndex++;
     }
 
-    // 4. Legs
-    const legY = 24;
-    const legH = 8;
-    // Front Legs (Tapered)
-    drawer.fillPath([
-        {x: 4, y: legY}, {x: 8, y: legY},
-        {x: 7, y: legY + legH}, {x: 5, y: legY + legH}
-    ], cBlackDark);
-    drawer.fillPath([
-        {x: w-8, y: legY}, {x: w-4, y: legY},
-        {x: w-5, y: legY + legH}, {x: w-7, y: legY + legH}
-    ], cBlackDark);
+    // 7. 琴键托板与侧边琴耳 (Keybed & Cheek Blocks)
+    drawer.rect(4, 21, 56, 2, cBlackLight); // 承托键盘的底板
+    drawer.hLine(4, 22, 56, cShadow);       // 底板下方的阴影
+    
+    // 左琴耳 (立体切割感)
+    drawer.rect(4, 15, 4, 6, cBlackDark);
+    drawer.vLine(7, 15, 6, cBlackLight); // 内侧受光
+    // 右琴耳
+    drawer.rect(56, 15, 4, 6, cBlackDark);
+    drawer.vLine(56, 15, 6, cBlackLight);
 
-    // 5. Pedals
-    const pedX = w/2;
-    const pedY = 30;
-    drawer.rect(pedX - 4, pedY, 8, 2, cGoldDark); // Bar
-    drawer.vLine(pedX - 2, pedY - 2, 2, cGold); // Left pedal
-    drawer.vLine(pedX, pedY - 2, 2, cGold);     // Middle pedal
-    drawer.vLine(pedX + 2, pedY - 2, 2, cGold); // Right pedal
+    // 8. 琴腿与黄铜琴轮 (Front Legs & Casters)
+    const legY = 23;
+    // 左腿
+    drawer.rect(5, legY, 3, 7, cBlackDark);
+    drawer.vLine(7, legY, 7, cBlackLight); // 腿部高光
+    drawer.rect(5, 30, 3, 2, cGoldDark);   // 左琴轮底座
+    drawer.rect(6, 31, 1, 1, cGold);       // 替换 setPixel 左琴轮高光
+    // 右腿
+    drawer.rect(56, legY, 3, 7, cBlackDark);
+    drawer.vLine(56, legY, 7, cBlackLight);
+    drawer.rect(56, 30, 3, 2, cGoldDark);  // 右琴轮底座
+    drawer.rect(57, 31, 1, 1, cGold);      // 替换 setPixel 右琴轮高光
+
+    // 9. 踏板 (Pedals - 放置在中间偏下)
+    const pedX = 29;
+    const pedY = 28;
+    drawer.rect(pedX - 2, pedY, 10, 4, cShadow);     // 踏板凹槽背景
+    drawer.vLine(pedX, pedY + 1, 3, cGold);          // 左踏板 (柔音)
+    drawer.vLine(pedX + 3, pedY + 1, 3, cGoldDark);  // 中踏板 (消音)
+    drawer.vLine(pedX + 6, pedY + 1, 3, cGold);      // 右踏板 (延音)
+
+    // 10. 前景：红丝绒琴凳 (Piano Bench - Creates Depth)
+    // 琴凳刚好跨在踏板前方，腿部空隙漏出踏板
+    const benchX = 16;
+    const benchY = 25;
+    
+    // 琴凳深色木腿
+    drawer.rect(benchX + 2, benchY + 2, 2, 5, cBlackDark);
+    drawer.rect(benchX + 28, benchY + 2, 2, 5, cBlackDark);
+    drawer.vLine(benchX + 3, benchY + 2, 5, cBlack);
+    
+    // 琴凳软垫主体
+    drawer.rect(benchX, benchY, 32, 3, cRed);
+    // 软垫顶部受光
+    drawer.hLine(benchX + 1, benchY, 30, cRedBright);
+    // 软垫底部阴影
+    drawer.hLine(benchX + 1, benchY + 2, 30, cRedDark);
+    
+    // 软垫的纽扣拉花细节 (Tufted texture)
+    for(let bx = benchX + 4; bx < benchX + 30; bx += 4) {
+        drawer.rect(bx, benchY + 1, 1, 1, cRedDark);     // 替换 setPixel 纽扣阴影
+        drawer.rect(bx + 1, benchY + 1, 1, 1, cRedBright); // 替换 setPixel 纽扣高光
+    }
 
     return drawer.getCanvas();
 }

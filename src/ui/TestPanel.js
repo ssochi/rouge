@@ -2,13 +2,15 @@ import { WEAPONS } from '../assets/weapons/WeaponData.js';
 import { Assets } from '../graphics/Assets.js';
 import { Vehicle } from '../core/entities/Vehicle.js';
 import { BreakableObject } from '../core/entities/BreakableObject.js';
+import { getCostumePiecesBySlot } from '../assets/characters/player/costumes/CostumeData.js';
 
 const TABS = [
     { key: 'weapons', label: 'WEAPONS' },
     { key: 'items', label: 'ITEMS' },
     { key: 'vehicles', label: 'VEHICLES' },
     { key: 'enemies', label: 'ENEMIES' },
-    { key: 'objects', label: 'OBJECTS' }
+    { key: 'objects', label: 'OBJECTS' },
+    { key: 'costumes', label: 'COSTUMES' }
 ];
 
 const VEHICLE_TYPES = ['suv', 'truck', 'police'];
@@ -23,10 +25,11 @@ const ENEMY_TYPES = [
 ];
 
 export class TestPanel {
-    constructor({ inventorySystem, worldSystem, player }) {
+    constructor({ inventorySystem, worldSystem, player, costumeSystem }) {
         this.inventorySystem = inventorySystem;
         this.worldSystem = worldSystem;
         this.player = player;
+        this.costumeSystem = costumeSystem;
 
         this.isOpen = false;
         this._activeTab = 'weapons';
@@ -126,7 +129,8 @@ export class TestPanel {
         this._countInput.value = '1';
         this._countInput.addEventListener('keydown', (e) => e.stopPropagation());
         this._countInput.addEventListener('keyup', (e) => e.stopPropagation());
-        const spawnBtn = document.createElement('button');
+        this._spawnBtn = document.createElement('button');
+        const spawnBtn = this._spawnBtn;
         spawnBtn.className = 'spawn-btn';
         spawnBtn.textContent = 'SPAWN';
         spawnBtn.addEventListener('click', () => this._spawn());
@@ -175,6 +179,12 @@ export class TestPanel {
         // Show/hide enemy weapon selector
         this._weaponSelectWrap.classList.toggle('visible', tabKey === 'enemies');
 
+        // Update spawn button text for costumes tab
+        const isCostume = tabKey === 'costumes';
+        this._spawnBtn.textContent = isCostume ? 'ADD' : 'SPAWN';
+        this._countInput.parentElement.querySelector('label').style.display = isCostume ? 'none' : '';
+        this._countInput.style.display = isCostume ? 'none' : '';
+
         // Populate data
         this._listData = this._getTabData(tabKey);
         this._renderList(this._listData);
@@ -188,6 +198,7 @@ export class TestPanel {
             case 'vehicles': return this._getVehicles();
             case 'enemies': return this._getEnemies();
             case 'objects': return this._getObjects();
+            case 'costumes': return this._getCostumes();
             default: return [];
         }
     }
@@ -338,6 +349,9 @@ export class TestPanel {
             case 'objects':
                 this._spawnObject(entry.subId, count);
                 break;
+            case 'costumes':
+                this._applyCostume(entry);
+                break;
         }
     }
 
@@ -426,6 +440,49 @@ export class TestPanel {
             x: this.player.x + Math.cos(angle) * radius,
             y: this.player.y + Math.sin(angle) * radius
         };
+    }
+
+    // ---- Costume Tab ----
+
+    _getCostumes() {
+        const SLOT_LABELS = {
+            hairstyle: '发型',
+            hat: '帽子',
+            clothes: '衣服',
+            glasses: '眼镜',
+            beard: '胡子',
+        };
+        const SLOT_ORDER = ['hairstyle', 'hat', 'clothes', 'glasses', 'beard'];
+        const list = [];
+
+        for (const slot of SLOT_ORDER) {
+            const pieces = getCostumePiecesBySlot(slot);
+            for (const [pieceId, piece] of Object.entries(pieces)) {
+                list.push({
+                    id: pieceId,
+                    name: `[${SLOT_LABELS[slot]}] ${piece.name}`,
+                    subId: pieceId,
+                    icon: 'costume_' + pieceId,
+                    slot: slot,
+                });
+            }
+        }
+        return list;
+    }
+
+    _applyCostume(entry) {
+        if (!this.inventorySystem) {
+            this._showMsg('InventorySystem not available');
+            return;
+        }
+
+        const itemId = 'costume:' + entry.subId;
+        const remaining = this.inventorySystem.add(itemId, 1);
+        if (remaining > 0) {
+            this._showMsg('Inventory full');
+        } else {
+            this._showMsg(`Added to backpack: ${entry.subId}`);
+        }
     }
 
     _showMsg(text) {

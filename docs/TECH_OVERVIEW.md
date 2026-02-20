@@ -43,7 +43,8 @@
       - `StatusEffectSystem.js`: 状态效果与特殊武器逻辑（爆炸、黑洞、闪电链、传送、冻结、燃烧、流血DOT、中毒DOT、酸液地面、力场撞墙、钉刺嵌入DOT）。
       - `MeleeSystem.js`: 近战攻击系统——攻击状态机（IDLE→WINDUP→SWING→RECOVERY）、扇形/直线命中检测、刀光/戳刺拖尾VFX。支持暴击(Dagger)、劈斩加成(Greatsword)、流血DOT(Battle Axe)、戳刺(Spear)等数据驱动的武器特殊机制。5把近战武器：Katana/Dagger/Greatsword/Spear/Battle Axe。
       - `ParticleSpawner.js`: 粒子生成（碎片、血液、弹壳、刀光拖尾）与粒子物理更新。
-      - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable）。
+      - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable/costume）。
+      - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）。
     - `Renderer.js`: 负责场景绘制与 UI 刷新。含 `drawBossHpBar()` 在屏幕顶部居中绘制 BOSS 血条（名称、阶段指示、HP 比例条、阶段切换标记线）。
@@ -136,7 +137,7 @@
 - `WorldObjects` 已细分为 `Breakables` / `Particles` / `EnemyUpdate` / `Portals` / `DroppedItems`，便于定位高并发场景下的真实热点。
 
 ### 物品与建造系统
-- **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品）。快捷栏（Hotbar）支持键盘选择。
+- **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品+服装）。快捷栏（Hotbar）支持键盘选择。服装物品拾取后可在背包界面左侧的装备槽中装备。
 - **武器实例化**: 武器入包时自动生成唯一实例数据（含独立弹药状态），`HandSystem` 在开火/换枪/换弹时实时回写到背包对应实例。
 - **Build Mode**: 选中可放置物体时进入建造模式，`BuildSystem` 处理网格吸附与放置判定。
 - **消耗品**: 选中消耗品（如恢复针）后进入“使用模式”，鼠标左键会触发道具效果并扣除数量，不进入建造逻辑。

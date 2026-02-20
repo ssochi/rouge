@@ -27,6 +27,19 @@ const ROOM_GUN_SPAWN_CHANCE = 0.05;
 const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
 const ENEMY_MEDKIT_DROP_CHANCE = 0.08;
 const ENEMY_HAMBURGER_DROP_CHANCE = 0.02;
+const ENEMY_COSTUME_DROP_CHANCE = 0.03;
+
+const COSTUME_DROP_POOL = [
+    'costume:hair_messy',
+    'costume:hair_short',
+    'costume:hat_beret',
+    'costume:hat_bandana',
+    'costume:clothes_hoodie',
+    'costume:clothes_vest',
+    'costume:glasses_round',
+    'costume:glasses_goggles',
+    'costume:beard_full',
+];
 const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 
 export class WorldSystem {
@@ -1395,6 +1408,11 @@ export class WorldSystem {
         this._dropEnemyConsumable(enemy, ENEMY_HAMBURGER_DROP_CHANCE, 'consumable:hamburger');
     }
 
+    _dropEnemyCostume(enemy) {
+        const itemId = COSTUME_DROP_POOL[Math.floor(Math.random() * COSTUME_DROP_POOL.length)];
+        this._dropEnemyConsumable(enemy, ENEMY_COSTUME_DROP_CHANCE, itemId);
+    }
+
     _updateEnemyBreachBehavior(enemy) {
         if (!enemy || enemy.hp <= 0) return false;
 
@@ -1599,6 +1617,7 @@ export class WorldSystem {
                 this._dropEnemyRecoveryNeedle(this.enemies[i]);
                 this._dropEnemyMedkit(this.enemies[i]);
                 this._dropEnemyHamburger(this.enemies[i]);
+                this._dropEnemyCostume(this.enemies[i]);
                 this.enemies.splice(i, 1);
             }
         }

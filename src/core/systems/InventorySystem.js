@@ -352,7 +352,74 @@ export class InventorySystem {
             data: { petType: '2b' }
         });
 
-        // 2. Register Placeables from Assets.objects
+        // 2. Register Costumes
+        // Hairstyles (including defaults)
+        this.registerItem({
+            id: 'costume:hair_long', type: 'costume', name: '长发',
+            icon: 'costume_hair_long', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_long' }
+        });
+        this.registerItem({
+            id: 'costume:hair_messy', type: 'costume', name: '乱发',
+            icon: 'costume_hair_messy', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_messy' }
+        });
+        this.registerItem({
+            id: 'costume:hair_short', type: 'costume', name: '短发',
+            icon: 'costume_hair_short', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_short' }
+        });
+        // Hats
+        this.registerItem({
+            id: 'costume:hat_beret', type: 'costume', name: '贝雷帽',
+            icon: 'costume_hat_beret', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_beret' }
+        });
+        this.registerItem({
+            id: 'costume:hat_bandana', type: 'costume', name: '头巾',
+            icon: 'costume_hat_bandana', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_bandana' }
+        });
+        // Clothes (including defaults)
+        this.registerItem({
+            id: 'costume:clothes_coat', type: 'costume', name: '风衣',
+            icon: 'costume_clothes_coat', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_coat' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_hoodie', type: 'costume', name: '帽衫',
+            icon: 'costume_clothes_hoodie', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_hoodie' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_vest', type: 'costume', name: '战术背心',
+            icon: 'costume_clothes_vest', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_vest' }
+        });
+        // Glasses (including defaults)
+        this.registerItem({
+            id: 'costume:glasses_sun', type: 'costume', name: '墨镜',
+            icon: 'costume_glasses_sun', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_sun' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_round', type: 'costume', name: '圆眼镜',
+            icon: 'costume_glasses_round', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_round' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_goggles', type: 'costume', name: '护目镜',
+            icon: 'costume_glasses_goggles', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_goggles' }
+        });
+        // Beard
+        this.registerItem({
+            id: 'costume:beard_full', type: 'costume', name: '大胡子',
+            icon: 'costume_beard_full', maxStack: 1,
+            data: { costumeSlot: 'beard', costumePieceId: 'beard_full' }
+        });
+
+        // 3. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel
         const objectKeys = Object.keys(Assets.objects).filter(k => 
             !k.endsWith('_flash') && 

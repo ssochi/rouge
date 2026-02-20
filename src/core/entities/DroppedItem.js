@@ -19,6 +19,7 @@ export class DroppedItem {
         this.sprite = null;
         this.isWeapon = false;
         this.isConsumable = false;
+        this.isCostume = false;
 
         this._resolveMetadata();
         
@@ -71,6 +72,14 @@ export class DroppedItem {
             this.name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             if (Assets[key]) {
                 this.sprite = Assets[key];
+            }
+        } else if (this.itemId.startsWith('costume:')) {
+            this.isCostume = true;
+            const key = this.itemId.replace('costume:', '');
+            this.name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const iconKey = 'costume_' + key;
+            if (Assets[iconKey]) {
+                this.sprite = Assets[iconKey];
             }
         }
         

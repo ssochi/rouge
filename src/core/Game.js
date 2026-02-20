@@ -11,6 +11,7 @@ import { InventorySystem } from './systems/InventorySystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
 import { MeleeSystem } from './systems/MeleeSystem.js';
 import { ProfilerSystem } from './systems/ProfilerSystem.js';
+import { CostumeSystem } from './systems/CostumeSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
 import { TestPanel } from '../ui/TestPanel.js';
@@ -79,7 +80,13 @@ export class Game {
             slowTimer: 0,
             slowAmount: 0,
             freezeStacks: 0,
-            frozenTimer: 0
+            frozenTimer: 0,
+            costume: {
+                hairstyle: 'hair_long',
+                hat: null,
+                clothes: 'clothes_coat',
+                glasses: 'glasses_sun',
+            }
         };
         
         this.player.takeDamage = (amount, knockback) => {
@@ -175,6 +182,7 @@ export class Game {
         });
 
         this.profiler = new ProfilerSystem();
+        this.costumeSystem = new CostumeSystem();
         this.iPressed = false;
 
         this.renderer = new Renderer({
@@ -198,7 +206,8 @@ export class Game {
             blackHoles: this.blackHoles,
             acidPuddles: this.acidPuddles,
             profiler: this.profiler,
-            pets: this.pets
+            pets: this.pets,
+            costumeSystem: this.costumeSystem
         });
 
         // Initial Inventory
@@ -230,13 +239,17 @@ export class Game {
             this.uiManager.toggleInventory(false);
         };
         
+        // Bind Costume System to UIManager
+        this.uiManager.setCostumeRefs(this.costumeSystem, this.player);
+
         this.isInventoryOpen = false;
         this.bPressed = false;
 
         this.testPanel = new TestPanel({
             inventorySystem: this.inventorySystem,
             worldSystem: this.worldSystem,
-            player: this.player
+            player: this.player,
+            costumeSystem: this.costumeSystem
         });
         this.lPressed = false;
 

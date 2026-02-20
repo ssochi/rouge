@@ -3,7 +3,7 @@ import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
 
 export class Renderer {
-    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets }) {
+    constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets, costumeSystem }) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.scale = scale;
@@ -25,6 +25,7 @@ export class Renderer {
         this.acidPuddles = acidPuddles || [];
         this.profiler = profiler || null;
         this.pets = pets || [];
+        this.costumeSystem = costumeSystem || null;
         this.debugMode = 0; // 0: off, 1: collision boxes, 2: hurtboxes, 3: flow field
         this.pPressed = false;
     }
@@ -347,13 +348,18 @@ export class Renderer {
                         }
                     }
 
+                    // Get frames from CostumeSystem (or fallback to Assets)
+                    const playerFrames = this.costumeSystem
+                        ? this.costumeSystem.getPlayerFrames(this.player.costume)
+                        : Assets.player;
+
                     if (this.player.state === 'roll') {
                         const maxDuration = 15;
                         const progress = (maxDuration - this.player.rollDuration) / maxDuration;
                         const moveX = Math.cos(this.player.angle);
                         const direction = moveX >= 0 ? 1 : -1;
                         const rotation = direction * progress * Math.PI * 2;
-                        const sprite = Assets.player.run[0];
+                        const sprite = playerFrames.run[0];
 
                         // --- Squash & Stretch ---
                         let scaleX = 1, scaleY = 1;
@@ -373,21 +379,21 @@ export class Renderer {
                         this.ctx.drawImage(sprite, -16, -16);
 
                     } else {
-                        if (this.player.facingRight) this.ctx.scale(-1, 1);
-                        
+                        if (!this.player.facingRight) this.ctx.scale(-1, 1);
+
                         let sprite;
                         if (this.player.state === 'run') {
-                            const frameIndex = Math.floor(this.player.animationTimer / 3) % Assets.player.run.length;
-                            sprite = Assets.player.run[frameIndex];
+                            const frameIndex = Math.floor(this.player.animationTimer / 3) % playerFrames.run.length;
+                            sprite = playerFrames.run[frameIndex];
                         } else {
-                            const frameIndex = Math.floor(this.player.animationTimer / 10) % Assets.player.idle.length;
-                            sprite = Assets.player.idle[frameIndex];
+                            const frameIndex = Math.floor(this.player.animationTimer / 10) % playerFrames.idle.length;
+                            sprite = playerFrames.idle[frameIndex];
                         }
                         this.ctx.drawImage(sprite, -16, -16);
                     }
 
                     if (this.player.state !== 'roll') {
-                        if (this.player.facingRight) this.ctx.scale(-1, 1);
+                        if (!this.player.facingRight) this.ctx.scale(-1, 1);
                     }
                     this.ctx.restore();
                     

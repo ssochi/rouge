@@ -1,5 +1,6 @@
 import { Assets } from '../graphics/Assets.js';
 import { SLOT_COUNT, HOTBAR_SIZE } from '../core/systems/InventorySystem.js';
+import { generateAvatar } from '../assets/characters/player/AvatarSprite.js';
 
 // UIManager.js
 // Manages the DOM-based UI updates
@@ -40,11 +41,24 @@ export class UIManager {
         // Inventory UI
         this.initInventoryUI();
 
+        // Costume System references
+        this.costumeSystem = null;
+        this.player = null;
+
         // Callbacks
         this.onInventorySlotClick = null; // (index, isRightClick, isShift)
         this.onDropItem = null; // (itemData) -> void
         this.onHotbarSlotClick = null; // (index) -> void
         this.onCloseInventory = null; // () -> void
+        this.onCostumeChanged = null; // () -> void
+    }
+
+    /**
+     * Set costume system and player references for costume UI
+     */
+    setCostumeRefs(costumeSystem, player) {
+        this.costumeSystem = costumeSystem;
+        this.player = player;
     }
 
     createCursorItemDOM() {
@@ -69,29 +83,40 @@ export class UIManager {
         this.inventoryOverlay.id = 'inventory-overlay';
         this.inventoryOverlay.className = 'hidden'; // Default hidden
 
-        const window = document.createElement('div');
-        window.className = 'inventory-window';
-        
+        const windowEl = document.createElement('div');
+        windowEl.className = 'inventory-window';
+
+        // Two-column layout: costume panel | inventory content
+        const bodyRow = document.createElement('div');
+        bodyRow.className = 'inventory-body-row';
+
+        // -- Costume Panel (Left) --
+        this.costumePanel = this._createCostumePanel();
+        bodyRow.appendChild(this.costumePanel);
+
+        // -- Inventory Content (Right) --
+        const inventoryContent = document.createElement('div');
+        inventoryContent.className = 'inventory-content';
+
         const header = document.createElement('div');
         header.className = 'inventory-header';
         header.innerText = 'INVENTORY';
-        window.appendChild(header);
-        
+        inventoryContent.appendChild(header);
+
         // Backpack Grid
         const backpackGrid = document.createElement('div');
         backpackGrid.className = 'inventory-grid backpack-grid';
-        // Slots 9 to SLOT_COUNT-1
         for (let i = HOTBAR_SIZE; i < SLOT_COUNT; i++) {
             const slot = this.createInventorySlotElement(i);
             backpackGrid.appendChild(slot);
         }
-        window.appendChild(backpackGrid);
-        
+        inventoryContent.appendChild(backpackGrid);
+
         // Divider
         const divider = document.createElement('div');
         divider.className = 'inventory-divider';
-        window.appendChild(divider);
-        
+        inventoryContent.appendChild(divider);
+
         // Hotbar Grid (Mirror)
         const hotbarGrid = document.createElement('div');
         hotbarGrid.className = 'inventory-grid hotbar-grid';
@@ -99,10 +124,13 @@ export class UIManager {
             const slot = this.createInventorySlotElement(i);
             hotbarGrid.appendChild(slot);
         }
-        window.appendChild(hotbarGrid);
-        
-        this.inventoryOverlay.appendChild(window);
-        
+        inventoryContent.appendChild(hotbarGrid);
+
+        bodyRow.appendChild(inventoryContent);
+        windowEl.appendChild(bodyRow);
+
+        this.inventoryOverlay.appendChild(windowEl);
+
         // Tooltip
         this.tooltip = document.createElement('div');
         this.tooltip.id = 'item-tooltip';
@@ -110,7 +138,7 @@ export class UIManager {
         document.body.appendChild(this.tooltip);
 
         document.body.appendChild(this.inventoryOverlay);
-        
+
         // Handle Drop (Click outside window)
         this.inventoryOverlay.addEventListener('mousedown', (e) => {
             if (e.target === this.inventoryOverlay) {
@@ -118,13 +146,185 @@ export class UIManager {
                     if (this.onDropItem) {
                         this.onDropItem(this.cursorItem);
                         this.cursorItem = null;
-                        this.updateInventoryUIState(); // Refresh cursor
+                        this.updateInventoryUIState();
                     }
                 } else if (this.onCloseInventory) {
                     this.onCloseInventory();
                 }
             }
         });
+    }
+
+    _createCostumePanel() {
+        const COSTUME_SLOTS = [
+            { slot: 'hat', label: '帽子' },
+            { slot: 'hairstyle', label: '发型' },
+            { slot: 'glasses', label: '眼镜' },
+            { slot: 'beard', label: '胡子' },
+            { slot: 'clothes', label: '衣服' },
+        ];
+
+        const panel = document.createElement('div');
+        panel.className = 'costume-panel';
+
+        const title = document.createElement('div');
+        title.className = 'costume-panel-title';
+        title.innerText = 'COSTUME';
+        panel.appendChild(title);
+
+        this.costumeSlotElements = {};
+
+        COSTUME_SLOTS.forEach(({ slot, label }) => {
+            const container = document.createElement('div');
+            container.className = 'costume-slot-container';
+
+            const slotEl = document.createElement('div');
+            slotEl.className = 'inventory-slot costume-slot';
+            slotEl.dataset.costumeSlot = slot;
+
+            const icon = document.createElement('img');
+            icon.style.display = 'none';
+            slotEl.appendChild(icon);
+
+            slotEl.onmousedown = (e) => {
+                e.preventDefault();
+                this._handleCostumeSlotClick(slot);
+            };
+            slotEl.oncontextmenu = (e) => e.preventDefault();
+
+            // Tooltip for costume slot
+            slotEl.onmouseenter = () => this._showCostumeTooltip(slot);
+            slotEl.onmouseleave = () => this.hideTooltip();
+
+            container.appendChild(slotEl);
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'costume-slot-label';
+            labelEl.innerText = label;
+            container.appendChild(labelEl);
+
+            panel.appendChild(container);
+            this.costumeSlotElements[slot] = slotEl;
+        });
+
+        return panel;
+    }
+
+    _handleCostumeSlotClick(slot) {
+        if (!this.costumeSystem || !this.player || !this.lastInventorySystem) return;
+
+        const currentPieceId = this.player.costume[slot];
+        if (!currentPieceId) return; // Nothing to unequip
+
+        // Unequip and add to backpack directly
+        this.costumeSystem.unequipCostume(this.player, slot);
+        this.lastInventorySystem.add('costume:' + currentPieceId, 1);
+
+        this._onCostumeChanged();
+        this.updateInventory(this.lastInventorySystem);
+        this.updateHotbar(this.lastInventorySystem);
+        this.updateCostumeSlots();
+    }
+
+    /**
+     * Equip a costume item directly from inventory (right-click)
+     */
+    _equipCostumeFromInventory(index, inventorySystem) {
+        const slot = inventorySystem.slots[index];
+        if (!slot.itemId) return false;
+
+        const def = inventorySystem.getItemDef(slot.itemId);
+        if (!def || def.type !== 'costume' || !this.costumeSystem || !this.player) return false;
+
+        const costumeSlot = def.data.costumeSlot;
+        const newPieceId = def.data.costumePieceId;
+        const oldPieceId = this.player.costume[costumeSlot];
+
+        // Remove from inventory slot
+        slot.itemId = null;
+        slot.count = 0;
+        slot.instanceData = null;
+
+        // Equip new piece
+        this.costumeSystem.equipCostume(this.player, costumeSlot, newPieceId);
+
+        // Return old piece to inventory
+        if (oldPieceId) {
+            inventorySystem.add('costume:' + oldPieceId, 1);
+        }
+
+        this._onCostumeChanged();
+        this.updateInventory(inventorySystem);
+        this.updateHotbar(inventorySystem);
+        this.updateCostumeSlots();
+        return true;
+    }
+
+    _showCostumeTooltip(slot) {
+        if (!this.player) return;
+        const pieceId = this.player.costume[slot];
+        const slotNames = { hat: '帽子', hairstyle: '发型', glasses: '眼镜', beard: '胡子', clothes: '衣服' };
+        const slotName = slotNames[slot] || slot;
+
+        let pieceName = '无';
+        if (pieceId && this.lastInventorySystem) {
+            const def = this.lastInventorySystem.getItemDef('costume:' + pieceId);
+            if (def) pieceName = def.name;
+        }
+
+        this.tooltip.innerHTML = `
+            <div class="tooltip-title">${slotName}</div>
+            <div class="tooltip-desc">${pieceName}</div>
+            <div class="tooltip-hint">点击卸下</div>
+        `;
+        this.tooltip.style.display = 'block';
+    }
+
+    _onCostumeChanged() {
+        // Update avatar portrait
+        if (this.player) {
+            this._updateAvatar();
+        }
+        if (this.onCostumeChanged) this.onCostumeChanged();
+    }
+
+    _updateAvatar() {
+        const avatarContainer = document.querySelector('.avatar-frame');
+        if (!avatarContainer) return;
+        const img = avatarContainer.querySelector('img');
+        if (!img) return;
+        const avatarCanvas = generateAvatar(this.player.costume);
+        img.src = avatarCanvas.toDataURL();
+    }
+
+    updateCostumeSlots() {
+        if (!this.costumeSlotElements || !this.player) return;
+
+        const iconMap = {
+            'hair_long': 'costume_hair_long',
+            'hair_messy': 'costume_hair_messy',
+            'hair_short': 'costume_hair_short',
+            'hat_beret': 'costume_hat_beret',
+            'hat_bandana': 'costume_hat_bandana',
+            'clothes_coat': 'costume_clothes_coat',
+            'clothes_hoodie': 'costume_clothes_hoodie',
+            'clothes_vest': 'costume_clothes_vest',
+            'glasses_sun': 'costume_glasses_sun',
+            'glasses_round': 'costume_glasses_round',
+            'glasses_goggles': 'costume_glasses_goggles',
+            'beard_full': 'costume_beard_full',
+        };
+
+        for (const [slot, el] of Object.entries(this.costumeSlotElements)) {
+            const pieceId = this.player.costume[slot];
+            const iconEl = el.querySelector('img');
+
+            if (pieceId && iconMap[pieceId]) {
+                this.updateHotbarIcon(iconEl, iconMap[pieceId]);
+            } else {
+                iconEl.style.display = 'none';
+            }
+        }
     }
 
     createInventorySlotElement(index) {
@@ -178,11 +378,14 @@ export class UIManager {
         const def = this.lastInventorySystem.getItemDef(slot.itemId);
         if (!def) return;
         
+        const hint = def.type === 'costume'
+            ? 'L-Click: Move | R-Click: Equip'
+            : 'L-Click: Move | R-Click: Split';
         this.tooltip.innerHTML = `
             <div class="tooltip-title">${def.name}</div>
             <div class="tooltip-type">${def.type.toUpperCase()}</div>
             ${def.description ? `<div class="tooltip-desc">${def.description}</div>` : ''}
-            <div class="tooltip-hint">L-Click: Move | R-Click: Split</div>
+            <div class="tooltip-hint">${hint}</div>
         `;
         
         this.tooltip.style.display = 'block';
@@ -211,7 +414,12 @@ export class UIManager {
 
     handleInventoryClick(index, inventorySystem, isRight = false, isShift = false) {
         const slot = inventorySystem.slots[index];
-        
+
+        // Right-click costume item → equip directly
+        if (isRight && !isShift && !this.cursorItem && slot.itemId) {
+            if (this._equipCostumeFromInventory(index, inventorySystem)) return;
+        }
+
         if (isShift) {
             // Quick Transfer Logic
             // If in Hotbar -> Move to Backpack
@@ -383,7 +591,7 @@ export class UIManager {
         
         if (this.inventoryOverlay.classList.contains('hidden')) return;
 
-        const slots = this.inventoryOverlay.querySelectorAll('.inventory-slot');
+        const slots = this.inventoryOverlay.querySelectorAll('.inventory-slot:not(.costume-slot)');
         slots.forEach(slotEl => {
             const index = parseInt(slotEl.dataset.index);
             const itemSlot = inventorySystem.slots[index];
@@ -412,9 +620,10 @@ export class UIManager {
             }
         });
 
+        this.updateCostumeSlots();
         this.updateInventoryUIState();
     }
-    
+
     // Separate method to update cursor only (called by Drop)
     updateInventoryUIState() {
         // Update Cursor Item Visual

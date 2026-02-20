@@ -94,6 +94,14 @@ import { FORCE_GUN_SPRITE } from '../assets/weapons/ForceGunGenerator.js';
 import { VAMPYRE_GUN_SPRITE } from '../assets/weapons/VampyreGunGenerator.js';
 import { NEEDLE_GUN_SPRITE } from '../assets/weapons/NeedleGunGenerator.js';
 import { RAILGUN_SPRITE } from '../assets/weapons/RailgunGenerator.js';
+import {
+    generateHairLongIcon, generateMessyHairIcon, generateShortHairIcon,
+    generateBeretIcon, generateBandanaIcon,
+    generateCoatIcon, generateHoodieIcon, generateVestIcon,
+    generateSunglassesIcon, generateRoundGlassesIcon, generateGogglesIcon,
+    generateNoGlassesIcon,
+    generateBeardFullIcon
+} from '../assets/characters/player/costumes/CostumeIcons.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
 import { HUNTER_IDLE } from '../assets/characters/enemies/hunter/HunterIdle.js';
@@ -420,6 +428,21 @@ export const Assets = {
     vampyre_gun: VAMPYRE_GUN_SPRITE,
     needle_gun: NEEDLE_GUN_SPRITE,
     railgun: RAILGUN_SPRITE,
+
+    // Costume Icons
+    costume_hair_long: generateHairLongIcon(),
+    costume_hair_messy: generateMessyHairIcon(),
+    costume_hair_short: generateShortHairIcon(),
+    costume_hat_beret: generateBeretIcon(),
+    costume_hat_bandana: generateBandanaIcon(),
+    costume_clothes_coat: generateCoatIcon(),
+    costume_clothes_hoodie: generateHoodieIcon(),
+    costume_clothes_vest: generateVestIcon(),
+    costume_glasses_sun: generateSunglassesIcon(),
+    costume_glasses_round: generateRoundGlassesIcon(),
+    costume_glasses_goggles: generateGogglesIcon(),
+    costume_glasses_none: generateNoGlassesIcon(),
+    costume_beard_full: generateBeardFullIcon(),
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

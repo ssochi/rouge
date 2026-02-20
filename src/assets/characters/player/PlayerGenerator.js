@@ -1,236 +1,184 @@
 import { PixelDraw } from '../../../utils/PixelDraw.js';
 import { PALETTE } from '../../Palette.js';
+import { DEFAULT_COSTUME } from './costumes/DefaultPieces.js';
 
 /**
  * Procedural Generator for the Player Character
  * Style: 35-degree Top-Down 2.5D Pixel Art (Chibi Style)
- * Archetype: Cool Guy (Long Hair, Sunglasses, Beard, Trench Coat)
  * Canvas: 32x32
+ *
+ * Supports costume system: each visual layer can be swapped via costume config.
+ * Render layers (bottom to top):
+ *   0. Legs (drawLegs) - colors from clothes
+ *   1. Body base (drawBodyBase) - shirt strip, colors from clothes
+ *   2. Clothes upper (costume.clothes.drawUpper)
+ *   3. Hair back (costume.hairstyle.drawBack)
+ *   4. Face (drawFace) - fixed: skin + eyes
+ *   5. Beard (costume.beard.draw) - optional
+ *   6. Glasses (costume.glasses.draw) - optional
+ *   7. Hair front (costume.hairstyle.drawFront)
+ *   8. Hat (costume.hat.draw) - optional
  */
+// Bare body colors (when no clothes equipped)
+const BARE_COLORS = { shirt: '#95a5a6', pants: '#5d6d7e', boots: '#1a1a1a' };
+
 export class PlayerGenerator {
     constructor() {
         this.width = 32;
         this.height = 32;
-        // Colors
-        this.cSkin = PALETTE['s'];      // Skin Base
-        this.cSkinShadow = PALETTE['S']; // Skin Shadow
-        
-        // Hair & Face
-        this.cHair = '#2c1a0e';         // Dark Brown/Black Hair
-        this.cHairHighlight = '#4e342e';
-        this.cBeard = '#2c1a0e';        // Matching Beard
-        this.cGlasses = '#111111';      // Black Sunglasses
-        this.cGlassesRim = '#333333';   // Frame
-        
-        // Outfit (Trench Coat)
-        this.cCoat = '#455a64';         // Blue Grey Coat (High contrast with beard)
-        this.cCoatDark = '#263238';     // Coat Shadow/Inside
-        this.cCoatLight = '#607d8b';    // Coat Highlight
-        this.cShirt = '#95a5a6';        // Grey Shirt
-        this.cPants = '#3949ab';        // Indigo/Denim Blue Jeans (Contrast with coat)
-        this.cBoots = '#1a1a1a';        // Black Boots
+        // Fixed colors (face/skin - never change with costume)
+        this.cSkin = PALETTE['s'];
+        this.cSkinShadow = PALETTE['S'];
+        this.cBeard = '#2c1a0e';
     }
 
     /**
-     * Generate a single frame based on pose parameters
-     * @param {Object} pose - { headOffset: {x,y}, bodySquash: 1.0, legFrame: 0..N, hairWave: 0..1, coatWave: 0..1 }
+     * Generate a frame with default costume (backward compatible)
      */
     generateFrame(pose = {}) {
+        return this.generateFrameWithCostume(pose, DEFAULT_COSTUME);
+    }
+
+    /**
+     * Generate a frame with specified costume config
+     * @param {Object} pose - { headOffset, bodySquash, legFrame, hairWave, coatWave }
+     * @param {Object} costume - { hairstyle, hat, clothes, glasses, beard }
+     */
+    generateFrameWithCostume(pose = {}, costume) {
         const drawer = new PixelDraw(this.width, this.height);
-        
-        // Default Pose (Centered at bottom)
-        const px = 16; 
-        const py = 29; 
-        
-        // Super Chibi Proportions: Giant Head, Tiny Body
-        const bodyY = 22 + (pose.bodySquash || 0);   
-        const headY = 14 + (pose.headOffset?.y || 0); 
+        const px = 16;
+        const py = 29;
+        const bodyY = 22 + (pose.bodySquash || 0);
+        const headY = 14 + (pose.headOffset?.y || 0);
 
-        // 1. Draw Legs (Behind coat)
-        this.drawLegs(drawer, px, py, pose.legFrame || 'idle');
+        const clothesColors = costume.clothes ? costume.clothes.colors : BARE_COLORS;
 
-        // 2. Draw Body (Trench Coat)
-        this.drawBody(drawer, px, bodyY, pose.coatWave || 0);
+        // 0. Legs
+        this.drawLegs(drawer, px, py, pose.legFrame || 'idle', clothesColors);
 
-        // 3. Draw Head (Long Hair + Sunglasses)
-        this.drawHead(drawer, px, headY, pose.hairWave || 0);
+        // 1. Body base
+        if (costume.clothes) {
+            this.drawBodyBase(drawer, px, bodyY, clothesColors);
+        } else {
+            this.drawBareBody(drawer, px, bodyY);
+        }
+
+        // 2. Clothes upper body
+        if (costume.clothes) {
+            costume.clothes.drawUpper(drawer, px, bodyY, pose.coatWave || 0, clothesColors);
+        }
+
+        // 3. Hair back layer
+        if (costume.hairstyle) {
+            costume.hairstyle.drawBack(drawer, px, headY, pose.hairWave || 0, costume.hairstyle.colors);
+        }
+
+        // 4. Face + bare head dome when no hair
+        this.drawFace(drawer, px, headY, !costume.hairstyle);
+
+        // 5. Beard (optional)
+        if (costume.beard) {
+            costume.beard.draw(drawer, px, headY, costume.beard.colors);
+        }
+
+        // 6. Glasses (optional)
+        if (costume.glasses) {
+            costume.glasses.draw(drawer, px, headY, costume.glasses.colors);
+        }
+
+        // 7. Hair front layer
+        if (costume.hairstyle) {
+            costume.hairstyle.drawFront(drawer, px, headY, pose.hairWave || 0, costume.hairstyle.colors);
+        }
+
+        // 8. Hat (optional)
+        if (costume.hat) {
+            costume.hat.draw(drawer, px, headY, costume.hat.colors);
+        }
 
         return drawer.getCanvas();
     }
 
     /**
-     * Draw the Head
-     * Features: Long flowing hair, Sunglasses, Beard
+     * Draw Face (skin + eyes + optional bare head dome)
+     * @param {boolean} bareHead - if true, draw scalp dome (no hair equipped)
      */
-    drawHead(drawer, cx, cy, wavePhase) {
-        // Head Dimensions (Giant ~16px wide)
-        const w = 16;
-        const h = 14;
-        const x = cx - w/2;
-        const y = cy - h + 4; 
+    drawFace(drawer, cx, headY, bareHead = false) {
+        const w = 16, h = 14;
+        const x = cx - w / 2;
+        const y = headY - h + 4;
 
-        // -- Hair (Back Layer) --
-        // Long hair flowing behind shoulders
-        const hairY = y + 4;
-        const wave = Math.sin(wavePhase * Math.PI * 2) * 1.5;
-        
-        drawer.fillPath([
-            {x: x - 2 + wave, y: hairY + 8},
-            {x: x, y: y + 2},
-            {x: x + w, y: y + 2},
-            {x: x + w + 2 + wave, y: hairY + 8},
-            {x: x + w + wave, y: hairY + 12}, // Tips
-            {x: x + wave, y: hairY + 12}
-        ], this.cHair);
+        // Bare head dome (when no hair)
+        if (bareHead) {
+            drawer.fillQuadCurve(x - 1, y + 4, cx, y - 5, x + w + 1, y + 4, this.cSkin);
+            drawer.rect(x, y + 2, w, 3, this.cSkin);
+        }
 
-        // -- Face Shape --
-        drawer.fillQuadCurve(x, y + 2, x - 1, y + h - 2, cx, y + h, this.cSkin); 
-        drawer.fillQuadCurve(x + w, y + 2, x + w + 1, y + h - 2, cx, y + h, this.cSkin); 
-        drawer.rect(x + 1, y + 2, w - 2, h - 3, this.cSkin); 
-        
-        // -- Beard --
-        // Full beard covering chin and jaw
-        drawer.fillPath([
-            {x: x + 1, y: y + h - 5}, // Sideburn L
-            {x: x + 1, y: y + h - 1}, // Jaw L
-            {x: cx, y: y + h + 1},    // Chin point
-            {x: x + w - 1, y: y + h - 1}, // Jaw R
-            {x: x + w - 1, y: y + h - 5}, // Sideburn R
-            {x: x + w - 3, y: y + h - 3}, // Cheek R
-            {x: x + 3, y: y + h - 3}      // Cheek L
-        ], this.cBeard);
-        // Mustache
-        drawer.rect(cx - 3, y + h - 4, 6, 2, this.cBeard);
+        // Face Shape — rounded chin
+        drawer.fillQuadCurve(x, y + 2, x - 1, y + h - 2, cx, y + h, this.cSkin);
+        drawer.fillQuadCurve(x + w, y + 2, x + w + 1, y + h - 2, cx, y + h, this.cSkin);
+        drawer.rect(x + 1, y + 2, w - 2, h - 4, this.cSkin);
+        // Rounded jaw
+        drawer.fillQuadCurve(x + 2, y + h - 3, cx, y + h, x + w - 2, y + h - 3, this.cSkin);
 
-        // -- Sunglasses --
-        const glassesY = y + 5;
-        // Lenses
-        drawer.rect(x + 2, glassesY, 5, 3, this.cGlasses); // Left
-        drawer.rect(x + 9, glassesY, 5, 3, this.cGlasses); // Right
-        // Bridge
-        drawer.hLine(x + 7, glassesY + 1, 2, this.cGlassesRim);
-        // Frame/Arms
-        drawer.pixel(x + 1, glassesY + 1, this.cGlassesRim);
-        drawer.pixel(x + 14, glassesY + 1, this.cGlassesRim);
-        // Reflection
-        drawer.pixel(x + 3, glassesY, '#ffffff'); // Bright highlight
-        drawer.pixel(x + 10, glassesY, '#ffffff');
+        // Nose
+        drawer.pixel(cx, y + h - 5, this.cSkinShadow);
+        drawer.pixel(cx + 1, y + h - 5, this.cSkinShadow);
 
-        // -- Hair (Front/Top Layer) --
-        // Top Dome
-        drawer.fillQuadCurve(
-            x - 1, y + 4,
-            cx, y - 4,
-            x + w + 1, y + 4,
-            this.cHair
-        );
-        // Bangs/Side Framing
-        drawer.fillPath([
-            {x: x - 1, y: y + 2},
-            {x: x + 2, y: y + 2},
-            {x: x + 1, y: y + 8}, // Left strand
-            {x: x - 2, y: y + 6}
-        ], this.cHair);
-        drawer.fillPath([
-            {x: x + w + 1, y: y + 2},
-            {x: x + w - 2, y: y + 2},
-            {x: x + w - 1, y: y + 8}, // Right strand
-            {x: x + w + 2, y: y + 6}
-        ], this.cHair);
-        
-        // Hair Highlight
-        drawer.hLine(cx - 3, y, 6, this.cHairHighlight);
+        // Mouth
+        drawer.hLine(cx - 1, y + h - 2, 3, this.cSkinShadow);
+
+        // Eyes
+        const eyeY = y + 6;
+        const eyeColor = '#1a1a1a';
+        drawer.rect(cx - 5, eyeY, 2, 2, eyeColor);
+        drawer.pixel(cx - 4, eyeY, '#ffffff');
+        drawer.rect(cx + 3, eyeY, 2, 2, eyeColor);
+        drawer.pixel(cx + 4, eyeY, '#ffffff');
+
+        // Eyebrows
+        const browY = eyeY - 2;
+        drawer.hLine(cx - 5, browY, 3, '#2c1a0e');
+        drawer.hLine(cx + 3, browY, 3, '#2c1a0e');
     }
 
     /**
-     * Draw the Body (Trench Coat)
+     * Draw Body Base - just the shirt strip (under clothes)
      */
-    drawBody(drawer, cx, cy, coatWave = 0) {
-        // Torso Box
-        const w = 10;
-        const h = 7; 
-        const x = cx - w/2;
-        const y = cy - h + 2; 
+    drawBodyBase(drawer, cx, bodyY, colors) {
+        const h = 7;
+        const y = bodyY - h + 2;
+        drawer.rect(cx - 2, y, 4, h, colors.shirt);
+    }
 
-        // Shirt (Visible in middle)
-        drawer.rect(cx - 2, y, 4, h, this.cShirt);
-
-        // Trench Coat (Upper)
-        // Left Panel
+    /**
+     * Draw bare body (no clothes equipped) - wider torso with skin
+     */
+    drawBareBody(drawer, cx, bodyY) {
+        const h = 7;
+        const y = bodyY - h + 2;
+        // Wider torso
         drawer.fillPath([
-            {x: x, y: y},
-            {x: x + 3, y: y},
-            {x: x + 3, y: y + h},
-            {x: x - 1, y: y + h},
-            {x: x - 2, y: y + 2} // Shoulder
-        ], this.cCoat);
-        
-        // Right Panel
-        drawer.fillPath([
-            {x: x + w, y: y},
-            {x: x + w - 3, y: y},
-            {x: x + w - 3, y: y + h},
-            {x: x + w + 1, y: y + h},
-            {x: x + w + 2, y: y + 2} // Shoulder
-        ], this.cCoat);
-
-        // Coat Collar (Pop up)
-        drawer.fillPath([
-            {x: x - 1, y: y + 2},
-            {x: x + 2, y: y + 4},
-            {x: x, y: y}
-        ], this.cCoatLight);
-        drawer.fillPath([
-            {x: x + w + 1, y: y + 2},
-            {x: x + w - 2, y: y + 4},
-            {x: x + w, y: y}
-        ], this.cCoatLight);
-
-        // Coat Tails (Long, covering sides of legs)
-        // Dynamic sway: 
-        // We want the tails to swing opposite to movement or just wave in the wind.
-        // Assuming character moves Left (-X), air drag pushes coat Right (+X).
-        // Let's use coatWave (0..1) to drive a sine wave.
-        // If coatWave is based on run cycle (0..1), we can map it to swing.
-        
-        // Swing Amplitude: +/- 2 pixels
-        // Use Sin(coatWave * 2PI)
-        
-        const swing = Math.sin(coatWave * Math.PI * 2) * 2;
-        // Also flare out a bit?
-        const flare = Math.abs(swing) * 0.5;
-
-        const tailY = y + h;
-        const tailH = 6;
-        
-        // Left Tail (Back/Left side)
-        // Base X points: x-3, x+2. 
-        // Add swing to bottom X points.
-        // MODIFIED: Shift inner point from x+2 to x+1 to expose more leg
-        drawer.fillPath([
-            {x: x - 1, y: tailY}, // Top Left
-            {x: x + 2, y: tailY}, // Top Right (Join) -> Reduced overlap
-            {x: x + 1 + swing + flare, y: tailY + tailH}, // Bottom Right -> Opened up
-            {x: x - 3 + swing - flare, y: tailY + tailH}  // Bottom Left
-        ], this.cCoat);
-
-        // Right Tail (Front/Right side)
-        // Base X points: x+w-2, x+w+3.
-        // Add swing to bottom X points.
-        // MODIFIED: Shift inner point from x+w-2 to x+w-1 to expose more leg
-        drawer.fillPath([
-            {x: x + w + 1, y: tailY}, // Top Right
-            {x: x + w - 2, y: tailY}, // Top Left (Join) -> Reduced overlap
-            {x: x + w - 1 + swing - flare, y: tailY + tailH}, // Bottom Left -> Opened up
-            {x: x + w + 3 + swing + flare, y: tailY + tailH}  // Bottom Right
-        ], this.cCoat);
+            { x: cx - 5, y: y },
+            { x: cx + 5, y: y },
+            { x: cx + 6, y: y + 3 },
+            { x: cx + 5, y: y + h },
+            { x: cx - 5, y: y + h },
+            { x: cx - 6, y: y + 3 }
+        ], this.cSkin);
+        // Shadow for depth
+        drawer.rect(cx - 4, y + 1, 2, h - 2, this.cSkinShadow);
+        drawer.rect(cx + 2, y + 1, 2, h - 2, this.cSkinShadow);
+        // Neckline
+        drawer.hLine(cx - 2, y, 4, this.cSkinShadow);
     }
 
     /**
      * Draw Legs with dynamic poses
-     * @param {Object|string} pose - {left: string, right: string} or 'idle'
+     * @param {string|Object} pose - leg pose or { left, right }
+     * @param {Object} colors - { pants, boots } from clothes
      */
-    drawLegs(drawer, cx, cy, pose) {
+    drawLegs(drawer, cx, cy, pose, colors) {
         let leftPose = 'idle';
         let rightPose = 'idle';
 
@@ -242,90 +190,64 @@ export class PlayerGenerator {
             rightPose = pose.right || 'idle';
         }
 
-        // Left Leg (Back Layer) - x-4
-        this.drawOneLeg(drawer, cx - 4, cy, leftPose, true);
-
-        // Right Leg (Front Layer) - x+1
-        this.drawOneLeg(drawer, cx + 1, cy, rightPose, false);
+        // Left Leg (Back Layer)
+        this.drawOneLeg(drawer, cx - 4, cy, leftPose, true, colors.pants, colors.boots);
+        // Right Leg (Front Layer)
+        this.drawOneLeg(drawer, cx + 1, cy, rightPose, false, colors.pants, colors.boots);
     }
 
     /**
      * Draw a single leg based on pose
      */
-    drawOneLeg(drawer, x, y, pose, isBack) {
+    drawOneLeg(drawer, x, y, pose, isBack, pantsColor, bootsColor) {
         const legW = 3;
         const legH = 4;
-        const P = this.cPants;
-        const B = this.cBoots;
-
-        // Base Top (Thigh) - always at x, y-legH
-        // But running moves the feet.
-        // Actually, let's treat (x,y) as the Hip pivot point approx.
-        // cy passed in is 29 (bottom of feet in idle).
-        // So Hip Y is approx 29 - 4 = 25.
-        
-        const hipY = y - legH; 
+        const P = pantsColor;
+        const B = bootsColor;
+        const hipY = y - legH;
 
         if (pose === 'idle' || pose === 'stand') {
             drawer.rect(x, hipY, legW, legH, P);
             drawer.rect(x, hipY + legH - 1, legW, 2, B);
         }
-        else if (pose === 'fwd1') { // Slight Forward
-            // Hip
+        else if (pose === 'fwd1') {
             drawer.rect(x, hipY, legW, 2, P);
-            // Shin (Diagonal Fwd)
             drawer.pixel(x - 1, hipY + 2, P);
             drawer.pixel(x, hipY + 2, P);
             drawer.pixel(x - 1, hipY + 3, P);
-            // Boot
             drawer.rect(x - 2, hipY + 3, legW, 2, B);
         }
-        else if (pose === 'fwd2') { // Full Forward (Contact)
-            // Hip
+        else if (pose === 'fwd2') {
             drawer.rect(x, hipY, legW, 2, P);
-            // Shin (More Diagonal)
             drawer.pixel(x - 1, hipY + 1, P);
             drawer.pixel(x - 2, hipY + 2, P);
             drawer.pixel(x - 1, hipY + 2, P);
-            // Boot
             drawer.rect(x - 3, hipY + 3, legW, 2, B);
         }
-        else if (pose === 'back1') { // Slight Back
-            // Hip
+        else if (pose === 'back1') {
             drawer.rect(x, hipY, legW, 2, P);
-            // Shin
             drawer.pixel(x + 1, hipY + 2, P);
             drawer.pixel(x + 2, hipY + 2, P);
-            // Boot
             drawer.rect(x + 1, hipY + 3, legW, 2, B);
         }
-        else if (pose === 'back2') { // Full Back (Push)
-            // Hip
+        else if (pose === 'back2') {
             drawer.rect(x, hipY, legW, 2, P);
-            // Shin
             drawer.pixel(x + 1, hipY + 1, P);
             drawer.pixel(x + 2, hipY + 2, P);
             drawer.pixel(x + 3, hipY + 2, P);
-            // Boot
             drawer.rect(x + 2, hipY + 3, legW, 2, B);
         }
-        else if (pose === 'knee') { // Knee Up (Pass)
-            // Thigh (Horizontal-ish)
+        else if (pose === 'knee') {
             drawer.rect(x, hipY, legW, 2, P);
-            drawer.pixel(x - 1, hipY + 1, P); // Knee bulge
-            // Shin (Vertical down from knee)
+            drawer.pixel(x - 1, hipY + 1, P);
             drawer.pixel(x - 1, hipY + 2, P);
             drawer.pixel(x, hipY + 2, P);
-            // Boot (High)
             drawer.rect(x - 1, hipY + 2, legW, 2, B);
         }
-        else if (pose === 'tuck') { // Tucked Back (Air)
-            // Thigh
+        else if (pose === 'tuck') {
             drawer.rect(x, hipY, legW, 2, P);
-            // Shin (Back)
             drawer.pixel(x + 2, hipY + 1, P);
             drawer.pixel(x + 3, hipY + 2, P);
-            // Boot (High Back)
             drawer.rect(x + 2, hipY + 1, legW, 2, B);
         }
     }
