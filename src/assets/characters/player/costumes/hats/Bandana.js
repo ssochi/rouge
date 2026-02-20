@@ -6,6 +6,7 @@ export const BANDANA_HAT = {
     id: 'hat_bandana',
     name: '头巾',
     slot: 'hat',
+    coversHair: false,
     colors: {
         hat: '#1a5276',
         hatLight: '#2980b9',

@@ -94,6 +94,10 @@ export class UIManager {
         this.costumePanel = this._createCostumePanel();
         bodyRow.appendChild(this.costumePanel);
 
+        // -- Character Preview (Center) --
+        this.characterPreview = this._createCharacterPreview();
+        bodyRow.appendChild(this.characterPreview);
+
         // -- Inventory Content (Right) --
         const inventoryContent = document.createElement('div');
         inventoryContent.className = 'inventory-content';
@@ -213,17 +217,48 @@ export class UIManager {
     _handleCostumeSlotClick(slot) {
         if (!this.costumeSystem || !this.player || !this.lastInventorySystem) return;
 
-        const currentPieceId = this.player.costume[slot];
-        if (!currentPieceId) return; // Nothing to unequip
+        if (this.cursorItem) {
+            // Has cursorItem → try to equip into this slot
+            const def = this.cursorItem.def;
+            if (!def || def.type !== 'costume' || def.data?.costumeSlot !== slot) return; // Type mismatch
 
-        // Unequip and add to backpack directly
-        this.costumeSystem.unequipCostume(this.player, slot);
-        this.lastInventorySystem.add('costume:' + currentPieceId, 1);
+            const newPieceId = def.data.costumePieceId;
+            const oldPieceId = this.player.costume[slot];
+
+            // Equip new piece
+            this.costumeSystem.equipCostume(this.player, slot, newPieceId);
+            this.cursorItem = null;
+
+            // Old piece goes to cursorItem (swap)
+            if (oldPieceId) {
+                const oldItemId = 'costume:' + oldPieceId;
+                this.cursorItem = {
+                    itemId: oldItemId,
+                    count: 1,
+                    instanceData: null,
+                    def: this.lastInventorySystem.getItemDef(oldItemId)
+                };
+            }
+        } else {
+            // No cursorItem → pick up from slot (unequip)
+            const currentPieceId = this.player.costume[slot];
+            if (!currentPieceId) return; // Empty slot
+
+            this.costumeSystem.unequipCostume(this.player, slot);
+            const itemId = 'costume:' + currentPieceId;
+            this.cursorItem = {
+                itemId: itemId,
+                count: 1,
+                instanceData: null,
+                def: this.lastInventorySystem.getItemDef(itemId)
+            };
+        }
 
         this._onCostumeChanged();
         this.updateInventory(this.lastInventorySystem);
         this.updateHotbar(this.lastInventorySystem);
         this.updateCostumeSlots();
+        this.updateInventoryUIState();
     }
 
     /**
@@ -275,9 +310,68 @@ export class UIManager {
         this.tooltip.innerHTML = `
             <div class="tooltip-title">${slotName}</div>
             <div class="tooltip-desc">${pieceName}</div>
-            <div class="tooltip-hint">点击卸下</div>
+            <div class="tooltip-hint">${pieceId ? '点击拾取' : '拖拽装备到此处'}</div>
         `;
         this.tooltip.style.display = 'block';
+    }
+
+    _createCharacterPreview() {
+        const container = document.createElement('div');
+        container.className = 'character-preview';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        container.appendChild(canvas);
+
+        this.previewCanvas = canvas;
+        this.previewCtx = canvas.getContext('2d');
+        this.previewFrames = null;
+        this.previewFrameIndex = 0;
+        this.previewAnimId = null;
+        this.previewLastFrameTime = 0;
+
+        return container;
+    }
+
+    _updateCharacterPreview() {
+        if (!this.costumeSystem || !this.player) return;
+        this.previewFrames = this.costumeSystem.getPlayerFrames(this.player.costume).idle;
+        this.previewFrameIndex = 0;
+        this._drawPreviewFrame();
+    }
+
+    _drawPreviewFrame() {
+        if (!this.previewFrames || !this.previewCtx) return;
+        const ctx = this.previewCtx;
+        ctx.clearRect(0, 0, 128, 128);
+        ctx.imageSmoothingEnabled = false;
+        const frame = this.previewFrames[this.previewFrameIndex % this.previewFrames.length];
+        if (frame) {
+            // Draw 32x32 sprite scaled 4x to 128x128
+            ctx.drawImage(frame, 0, 0, 128, 128);
+        }
+    }
+
+    _startPreviewAnimation() {
+        this._updateCharacterPreview();
+        this.previewLastFrameTime = performance.now();
+        const animate = (now) => {
+            if (now - this.previewLastFrameTime >= 100) {
+                this.previewFrameIndex++;
+                this._drawPreviewFrame();
+                this.previewLastFrameTime = now;
+            }
+            this.previewAnimId = requestAnimationFrame(animate);
+        };
+        this.previewAnimId = requestAnimationFrame(animate);
+    }
+
+    _stopPreviewAnimation() {
+        if (this.previewAnimId) {
+            cancelAnimationFrame(this.previewAnimId);
+            this.previewAnimId = null;
+        }
     }
 
     _onCostumeChanged() {
@@ -285,6 +379,8 @@ export class UIManager {
         if (this.player) {
             this._updateAvatar();
         }
+        // Update character preview
+        this._updateCharacterPreview();
         if (this.onCostumeChanged) this.onCostumeChanged();
     }
 
@@ -313,6 +409,12 @@ export class UIManager {
             'glasses_round': 'costume_glasses_round',
             'glasses_goggles': 'costume_glasses_goggles',
             'beard_full': 'costume_beard_full',
+            'hat_santa': 'costume_hat_santa',
+            'clothes_santa': 'costume_clothes_santa',
+            'beard_santa': 'costume_beard_santa',
+            'hat_clown': 'costume_hat_clown',
+            'clothes_clown': 'costume_clothes_clown',
+            'hair_clown': 'costume_hair_clown',
         };
 
         for (const [slot, el] of Object.entries(this.costumeSlotElements)) {
@@ -379,7 +481,7 @@ export class UIManager {
         if (!def) return;
         
         const hint = def.type === 'costume'
-            ? 'L-Click: Move | R-Click: Equip'
+            ? '拖拽到槽位装备'
             : 'L-Click: Move | R-Click: Split';
         this.tooltip.innerHTML = `
             <div class="tooltip-title">${def.name}</div>
@@ -398,11 +500,13 @@ export class UIManager {
     toggleInventory(visible) {
         if (visible) {
             this.inventoryOverlay.classList.remove('hidden');
+            this._startPreviewAnimation();
         } else {
             this.inventoryOverlay.classList.add('hidden');
+            this._stopPreviewAnimation();
             // If we have cursor item when closing, try to return it?
-            // For now, just keep it in "cursor" state hidden, 
-            // or we could force drop. 
+            // For now, just keep it in "cursor" state hidden,
+            // or we could force drop.
             // Ideally, we should cancel the cursor item.
             if (this.cursorItem && this.onInventorySlotClick) {
                 // We don't have an easy way to "return to source".
@@ -415,10 +519,7 @@ export class UIManager {
     handleInventoryClick(index, inventorySystem, isRight = false, isShift = false) {
         const slot = inventorySystem.slots[index];
 
-        // Right-click costume item → equip directly
-        if (isRight && !isShift && !this.cursorItem && slot.itemId) {
-            if (this._equipCostumeFromInventory(index, inventorySystem)) return;
-        }
+        // (Costume items are equipped via drag-and-drop to costume slots)
 
         if (isShift) {
             // Quick Transfer Logic

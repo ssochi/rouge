@@ -38,7 +38,7 @@ export function generateAvatar(costumeState) {
 
     // -- Shoulders/Collar (Bottom) --
     if (costume.clothes && costume.clothes.drawAvatar) {
-        costume.clothes.drawAvatar(drawer, cx, costume.clothes.colors);
+        costume.clothes.drawAvatar(drawer, hx, hy, headW, headH, costume.clothes.colors);
     } else if (!costume.clothes) {
         // Bare shoulders (no clothes)
         drawer.fillPath([
@@ -65,8 +65,9 @@ export function generateAvatar(costumeState) {
         costume.hairstyle.drawAvatarBack(drawer, hx, hy, headW, headH, costume.hairstyle.colors);
     }
 
-    // -- Bare head dome (no hair) --
-    if (!costume.hairstyle) {
+    // -- Bare head dome (no hair and no covering hat) --
+    const hatCoversHair = costume.hat && costume.hat.coversHair;
+    if (!costume.hairstyle && !hatCoversHair) {
         drawer.fillQuadCurve(hx - 1, hy + 6, cx, hy - 4, hx + headW + 1, hy + 6, cSkin);
         drawer.rect(hx, hy + 3, headW, 4, cSkin);
     }
@@ -92,8 +93,8 @@ export function generateAvatar(costumeState) {
         costume.glasses.drawAvatar(drawer, hx, hy, headW, headH, costume.glasses.colors);
     }
 
-    // -- Hair Front --
-    if (costume.hairstyle && costume.hairstyle.drawAvatarFront) {
+    // -- Hair Front — skip only when hat covers hair --
+    if (costume.hairstyle && costume.hairstyle.drawAvatarFront && !hatCoversHair) {
         costume.hairstyle.drawAvatarFront(drawer, hx, hy, headW, headH, costume.hairstyle.colors);
     }
 

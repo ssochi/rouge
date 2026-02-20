@@ -100,7 +100,9 @@ import {
     generateCoatIcon, generateHoodieIcon, generateVestIcon,
     generateSunglassesIcon, generateRoundGlassesIcon, generateGogglesIcon,
     generateNoGlassesIcon,
-    generateBeardFullIcon
+    generateBeardFullIcon,
+    generateSantaHatIcon, generateSantaSuitIcon, generateSantaBeardIcon,
+    generateClownHatIcon, generateClownSuitIcon, generateClownHairIcon
 } from '../assets/characters/player/costumes/CostumeIcons.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
@@ -344,7 +346,9 @@ export const Assets = {
         sofa: sofaSprite,
         sofa_flash: PixelDraw.createSilhouette(sofaSprite),
         bookshelf: bookshelfSprite,
-        bookshelf_flash: PixelDraw.createSilhouette(bookshelfSprite),
+        bookshelf_flash: Array.isArray(bookshelfSprite)
+            ? bookshelfSprite.map(s => PixelDraw.createSilhouette(s))
+            : PixelDraw.createSilhouette(bookshelfSprite),
         tv_stand: tvStandSprite,
         tv_stand_flash: Array.isArray(tvStandSprite)
             ? tvStandSprite.map(s => PixelDraw.createSilhouette(s))
@@ -473,6 +477,12 @@ export const Assets = {
     costume_glasses_goggles: generateGogglesIcon(),
     costume_glasses_none: generateNoGlassesIcon(),
     costume_beard_full: generateBeardFullIcon(),
+    costume_hat_santa: generateSantaHatIcon(),
+    costume_clothes_santa: generateSantaSuitIcon(),
+    costume_beard_santa: generateSantaBeardIcon(),
+    costume_hat_clown: generateClownHatIcon(),
+    costume_clothes_clown: generateClownSuitIcon(),
+    costume_hair_clown: generateClownHairIcon(),
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),

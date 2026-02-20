@@ -10,8 +10,14 @@ import { BERET_HAT } from './hats/Beret.js';
 import { BANDANA_HAT } from './hats/Bandana.js';
 import { HOODIE_CLOTHES } from './clothes/Hoodie.js';
 import { VEST_CLOTHES } from './clothes/Vest.js';
+import { SANTA_SUIT } from './clothes/SantaSuit.js';
 import { ROUND_GLASSES } from './glasses/RoundGlasses.js';
 import { GOGGLES } from './glasses/Goggles.js';
+import { SANTA_HAT } from './hats/SantaHat.js';
+import { CLOWN_HAT } from './hats/ClownHat.js';
+import { SANTA_BEARD } from './beards/SantaBeard.js';
+import { CLOWN_SUIT } from './clothes/ClownSuit.js';
+import { CLOWN_HAIR } from './hairstyles/ClownHair.js';
 
 // ============================================================
 // Costume Pieces Registry
@@ -21,15 +27,20 @@ export const COSTUME_PIECES = {
         'hair_long': DEFAULT_HAIR,
         'hair_messy': MESSY_HAIR,
         'hair_short': SHORT_HAIR,
+        'hair_clown': CLOWN_HAIR,
     },
     hat: {
         'hat_beret': BERET_HAT,
         'hat_bandana': BANDANA_HAT,
+        'hat_santa': SANTA_HAT,
+        'hat_clown': CLOWN_HAT,
     },
     clothes: {
         'clothes_coat': DEFAULT_CLOTHES,
         'clothes_hoodie': HOODIE_CLOTHES,
         'clothes_vest': VEST_CLOTHES,
+        'clothes_santa': SANTA_SUIT,
+        'clothes_clown': CLOWN_SUIT,
     },
     glasses: {
         'glasses_sun': DEFAULT_GLASSES,
@@ -38,6 +49,7 @@ export const COSTUME_PIECES = {
     },
     beard: {
         'beard_full': DEFAULT_BEARD,
+        'beard_santa': SANTA_BEARD,
     },
 };
 

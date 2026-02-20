@@ -6,6 +6,7 @@ export const BERET_HAT = {
     id: 'hat_beret',
     name: '贝雷帽',
     slot: 'hat',
+    coversHair: true,
     colors: {
         hat: '#8b0000',
         hatLight: '#a52a2a',
@@ -17,54 +18,52 @@ export const BERET_HAT = {
         const x = cx - w / 2;
         const y = headY - h + 5;
 
-        // Beret body - Asymmetric flop to the right
+        // Base dome — cover hair top area (stop before eyes)
+        drawer.fillQuadCurve(x, y + 4, cx, y - 1, x + w, y + 4, colors.hat);
+
+        // Beret body — Asymmetric flop to the right
         drawer.fillPath([
-            { x: x, y: y + 2 },
-            { x: cx - 4, y: y - 2 },    // High left
-            { x: cx + 6, y: y - 1 },    // High right
-            { x: x + w + 2, y: y + 3 }, // Flop overhang
-            { x: x + w, y: y + 5 },
-            { x: x + 2, y: y + 4 }
+            { x: x - 1, y: y + 1 },
+            { x: cx - 4, y: y - 3 },
+            { x: cx + 6, y: y - 2 },
+            { x: x + w + 3, y: y + 2 },
+            { x: x + w + 1, y: y + 5 },
+            { x: x + 1, y: y + 4 }
         ], colors.hat);
 
         // Brim/Band
-        drawer.fillPath([
-            { x: x + 1, y: y + 3 },
-            { x: x + w - 2, y: y + 4 }, // Slight curve
-            { x: x + w - 2, y: y + 5 },
-            { x: x + 1, y: y + 4 }
-        ], colors.hatDark);
+        drawer.hLine(x, y + 4, w, colors.hatDark);
+        drawer.hLine(x + 1, y + 5, w - 2, colors.hatDark);
 
         // Pip/nub on top
-        drawer.pixel(cx, y - 1, colors.hatLight);
-        
+        drawer.pixel(cx, y - 2, colors.hatLight);
+        drawer.pixel(cx + 1, y - 2, colors.hatLight);
+
         // Highlights for fold
-        drawer.pixel(cx + 4, y + 1, colors.hatLight);
-        drawer.pixel(cx + 5, y + 2, colors.hatLight);
+        drawer.pixel(cx + 4, y, colors.hatLight);
+        drawer.pixel(cx + 5, y + 1, colors.hatLight);
     },
     drawAvatar(drawer, hx, hy, headW, headH, colors) {
         const cx = hx + headW / 2;
-        const cy = hy + 4;
-        
+        const cy = hy + 2;
+
+        // Base dome — cover hair top
+        drawer.fillQuadCurve(hx - 2, cy + 7, cx, cy - 2, hx + headW + 2, cy + 7, colors.hat);
+
         // Large floppy shape
         drawer.fillPath([
-            { x: hx - 4, y: cy + 4 },
-            { x: cx - 6, y: cy - 6 },
-            { x: cx + 8, y: cy - 4 },
-            { x: hx + headW + 6, y: cy + 6 }, // Flop
-            { x: hx + headW, y: cy + 8 },
-            { x: hx, y: cy + 6 }
+            { x: hx - 4, y: cy + 3 },
+            { x: cx - 6, y: cy - 7 },
+            { x: cx + 8, y: cy - 5 },
+            { x: hx + headW + 7, y: cy + 5 },
+            { x: hx + headW + 1, y: cy + 8 },
+            { x: hx - 1, y: cy + 6 }
         ], colors.hat);
 
         // Band
-        drawer.fillPath([
-            { x: hx - 1, y: cy + 5 },
-            { x: hx + headW + 1, y: cy + 6 },
-            { x: hx + headW + 1, y: cy + 9 },
-            { x: hx - 1, y: cy + 8 }
-        ], colors.hatDark);
+        drawer.rect(hx - 1, cy + 6, headW + 2, 2, colors.hatDark);
 
         // Pip
-        drawer.rect(cx - 1, cy - 5, 3, 2, colors.hatLight);
+        drawer.rect(cx - 1, cy - 6, 3, 2, colors.hatLight);
     }
 };

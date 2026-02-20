@@ -13,88 +13,101 @@ export function createToiletSprite() {
         cShadow, cShadowDeep
     } = BathroomPalette;
 
-    // === 2.5D top-down toilet, tank at top (far), bowl at bottom (near) ===
+    // --- 🎨 增加的专属细节颜色 ---
+    const cSeat = '#ffffff';           // 座圈的纯白色 (比陶瓷亮)
+    const cSeatShadow = '#e2e8f0';     // 座圈阴影
+    
+    const cWaterLight = '#60a5fa';     // 浅色水面
+    const cWater = '#3b82f6';          // 水体主体
+    const cWaterDark = '#1e3a8a';      // 深水区
 
-    // 1. Base pedestal (ground-level shadow)
-    drawer.fillPath([
-        { x: 4, y: 20 }, { x: 12, y: 20 },
-        { x: 11, y: 23 }, { x: 5, y: 23 }
-    ], cPorcelainDark);
-    drawer.hLine(5, 23, 6, cPorcelainOutline);
+    // === 绘制顺序：从下到上，从后到前 (Back-to-Front) ===
 
-    // 2. Bowl body (rounded front, wider than tank)
-    drawer.fillPath([
-        { x: 2, y: 10 }, { x: 14, y: 10 },
-        { x: 15, y: 13 }, { x: 15, y: 18 },
-        { x: 13, y: 20 }, { x: 3, y: 20 },
-        { x: 1, y: 18 }, { x: 1, y: 13 }
-    ], cPorcelain);
+    // 1. 地面投影 (Floor Drop Shadow)
+    drawer.hLine(4, 22, 8, cShadowDeep);
+    drawer.rect(5, 23, 6, 1, cShadowDeep);
+    // 右侧环境阴影扩散
+    drawer.rect(12, 22, 2, 1, cShadow);
 
-    // Bowl inner shadow (depth illusion)
-    drawer.fillPath([
-        { x: 4, y: 12 }, { x: 12, y: 12 },
-        { x: 13, y: 14 }, { x: 13, y: 17 },
-        { x: 11, y: 19 }, { x: 5, y: 19 },
-        { x: 3, y: 17 }, { x: 3, y: 14 }
-    ], cPorcelainShadow);
+    // 2. 马桶底座/承重柱 (Pedestal)
+    drawer.rect(5, 19, 6, 4, cPorcelainDark);
+    drawer.hLine(6, 19, 4, cPorcelain);
+    drawer.hLine(6, 20, 4, cPorcelain);
+    // 底座光影
+    drawer.vLine(5, 19, 3, cPorcelainShadow); // 左侧暗部
+    drawer.vLine(10, 19, 3, cShadow);         // 右侧深阴影
 
-    // Inner bowl deeper center
-    drawer.fillPath([
-        { x: 5, y: 14 }, { x: 11, y: 14 },
-        { x: 11, y: 17 }, { x: 5, y: 17 }
-    ], cPorcelainDark);
+    // 3. 进水管与角阀 (Water Supply Line - 极微小的高级细节)
+    drawer.vLine(3, 19, 4, cChrome);
+    drawer.rect(4, 21, 1, 1, cChromeDark); // 替换 setPixel: 角阀旋钮
 
-    // 3. Seat rim (bright ring on top of bowl)
-    drawer.fillPath([
-        { x: 2, y: 10 }, { x: 14, y: 10 },
-        { x: 15, y: 12 }, { x: 14, y: 12 },
-        { x: 13, y: 11 }, { x: 3, y: 11 },
-        { x: 2, y: 12 }, { x: 1, y: 12 }
-    ], cPorcelainLight);
-    // Seat rim side edges
-    drawer.vLine(1, 12, 6, cPorcelainShadow);
-    drawer.vLine(15, 12, 6, cPorcelainOutline);
+    // 4. 水箱主体 (Tank Body - 后方)
+    const tankX = 3;
+    const tankY = 4;
+    drawer.rect(tankX, tankY, 10, 7, cPorcelain);
+    drawer.vLine(tankX, tankY, 7, cPorcelainLight);   // 左侧受光面
+    drawer.vLine(12, tankY, 7, cPorcelainShadow);     // 右侧背光面
+    drawer.vLine(13, 5, 5, cShadow);                  // 右侧环境投射阴影
+    drawer.hLine(tankX, 10, 10, cPorcelainShadow);    // 水箱底部的交界阴影
 
-    // 4. Tank body (rectangular, behind bowl)
-    drawer.fillPath([
-        { x: 3, y: 1 }, { x: 13, y: 1 },
-        { x: 13, y: 10 }, { x: 3, y: 10 }
-    ], cPorcelain);
+    // 5. 水箱顶盖 (Tank Lid)
+    drawer.rect(2, 2, 12, 2, cPorcelain);
+    drawer.hLine(3, 1, 10, cPorcelainLight);          // 顶盖最亮的高光边
+    drawer.rect(2, 2, 1, 2, cPorcelainLight);         // 顶盖左侧边
+    drawer.rect(13, 2, 1, 2, cPorcelainShadow);       // 顶盖右侧边
+    drawer.hLine(2, 4, 12, cPorcelainShadow);         // 顶盖下方的悬浮阴影
 
-    // Tank front face detail
-    drawer.hLine(4, 10, 8, cPorcelainShadow);
+    // 水箱顶部的镀铬双按冲水键 (Dual-flush button)
+    drawer.rect(10, 1, 2, 1, cChrome);
+    drawer.rect(11, 1, 1, 1, cChromeDark); // 替换 setPixel: 按钮立体感
 
-    // 5. Tank top face (darker to show depth)
-    drawer.fillPath([
-        { x: 3, y: 0 }, { x: 13, y: 0 },
-        { x: 13, y: 2 }, { x: 3, y: 2 }
-    ], cPorcelainShadow);
-    drawer.hLine(4, 0, 8, cPorcelainLight);
+    // 6. 掀起的马桶盖 (Open Lid - 靠在水箱上，营造 3D 纵深感)
+    drawer.hLine(5, 5, 6, cPorcelainDark);
+    drawer.hLine(4, 6, 8, cPorcelainShadow);
+    drawer.rect(3, 7, 10, 4, cPorcelain);
+    // 盖板内圈的立体凹陷
+    drawer.rect(4, 7, 8, 3, cPorcelainLight);
+    // 水箱投射在盖板上的半透明阴影
+    drawer.hLine(4, 7, 8, 'rgba(0,0,0,0.1)');
 
-    // Flush button (chrome dot on tank top)
-    drawer.pixel(7, 1, cChrome);
-    drawer.pixel(8, 1, cChromeDark);
+    // 7. 马桶便盆外壁 (Bowl Exterior - 前方)
+    drawer.rect(2, 14, 12, 4, cPorcelain);
+    drawer.hLine(3, 13, 10, cPorcelain);
+    drawer.hLine(3, 18, 10, cPorcelain);
+    drawer.hLine(4, 19, 8, cPorcelainShadow); // 底部收口阴影
+    
+    // 便盆的光影塑造体积感
+    drawer.vLine(2, 14, 4, cPorcelainLight);      // 左侧弧面高光
+    drawer.rect(3, 18, 1, 1, cPorcelainLight);    // 替换 setPixel
+    drawer.vLine(13, 14, 4, cPorcelainShadow);    // 右侧弧面阴影
+    drawer.rect(12, 18, 1, 1, cPorcelainShadow);  // 替换 setPixel
+    drawer.vLine(14, 14, 4, cShadow);             // 右侧极深阴影边缘
 
-    // 6. Tank edge definition
-    drawer.vLine(3, 1, 9, cPorcelainLight);
-    drawer.vLine(13, 1, 9, cPorcelainOutline);
+    // 8. 便盆内部与积水 (Inside the Bowl & Water)
+    drawer.hLine(5, 13, 6, cPorcelainDark);       // 内壁后方深坑阴影
+    drawer.rect(4, 14, 8, 3, cPorcelainShadow);   // 内壁两侧与底部过渡
+    
+    // 注入灵魂的蓝色水体
+    drawer.hLine(5, 15, 6, cWaterLight);          // 水的透视远端
+    drawer.hLine(4, 16, 8, cWater);               // 水体主色调
+    drawer.hLine(5, 17, 6, cWaterDark);           // 水的透视近端 (深邃感)
+    // 水面波光反光 (纯白点)
+    drawer.rect(8, 16, 1, 1, cSeat);              // 替换 setPixel: 高亮闪光
+    drawer.rect(9, 16, 2, 1, 'rgba(255,255,255,0.4)'); // 柔和泛光
 
-    // 7. Right-side shadow overlays
-    // Tank shadow
-    drawer.fillPath([
-        { x: 11, y: 2 }, { x: 13, y: 2 },
-        { x: 13, y: 10 }, { x: 11, y: 10 }
-    ], cShadow);
-    // Bowl shadow
-    drawer.fillPath([
-        { x: 13, y: 12 }, { x: 15, y: 12 },
-        { x: 15, y: 18 }, { x: 13, y: 18 }
-    ], cShadow);
-
-    // 8. Top-left highlights
-    drawer.hLine(4, 1, 6, cPorcelainLight);
-    drawer.pixel(2, 13, cPorcelainLight);
-    drawer.pixel(2, 14, cPorcelainLight);
+    // 9. 马桶座圈 (Seat Ring - 最上层，接触人体的部分)
+    // 使用纯白 (cSeat) 突出它的独立结构
+    drawer.hLine(5, 12, 6, cSeat);                // 座圈后段
+    drawer.hLine(4, 13, 2, cSeat);                // 左后弯角
+    drawer.hLine(10, 13, 2, cSeat);               // 右后弯角
+    drawer.vLine(3, 14, 4, cSeat);                // 左侧宽边
+    drawer.vLine(12, 14, 4, cSeatShadow);         // 右侧宽边 (背光偏灰)
+    drawer.hLine(4, 18, 8, cSeat);                // 座圈前段
+    
+    // 座圈外侧边缘厚度 (3D 倒角)
+    drawer.hLine(5, 19, 6, cSeatShadow);          // 前侧厚度
+    drawer.rect(4, 18, 1, 1, cSeatShadow);        // 替换 setPixel: 左前过渡
+    drawer.rect(11, 18, 1, 1, cSeatShadow);       // 替换 setPixel: 右前过渡
 
     return drawer.getCanvas();
 }

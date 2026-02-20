@@ -418,6 +418,38 @@ export class InventorySystem {
             icon: 'costume_beard_full', maxStack: 1,
             data: { costumeSlot: 'beard', costumePieceId: 'beard_full' }
         });
+        // Santa Series
+        this.registerItem({
+            id: 'costume:hat_santa', type: 'costume', name: '圣诞帽',
+            icon: 'costume_hat_santa', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_santa' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_santa', type: 'costume', name: '圣诞服',
+            icon: 'costume_clothes_santa', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_santa' }
+        });
+        this.registerItem({
+            id: 'costume:beard_santa', type: 'costume', name: '圣诞白胡子',
+            icon: 'costume_beard_santa', maxStack: 1,
+            data: { costumeSlot: 'beard', costumePieceId: 'beard_santa' }
+        });
+        // Clown Series
+        this.registerItem({
+            id: 'costume:hat_clown', type: 'costume', name: '小丑帽',
+            icon: 'costume_hat_clown', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_clown' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_clown', type: 'costume', name: '小丑服',
+            icon: 'costume_clothes_clown', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_clown' }
+        });
+        this.registerItem({
+            id: 'costume:hair_clown', type: 'costume', name: '小丑假发',
+            icon: 'costume_hair_clown', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_clown' }
+        });
 
         // 3. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel

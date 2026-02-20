@@ -73,8 +73,9 @@ export class PlayerGenerator {
             costume.hairstyle.drawBack(drawer, px, headY, pose.hairWave || 0, costume.hairstyle.colors);
         }
 
-        // 4. Face + bare head dome when no hair
-        this.drawFace(drawer, px, headY, !costume.hairstyle);
+        // 4. Face + bare head dome when no hair and no covering hat
+        const hatCoversHair = costume.hat && costume.hat.coversHair;
+        this.drawFace(drawer, px, headY, !costume.hairstyle && !hatCoversHair);
 
         // 5. Beard (optional)
         if (costume.beard) {
@@ -86,8 +87,8 @@ export class PlayerGenerator {
             costume.glasses.draw(drawer, px, headY, costume.glasses.colors);
         }
 
-        // 7. Hair front layer
-        if (costume.hairstyle) {
+        // 7. Hair front layer — skip only when hat covers hair (e.g. beret, santa hat)
+        if (costume.hairstyle && !hatCoversHair) {
             costume.hairstyle.drawFront(drawer, px, headY, pose.hairWave || 0, costume.hairstyle.colors);
         }
 

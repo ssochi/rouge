@@ -1,7 +1,7 @@
 import { WEAPONS } from '../assets/weapons/WeaponData.js';
 import { Assets } from '../graphics/Assets.js';
 import { Vehicle } from '../core/entities/Vehicle.js';
-import { BreakableObject } from '../core/entities/BreakableObject.js';
+
 import { getCostumePiecesBySlot } from '../assets/characters/player/costumes/CostumeData.js';
 
 const TABS = [
@@ -135,9 +135,16 @@ export class TestPanel {
         spawnBtn.className = 'spawn-btn';
         spawnBtn.textContent = 'SPAWN';
         spawnBtn.addEventListener('click', () => this._spawn());
+
+        this._addAllBtn = document.createElement('button');
+        this._addAllBtn.className = 'spawn-btn';
+        this._addAllBtn.textContent = 'ADD ALL';
+        this._addAllBtn.addEventListener('click', () => this._spawnAll());
+
         controls.appendChild(cLabel);
         controls.appendChild(this._countInput);
         controls.appendChild(spawnBtn);
+        controls.appendChild(this._addAllBtn);
         footer.appendChild(controls);
 
         // Message line
@@ -180,11 +187,13 @@ export class TestPanel {
         // Show/hide enemy weapon selector
         this._weaponSelectWrap.classList.toggle('visible', tabKey === 'enemies');
 
-        // Update spawn button text for costumes tab
-        const isCostume = tabKey === 'costumes';
-        this._spawnBtn.textContent = isCostume ? 'ADD' : 'SPAWN';
-        this._countInput.parentElement.querySelector('label').style.display = isCostume ? 'none' : '';
-        this._countInput.style.display = isCostume ? 'none' : '';
+        // Update spawn button text and controls per tab
+        const isAddTab = tabKey === 'costumes' || tabKey === 'objects';
+        const isInventoryTab = tabKey === 'weapons' || tabKey === 'items' || tabKey === 'objects' || tabKey === 'costumes';
+        this._spawnBtn.textContent = isAddTab ? 'ADD' : 'SPAWN';
+        this._countInput.parentElement.querySelector('label').style.display = isAddTab ? 'none' : '';
+        this._countInput.style.display = isAddTab ? 'none' : '';
+        this._addAllBtn.style.display = isInventoryTab ? '' : 'none';
 
         // Populate data
         this._listData = this._getTabData(tabKey);
@@ -419,19 +428,62 @@ export class TestPanel {
     }
 
     _spawnObject(itemId, count) {
-        const def = this.inventorySystem.getItemDef(itemId);
-        if (!def || !def.data) {
-            this._showMsg(`Unknown object: ${itemId}`);
+        const remaining = this.inventorySystem.add(itemId, count);
+        const added = count - remaining;
+        if (remaining > 0) {
+            this._showMsg(`Added ${added}/${count} (inventory full)`);
+        } else {
+            this._showMsg(`Added ${count}x ${this.inventorySystem.getItemDef(itemId)?.name || itemId}`);
+        }
+    }
+
+    _spawnAll() {
+        const data = this._listData;
+        if (!data.length) {
+            this._showMsg('No items to add');
             return;
         }
-        const breakableType = def.data.breakableType || itemId.replace('placeable:', '');
-        for (let i = 0; i < count; i++) {
-            const pos = this._getSpawnPosition(i, count);
-            const obj = new BreakableObject(pos.x, pos.y, breakableType);
-            this.worldSystem.breakableObjects.push(obj);
+
+        let added = 0;
+        let full = false;
+        for (const entry of data) {
+            let itemId;
+            switch (this._activeTab) {
+                case 'costumes':
+                    itemId = 'costume:' + entry.subId;
+                    break;
+                case 'objects':
+                case 'items':
+                    itemId = entry.subId;
+                    break;
+                case 'weapons': {
+                    // Find inventory item id for this weapon
+                    for (const [id, def] of this.inventorySystem.items) {
+                        if (def.type === 'weapon' && def.data && def.data.weaponConfigId === entry.subId) {
+                            itemId = id;
+                            break;
+                        }
+                    }
+                    break;
+                }
+                default:
+                    continue;
+            }
+            if (!itemId) continue;
+            const remaining = this.inventorySystem.add(itemId, 1);
+            if (remaining === 0) {
+                added++;
+            } else {
+                full = true;
+                break;
+            }
         }
-        this.worldSystem.markWorldStaticDirty();
-        this._showMsg(`Spawned ${count}x ${def.name}`);
+
+        if (full) {
+            this._showMsg(`Added ${added}/${data.length} (inventory full)`);
+        } else {
+            this._showMsg(`Added all ${added} items`);
+        }
     }
 
     _getSpawnPosition(index, total) {

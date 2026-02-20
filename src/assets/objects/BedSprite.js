@@ -1,457 +1,283 @@
 import { PixelDraw } from '../../utils/PixelDraw.js';
 
+// ==========================================
+// 1. 垂直方向的床 (竖向, 床头在上, 床尾在下)
+// Canvas: 32x48
+// ==========================================
 export function createBedSprite() {
-    // Vertical bed: head at top, foot at bottom. Canvas: 32x48
     const drawer = new PixelDraw(32, 48);
 
-    const cWood = '#5d4037';
-    const cWoodDark = '#3e2723';
-    const cWoodHighlight = '#a1887f';
-    const cWoodGrain = '#8d6e63';
-    const cSheet = '#ecf0f1';
-    const cSheetShadow = '#cfd8dc';
-    const cSheetDark = '#b0bec5';
-    const cBlanket = '#2980b9';
-    const cBlanketDark = '#1f6f9f';
-    const cBlanketLight = '#5dade2';
-    const cBlanketHighlight = '#85c1e9';
-    const cPillow = '#f5f5f5';
-    const cPillowShadow = '#d5dbdb';
-    const cPillowHighlight = '#ffffff';
-    const cShadow = 'rgba(0,0,0,0.12)';
+    // 🎨 巅峰级室内软装调色板
+    const cWoodTop = '#8c5a35';      // 木板顶部受光 (体现35度视角)
+    const cWood = '#704424';         // 胡桃木主色
+    const cWoodDark = '#4a2a14';     // 木头阴影
+    const cWoodHigh = '#aa7648';     // 木头高光
+
+    // 地毯已被移除
+    
+    const cBlanket = '#2471a3';      // 皇家蓝主被子
+    const cBlanketHigh = '#5dade2';  // 被子高光
+    const cBlanketDark = '#1a5276';  // 被子暗部/褶皱
+    
+    const cThrow = '#b03a2e';        // 铁锈红搭毯 (冷暖撞色)
+    const cThrowDark = '#7b241c';    // 搭毯阴影
+    const cThrowHigh = '#e74c3c';    // 搭毯高光
+
+    const cPillow = '#fdfefe';       // 纯白枕头
+    const cPillowDark = '#d5dbdb';   // 枕头暗部
+    // const cAccent = '#f1c40f';    // 芥末黄腰枕 (已移除)
+
+    const cShadow = 'rgba(0,0,0,0.15)';
+    const cShadowDeep = 'rgba(0,0,0,0.35)';
 
     const cx = 16;
-    const bedW = 26;
-    const L = cx - bedW / 2;  // 3
-    const R = cx + bedW / 2;  // 29
+    const bedW = 22; // 缩小一点床宽，露出地毯
+    const L = cx - bedW / 2;  // 5
+    const R = cx + bedW / 2;  // 27
 
-    // === 1. HEADBOARD (arched top) ===
-    const headTop = 0;
-    const headBot = 12;
-    // Arched silhouette
-    drawer.fillPath([
-        {x: L, y: headTop + 4},
-        {x: L + 2, y: headTop + 2},
-        {x: L + 5, y: headTop + 1},
-        {x: cx - 3, y: headTop},
-        {x: cx + 3, y: headTop},
-        {x: R - 5, y: headTop + 1},
-        {x: R - 2, y: headTop + 2},
-        {x: R, y: headTop + 4},
-        {x: R, y: headBot},
-        {x: L, y: headBot}
-    ], cWood);
-    // Top face thickness (2px band following curve)
-    drawer.fillPath([
-        {x: L, y: headTop + 4},
-        {x: L + 2, y: headTop + 2},
-        {x: L + 5, y: headTop + 1},
-        {x: cx - 3, y: headTop},
-        {x: cx + 3, y: headTop},
-        {x: R - 5, y: headTop + 1},
-        {x: R - 2, y: headTop + 2},
-        {x: R, y: headTop + 4},
-        {x: R, y: headTop + 6},
-        {x: R - 2, y: headTop + 4},
-        {x: R - 5, y: headTop + 3},
-        {x: cx + 3, y: headTop + 2},
-        {x: cx - 3, y: headTop + 2},
-        {x: L + 5, y: headTop + 3},
-        {x: L + 2, y: headTop + 4},
-        {x: L, y: headTop + 6}
-    ], cWoodDark);
-    // Arch top highlight
-    drawer.fillPath([
-        {x: L + 3, y: headTop + 2},
-        {x: L + 5, y: headTop + 1},
-        {x: cx - 3, y: headTop},
-        {x: cx + 3, y: headTop},
-        {x: R - 5, y: headTop + 1},
-        {x: R - 3, y: headTop + 2},
-        {x: R - 5, y: headTop + 2},
-        {x: cx + 2, y: headTop + 1},
-        {x: cx - 2, y: headTop + 1},
-        {x: L + 5, y: headTop + 2}
-    ], cWoodHighlight);
-    // Plank detail
-    drawer.vLine(cx - 4, headTop + 5, 5, cWoodGrain);
-    drawer.vLine(cx, headTop + 4, 6, cWoodGrain);
-    drawer.vLine(cx + 4, headTop + 5, 5, cWoodGrain);
-    // Side edges
-    drawer.vLine(R - 1, headTop + 4, headBot - headTop - 4, cWoodDark);
-    drawer.vLine(L, headTop + 4, headBot - headTop - 4, cWoodHighlight);
-    // Right shadow (headboard only)
-    drawer.fillPath([
-        {x: R - 3, y: headTop + 5}, {x: R - 1, y: headTop + 5},
-        {x: R - 1, y: headBot}, {x: R - 3, y: headBot}
-    ], cShadow);
+    // --- 0. 底部投影 (无地毯) ---
+    // 床在地板上的总投影
+    drawer.rect(L, 12, bedW + 2, 34, cShadowDeep);
 
-    // === 2. MATTRESS ===
-    const matTop = headBot;
-    const matBot = 39;
-    const matL = L + 1;
-    const matR = R - 1;
-    // Sheet/mattress body
-    drawer.fillPath([
-        {x: matL, y: matTop}, {x: matR, y: matTop},
-        {x: matR, y: matBot}, {x: matL, y: matBot}
-    ], cSheet);
-    // Right side subtle shadow
-    drawer.vLine(matR - 1, matTop, matBot - matTop, cSheetShadow);
+    // --- 1. 豪华床头板 (Luxury Headboard) ---
+    const hY = 2;
+    // 左右两根高耸的实木床柱 (Bedposts)
+    drawer.rect(L, hY, 3, 12, cWood);
+    drawer.rect(L + 1, hY - 1, 1, 1, cWoodTop); // 左圆柱顶端
+    drawer.rect(R - 3, hY, 3, 12, cWood);
+    drawer.rect(R - 2, hY - 1, 1, 1, cWoodTop); // 右圆柱顶端
+    
+    // 床头板主背板与内凹镶板 (Panels)
+    drawer.rect(L + 3, hY + 3, bedW - 6, 9, cWood);
+    drawer.rect(L + 4, hY + 4, bedW - 8, 7, cWoodDark); // 内凹边框
+    drawer.rect(L + 5, hY + 5, bedW - 10, 5, cWood);    // 内凹浮雕
+    // 背板顶部的高光倒角 (35度视觉核心)
+    drawer.hLine(L + 3, hY + 3, bedW - 6, cWoodTop);
+    drawer.hLine(L + 3, hY + 4, bedW - 6, cWoodHigh);
 
-    // === 3. TWO PILLOWS (small, close to headboard) ===
-    const pilY = matTop + 1;
-    const pilW = 8;
-    const pilH = 4;
-    const pilGap = 2;
-    const pilL1 = cx - pilW - pilGap / 2;
-    const pilL2 = cx + pilGap / 2;
+    // --- 2. 床垫与枕头组 (Mattress & Pillows) ---
+    const mY = 12;
+    // 调整颜色：床单改为浅灰色，增加对比度
+    drawer.rect(L + 2, mY, bedW - 4, 10, '#d5dbdb'); // 床单 (原 #f0f4f8)
+    drawer.vLine(L + 2, mY, 10, '#cfd8dc'); // 床垫左侧厚度
 
-    // Pillow cast shadows (below each pillow)
-    drawer.fillPath([
-        {x: pilL1 + 1, y: pilY + 1}, {x: pilL1 + pilW, y: pilY + 1},
-        {x: pilL1 + pilW, y: pilY + pilH + 1}, {x: pilL1 + 1, y: pilY + pilH + 1}
-    ], cSheetShadow);
-    drawer.fillPath([
-        {x: pilL2 + 1, y: pilY + 1}, {x: pilL2 + pilW, y: pilY + 1},
-        {x: pilL2 + pilW, y: pilY + pilH + 1}, {x: pilL2 + 1, y: pilY + pilH + 1}
-    ], cSheetShadow);
+    const drawPillow = (px, py) => {
+        drawer.rect(px, py + 1, 8, 5, cShadow); // 枕头投影
+        drawer.rect(px, py, 8, 5, cPillow);
+        drawer.rect(px, py, 1, 1, '#f0f4f8'); // 软化圆角
+        drawer.rect(px + 7, py, 1, 1, '#f0f4f8'); 
+        drawer.rect(px, py + 4, 1, 1, cPillowDark);
+        drawer.rect(px + 7, py + 4, 1, 1, cPillowDark);
+        drawer.hLine(px + 1, py + 4, 6, cPillowDark); // 底部厚度
+        drawer.hLine(px + 1, py + 2, 6, '#f8f9f9');   // 中间凹陷折痕
+    };
+    drawPillow(L + 3, mY + 1); // 左枕
+    drawPillow(cx + 1, mY + 1); // 右枕
 
-    // Left pillow (rounded corners)
-    drawer.fillPath([
-        {x: pilL1 + 1, y: pilY},
-        {x: pilL1 + pilW - 1, y: pilY},
-        {x: pilL1 + pilW, y: pilY + 1},
-        {x: pilL1 + pilW, y: pilY + pilH - 1},
-        {x: pilL1 + pilW - 1, y: pilY + pilH},
-        {x: pilL1 + 1, y: pilY + pilH},
-        {x: pilL1, y: pilY + pilH - 1},
-        {x: pilL1, y: pilY + 1}
-    ], cPillow);
-    drawer.hLine(pilL1 + 1, pilY, pilW - 2, cPillowHighlight);
-    drawer.hLine(pilL1 + 2, pilY + Math.floor(pilH / 2), pilW - 4, cPillowShadow);
+    // (芥末黄腰枕已移除)
 
-    // Right pillow
-    drawer.fillPath([
-        {x: pilL2 + 1, y: pilY},
-        {x: pilL2 + pilW - 1, y: pilY},
-        {x: pilL2 + pilW, y: pilY + 1},
-        {x: pilL2 + pilW, y: pilY + pilH - 1},
-        {x: pilL2 + pilW - 1, y: pilY + pilH},
-        {x: pilL2 + 1, y: pilY + pilH},
-        {x: pilL2, y: pilY + pilH - 1},
-        {x: pilL2, y: pilY + 1}
-    ], cPillow);
-    drawer.hLine(pilL2 + 1, pilY, pilW - 2, cPillowHighlight);
-    drawer.hLine(pilL2 + 2, pilY + Math.floor(pilH / 2), pilW - 4, cPillowShadow);
+    // --- 3. 皇家蓝绗缝被 (Quilted Blanket) ---
+    const bY = 21;
+    const bH = 17;
+    // 白色翻折内衬 - 调整为浅灰白以区分
+    drawer.rect(L + 1, bY, bedW - 2, 3, '#ecf0f1'); // 原 #f0f4f8
+    drawer.hLine(L + 1, bY + 2, bedW - 2, '#cfd8dc');
+    drawer.hLine(L + 1, bY + 3, bedW - 2, cShadow);
 
-    // === 4. BLANKET (organic draping) ===
-    const blkTop = pilY + pilH + 2;  // 2px gap shows sheet
-    const blkBot = matBot;
-    const blkL = L;
-    const blkR = R;
+    // 被子主体
+    drawer.rect(L, bY + 3, bedW, bH, cBlanket);
+    
+    // ✨ 精美的菱形绗缝纹理 (Diamond Quilted Grid)
+    for (let i = 0; i < 6; i++) {
+        drawer.line(L + 2, bY + 5 + i * 3, R - 2, bY + 11 + i * 3, 'rgba(255,255,255,0.15)');
+        drawer.line(L + 2, bY + 11 + i * 3, R - 2, bY + 5 + i * 3, 'rgba(255,255,255,0.15)');
+    }
 
-    // Main blanket body (overhangs mattress by 1px each side)
-    drawer.fillPath([
-        {x: blkL, y: blkTop}, {x: blkR, y: blkTop},
-        {x: blkR, y: blkBot + 1},
-        {x: blkR - 1, y: blkBot + 2},
-        {x: blkL + 1, y: blkBot + 2},
-        {x: blkL, y: blkBot + 1}
-    ], cBlanket);
+    // 被子两侧的立体下垂
+    drawer.vLine(L, bY + 3, bH, cBlanketDark);
+    drawer.vLine(L + 1, bY + 3, bH, cBlanketHigh);
+    drawer.vLine(R - 1, bY + 3, bH, cBlanketDark);
+    drawer.vLine(R - 2, bY + 3, bH, cShadowDeep);
 
-    // Top fold-over edge (thick wavy band)
-    drawer.fillPath([
-        {x: blkL, y: blkTop},
-        {x: blkR, y: blkTop},
-        {x: blkR, y: blkTop + 3},
-        {x: blkR - 4, y: blkTop + 4},
-        {x: cx + 2, y: blkTop + 3},
-        {x: cx - 2, y: blkTop + 4},
-        {x: blkL + 4, y: blkTop + 3},
-        {x: blkL, y: blkTop + 3}
-    ], cBlanketDark);
-    // Fold highlight
-    drawer.hLine(blkL + 1, blkTop, blkR - blkL - 2, cBlanketHighlight);
+    // --- 4. 铁锈红搭毯 (Chunky Knit Throw) ---
+    const tY = 31;
+    drawer.rect(L - 1, tY, bedW + 2, 6, cThrow);
+    drawer.hLine(L - 1, tY, bedW + 2, cThrowHigh); // 搭毯高光边
+    drawer.hLine(L, tY + 5, bedW, cThrowDark);     // 搭毯底部厚度
+    
+    // 搭毯垂在两侧的自然褶皱
+    drawer.rect(L - 1, tY + 6, 2, 2, cThrowDark);
+    drawer.rect(R - 1, tY + 6, 2, 3, cThrowDark);
+    drawer.rect(R - 2, tY + 6, 1, 1, cThrowHigh);
+    // 粗线针织的纵向纹理
+    drawer.vLine(cx - 6, tY + 1, 4, cThrowDark);
+    drawer.vLine(cx - 2, tY + 1, 5, cThrowDark);
+    drawer.vLine(cx + 4, tY + 1, 5, cThrowDark);
+    drawer.vLine(cx + 8, tY + 1, 4, cThrowDark);
 
-    // Left/right overhang shadow
-    drawer.vLine(blkL, blkTop + 3, blkBot - blkTop - 2, cBlanketDark);
-    drawer.vLine(blkR - 1, blkTop + 3, blkBot - blkTop - 2, cBlanketDark);
+    // --- 5. 熟睡的猫咪 (Sleeping Cat) ---
+    // 蜷缩在床中心偏左侧
+    const catX = 10;
+    const catY = 24;
+    drawer.rect(catX - 1, catY + 1, 8, 5, cShadow); // 猫的柔软投影
+    drawer.rect(catX, catY, 6, 4, '#ffffff'); // 白猫蜷缩的身体
+    drawer.rect(catX + 1, catY - 1, 1, 1, '#ffffff'); // 左耳
+    drawer.rect(catX + 4, catY - 1, 1, 1, '#ffffff'); // 右耳
+    drawer.rect(catX + 3, catY + 1, 3, 2, '#f5b041'); // 背上的橘色大斑块
+    drawer.rect(catX + 4, catY + 2, 1, 1, '#e67e22'); // 橘毛暗部
+    drawer.hLine(catX + 1, catY + 3, 4, '#d5dbdb');   // 猫咪底部的体积阴影
 
-    // Fold ridges (subtle vertical creases)
-    drawer.vLine(cx - 5, blkTop + 6, blkBot - blkTop - 10, cBlanketDark);
-    drawer.vLine(cx - 6, blkTop + 7, blkBot - blkTop - 12, cBlanketLight);
-    drawer.vLine(cx + 4, blkTop + 6, blkBot - blkTop - 10, cBlanketDark);
-    drawer.vLine(cx + 3, blkTop + 7, blkBot - blkTop - 12, cBlanketLight);
-    drawer.vLine(cx, blkTop + 7, blkBot - blkTop - 12, cBlanketLight);
+    // --- 6. 床尾板与床脚 (Footboard) ---
+    const fY = 40;
+    // 床尾板正面
+    drawer.rect(L + 1, fY + 2, bedW - 2, 4, cWood);
+    // 顶部平面与高光倒角 (35度视觉核心)
+    drawer.rect(L + 1, fY, bedW - 2, 2, cWoodTop);
+    drawer.hLine(L + 1, fY + 2, bedW - 2, cWoodHigh);
+    // 下方阴影
+    drawer.hLine(L + 1, fY + 5, bedW - 2, cWoodDark);
 
-    // Bottom overhang
-    drawer.hLine(blkL + 1, blkBot + 1, blkR - blkL - 2, cBlanketDark);
+    // 床头/床尾粗脚
+    drawer.rect(L + 1, fY + 6, 2, 2, cWoodDark);
+    drawer.rect(R - 3, fY + 6, 2, 2, cWoodDark);
 
-    // Blanket right shadow (per-component)
-    drawer.fillPath([
-        {x: blkR - 3, y: blkTop + 4}, {x: blkR - 1, y: blkTop + 4},
-        {x: blkR - 1, y: blkBot}, {x: blkR - 3, y: blkBot}
-    ], cShadow);
-
-    // === 5. FOOTBOARD ===
-    const footTop = 41;
-    const footBot = 47;
-    // Front face
-    drawer.fillPath([
-        {x: L, y: footTop}, {x: R, y: footTop},
-        {x: R, y: footBot}, {x: L, y: footBot}
-    ], cWood);
-    // Top face (thickness)
-    drawer.fillPath([
-        {x: L, y: footTop - 2}, {x: R, y: footTop - 2},
-        {x: R, y: footTop}, {x: L, y: footTop}
-    ], cWoodDark);
-    drawer.hLine(L + 1, footTop - 2, bedW - 2, cWoodHighlight);
-    drawer.hLine(L, footTop, bedW, cWoodHighlight);
-    // Side edges
-    drawer.vLine(R - 1, footTop, footBot - footTop, cWoodDark);
-    drawer.vLine(L, footTop, footBot - footTop, cWoodHighlight);
-    drawer.hLine(L, footBot - 1, bedW, cWoodDark);
-    // Right shadow (footboard only)
-    drawer.fillPath([
-        {x: R - 3, y: footTop}, {x: R - 1, y: footTop},
-        {x: R - 1, y: footBot - 1}, {x: R - 3, y: footBot - 1}
-    ], cShadow);
+    // 给整个床的右侧叠加统一的环境暗角，增强纵深感
+    drawer.rect(R, 12, 1, 30, cShadow);
 
     return drawer.getCanvas();
 }
 
+
+// ==========================================
+// 2. 水平方向的床 (横向, 床头在左, 床尾在右)
+// Canvas: 48x32
+// ==========================================
 export function createBedHorizontalSprite() {
-    // Horizontal bed: head at left, foot at right. Canvas: 48x32
-    // 2.5D: camera looks from above-south, so bottom edge shows front faces
     const drawer = new PixelDraw(48, 32);
 
-    const cWood = '#5d4037';
-    const cWoodDark = '#3e2723';
-    const cWoodHighlight = '#a1887f';
-    const cWoodGrain = '#8d6e63';
-    const cSheet = '#ecf0f1';
-    const cSheetShadow = '#cfd8dc';
-    const cSheetDark = '#b0bec5';
-    const cBlanket = '#2980b9';
-    const cBlanketDark = '#1f6f9f';
-    const cBlanketLight = '#5dade2';
-    const cBlanketHighlight = '#85c1e9';
-    const cPillow = '#f5f5f5';
-    const cPillowShadow = '#d5dbdb';
-    const cPillowHighlight = '#ffffff';
-    const cShadow = 'rgba(0,0,0,0.12)';
+    // 🎨 复用高级调色板
+    const cWoodTop = '#8c5a35', cWood = '#704424', cWoodDark = '#4a2a14', cWoodHigh = '#aa7648';
+    // const cRug = '#e5e8e8', cRugDark = '#ccd1d1'; // 地毯已移除
+    const cBlanket = '#2471a3', cBlanketHigh = '#5dade2', cBlanketDark = '#1a5276';
+    const cThrow = '#b03a2e', cThrowDark = '#7b241c', cThrowHigh = '#e74c3c';
+    const cPillow = '#ffffff', cPillowDark = '#e2e8f0'; // cAccent 移除
+    const cShadow = 'rgba(0,0,0,0.15)', cShadowDeep = 'rgba(0,0,0,0.4)';
 
-    const cy = 13;      // Shifted up to leave room for front faces
-    const bedH = 22;
-    const T = cy - bedH / 2;  // 2
-    const B = cy + bedH / 2;  // 24
+    const topY = 6;
+    const botY = 21; // 床垫表面的底边
+    const frontH = 5; // 正面厚度增强，突出立体感
+    
+    const hX = 2; // 床头板
+    const fX = 42; // 床尾板
+    const mX = hX + 4; // 床垫起点
+    const mW = fX - mX; // 床宽
 
-    // === 1. HEADBOARD (left, arched) ===
-    const headL = 0;
-    const headR = 8;
-    // Arched left side
-    drawer.fillPath([
-        {x: headR, y: T},
-        {x: headR, y: B},
-        {x: headL + 4, y: B},
-        {x: headL + 2, y: B - 2},
-        {x: headL + 1, y: B - 4},
-        {x: headL, y: cy + 3},
-        {x: headL, y: cy - 3},
-        {x: headL + 1, y: T + 4},
-        {x: headL + 2, y: T + 2},
-        {x: headL + 4, y: T}
-    ], cWood);
-    // Top face (y: T-2 to T)
-    drawer.fillPath([
-        {x: headL + 4, y: T - 2},
-        {x: headR, y: T - 2},
-        {x: headR, y: T},
-        {x: headL + 4, y: T},
-        {x: headL + 2, y: T + 2},
-        {x: headL + 1, y: T + 2},
-        {x: headL, y: T + 2},
-        {x: headL + 1, y: T},
-        {x: headL + 2, y: T - 1}
-    ], cWoodDark);
-    drawer.hLine(headL + 3, T - 2, headR - headL - 3, cWoodHighlight);
-    // Front face (bottom visible, 2.5D depth)
-    drawer.fillPath([
-        {x: headL + 4, y: B},
-        {x: headR, y: B},
-        {x: headR, y: B + 3},
-        {x: headL + 5, y: B + 3},
-        {x: headL + 3, y: B + 1}
-    ], cWoodDark);
-    drawer.hLine(headL + 5, B + 1, headR - headL - 5, cWood);
-    drawer.hLine(headL + 5, B, headR - headL - 5, cWoodHighlight);
-    // Plank lines
-    drawer.hLine(headL + 2, cy - 2, 4, cWoodGrain);
-    drawer.hLine(headL + 2, cy + 2, 4, cWoodGrain);
+    // --- 0. 底部投影 (无地毯) ---
+    // 床在地板上的总投影
+    drawer.rect(hX + 2, botY + 2, fX - hX + 1, frontH + 2, cShadowDeep);
+    drawer.rect(hX + 4, botY + frontH + 2, fX - hX - 1, 2, cShadow);
 
-    // === 2. MATTRESS ===
-    const matL = headR;
-    const matR = 42;
-    const matT = T + 1;
-    const matB = B;
-    // Top surface (sheet)
-    drawer.fillPath([
-        {x: matL, y: matT}, {x: matR, y: matT},
-        {x: matR, y: matB}, {x: matL, y: matB}
-    ], cSheet);
-    // Front face (mattress thickness visible from 2.5D angle, 2px)
-    drawer.fillPath([
-        {x: matL, y: matB}, {x: matR, y: matB},
-        {x: matR, y: matB + 2}, {x: matL, y: matB + 2}
-    ], cSheetShadow);
-    drawer.hLine(matL, matB, matR - matL, cSheetDark);
+    // --- 1. 左侧豪华床头板 ---
+    // 床柱
+    drawer.rect(hX, topY - 4, 3, botY - topY + frontH + 4, cWood);
+    drawer.rect(hX, topY - 5, 2, 1, cWoodTop); // 柱顶
+    // 正面与顶面
+    drawer.rect(hX, topY - 2, 4, botY - topY + frontH + 2, cWood);
+    drawer.rect(hX, topY - 4, 4, 2, cWoodTop);
+    drawer.hLine(hX, topY - 2, 4, cWoodHigh); // 顶面倒角
+    drawer.vLine(hX + 3, topY - 2, botY - topY + frontH, cWoodDark); // 靠床侧深阴影
 
-    // === 3. TWO PILLOWS (stacked vertically, small) ===
-    const pilX = matL + 2;
-    const pilW = 5;
-    const pilH = 6;
-    const pilGap = 2;
-    const pilT1 = cy - pilH - pilGap / 2;
-    const pilT2 = cy + pilGap / 2;
+    // --- 2. 床垫与被子主体 (Mattress & Blanket) ---
+    // 床垫亮部 - 调整为浅灰 #d5dbdb
+    drawer.rect(mX, topY, mW, botY - topY, '#d5dbdb');
+    // 床垫下方的木质床架正面厚度 (Front Face - 2.5D 核心)
+    drawer.rect(mX, botY + 1, mW, 2, cWood);
+    drawer.hLine(mX, botY + 1, mW, cWoodHigh);
+    drawer.hLine(mX, botY + 2, mW, cWoodDark);
+    
+    // 皇家蓝被子
+    const bX = mX + 12;
+    const bW = fX - bX;
+    drawer.rect(bX, topY, bW, botY - topY, cBlanket);
+    
+    // 翻折的被角 - 调整为浅灰白 #ecf0f1
+    drawer.rect(bX, topY, 4, botY - topY, '#ecf0f1');
+    drawer.vLine(bX + 3, topY, botY - topY, '#cfd8dc');
+    drawer.vLine(bX + 4, topY, botY - topY, cShadow);
+    
+    // ✨ 菱形绗缝纹理 (水平被子上的网格)
+    for (let i = 0; i < 4; i++) {
+        drawer.line(bX + 4 + i * 4, topY + 2, bX + 10 + i * 4, botY - 2, 'rgba(255,255,255,0.15)');
+        drawer.line(bX + 10 + i * 4, topY + 2, bX + 4 + i * 4, botY - 2, 'rgba(255,255,255,0.15)');
+    }
 
-    // Pillow cast shadows
-    drawer.fillPath([
-        {x: pilX + 1, y: pilT1 + 1}, {x: pilX + pilW + 1, y: pilT1 + 1},
-        {x: pilX + pilW + 1, y: pilT1 + pilH}, {x: pilX + 1, y: pilT1 + pilH}
-    ], cSheetShadow);
-    drawer.fillPath([
-        {x: pilX + 1, y: pilT2 + 1}, {x: pilX + pilW + 1, y: pilT2 + 1},
-        {x: pilX + pilW + 1, y: pilT2 + pilH}, {x: pilX + 1, y: pilT2 + pilH}
-    ], cSheetShadow);
+    // ⭐ 被子自然垂坠的正面厚度 (Draping Front Face)
+    drawer.rect(bX, botY, bW, frontH, cBlanketDark);
+    drawer.hLine(bX, botY, bW, cBlanket); // 顶部折角
+    drawer.hLine(bX, botY + 1, bW, cBlanketHigh); // 转折高光
+    // 垂坠下摆的不规则褶皱
+    drawer.rect(bX + 2, botY + frontH, 3, 1, cBlanketDark);
+    drawer.rect(bX + 8, botY + frontH, 4, 1, cBlanketDark);
+    drawer.vLine(bX + 6, botY + 2, 3, cBlanket); // 垂坠高光凸起
 
-    // Top pillow
-    drawer.fillPath([
-        {x: pilX + 1, y: pilT1},
-        {x: pilX + pilW - 1, y: pilT1},
-        {x: pilX + pilW, y: pilT1 + 1},
-        {x: pilX + pilW, y: pilT1 + pilH - 1},
-        {x: pilX + pilW - 1, y: pilT1 + pilH},
-        {x: pilX + 1, y: pilT1 + pilH},
-        {x: pilX, y: pilT1 + pilH - 1},
-        {x: pilX, y: pilT1 + 1}
-    ], cPillow);
-    drawer.hLine(pilX + 1, pilT1, pilW - 2, cPillowHighlight);
-    drawer.vLine(pilX + Math.floor(pilW / 2), pilT1 + 1, pilH - 2, cPillowShadow);
+    // --- 3. 铁锈红搭毯 (Throw Blanket) ---
+    const tX = fX - 8;
+    // 表面平铺
+    drawer.rect(tX, topY, 6, botY - topY, cThrow);
+    drawer.vLine(tX, topY, botY - topY, cThrowHigh);
+    drawer.vLine(tX + 5, topY, botY - topY, cThrowDark);
+    // 搭毯下垂到床边的厚度 (遮挡被子)
+    drawer.rect(tX, botY, 6, frontH + 2, cThrowDark);
+    drawer.hLine(tX, botY, 6, cThrowHigh); // 搭毯边缘高光
+    drawer.rect(tX + 1, botY + frontH + 2, 2, 1, cThrowDark); // 搭毯最底端的下垂尖角
+    drawer.vLine(tX + 2, botY + 1, frontH, cThrow); // 纵向褶皱高光
 
-    // Bottom pillow
-    drawer.fillPath([
-        {x: pilX + 1, y: pilT2},
-        {x: pilX + pilW - 1, y: pilT2},
-        {x: pilX + pilW, y: pilT2 + 1},
-        {x: pilX + pilW, y: pilT2 + pilH - 1},
-        {x: pilX + pilW - 1, y: pilT2 + pilH},
-        {x: pilX + 1, y: pilT2 + pilH},
-        {x: pilX, y: pilT2 + pilH - 1},
-        {x: pilX, y: pilT2 + 1}
-    ], cPillow);
-    drawer.hLine(pilX + 1, pilT2, pilW - 2, cPillowHighlight);
-    drawer.vLine(pilX + Math.floor(pilW / 2), pilT2 + 1, pilH - 2, cPillowShadow);
-    // Bottom pillow front face (shows depth)
-    drawer.hLine(pilX + 1, pilT2 + pilH, pilW - 2, cPillowShadow);
+    // --- 4. 枕头与熟睡的猫咪 ---
+    // 双枕头
+    const drawHPillow = (py) => {
+        drawer.rect(mX + 1, py + 1, 6, 5, cShadow);
+        drawer.rect(mX, py, 6, 5, cPillow);
+        drawer.hLine(mX, py + 4, 6, cPillowDark);
+        drawer.vLine(mX + 5, py + 1, 3, cPillowDark);
+    };
+    drawHPillow(topY + 1);
+    drawHPillow(topY + 7);
+    
+    // (腰枕已移除)
 
-    // === 4. BLANKET ===
-    const blkL = matL + 12;
-    const blkR = matR + 1;
-    const blkT = T;
-    const blkB = B;
+    // 睡在床尾横向的猫
+    const catX = bX + 6;
+    const catY = topY + 8;
+    drawer.rect(catX, catY + 1, 7, 4, cShadowDeep);
+    drawer.rect(catX + 1, catY, 6, 4, '#ffffff'); // 身体
+    drawer.rect(catX + 1, catY - 1, 1, 1, '#ffffff'); // 耳朵
+    drawer.rect(catX + 3, catY - 1, 1, 1, '#ffffff');
+    drawer.rect(catX + 4, catY + 1, 2, 2, '#f5b041'); // 橘色斑
+    drawer.hLine(catX + 2, catY + 3, 4, '#d5dbdb');   // 肚子阴影
 
-    // Main blanket body
-    drawer.fillPath([
-        {x: blkL, y: blkT},
-        {x: blkR, y: blkT},
-        {x: blkR, y: blkB},
-        {x: blkL, y: blkB}
-    ], cBlanket);
+    // --- 5. 右侧床尾板与床脚 ---
+    // 床尾柱
+    drawer.rect(fX, topY - 2, 3, botY - topY + frontH + 2, cWood);
+    drawer.rect(fX, topY - 3, 2, 1, cWoodTop);
+    drawer.hLine(fX, topY - 2, 3, cWoodHigh); // 顶角高光
+    // 右侧边背光阴影
+    drawer.vLine(fX + 2, topY - 2, botY - topY + frontH + 2, cWoodDark);
+    
+    // 粗壮的床脚底座
+    drawer.rect(mX + 2, botY + 3, 3, 3, cWoodDark);
+    drawer.rect(fX, botY + frontH, 3, 3, cWoodDark);
 
-    // Left fold-over edge (organic waviness)
-    drawer.fillPath([
-        {x: blkL, y: blkT},
-        {x: blkL + 3, y: blkT},
-        {x: blkL + 4, y: blkT + 3},
-        {x: blkL + 3, y: cy - 2},
-        {x: blkL + 4, y: cy + 2},
-        {x: blkL + 3, y: blkB - 3},
-        {x: blkL + 3, y: blkB},
-        {x: blkL, y: blkB}
-    ], cBlanketDark);
-    drawer.vLine(blkL + 1, blkT + 1, blkB - blkT - 2, cBlanketHighlight);
-
-    // Blanket front drape (hangs over front edge - KEY 2.5D element)
-    drawer.fillPath([
-        {x: blkL, y: blkB},
-        {x: blkR, y: blkB},
-        {x: blkR, y: blkB + 4},
-        {x: blkR - 2, y: blkB + 5},
-        {x: blkL + 2, y: blkB + 5},
-        {x: blkL, y: blkB + 4}
-    ], cBlanketDark);
-    // Drape highlight and wrinkle lines
-    drawer.hLine(blkL + 2, blkB + 1, blkR - blkL - 3, cBlanket);
-    drawer.hLine(blkL + 2, blkB + 2, blkR - blkL - 3, cBlanketDark);
-    drawer.hLine(blkL + 3, blkB + 4, blkR - blkL - 5, '#174f73');
-
-    // Fold ridges on top (horizontal creases)
-    drawer.hLine(blkL + 5, cy - 3, blkR - blkL - 6, cBlanketDark);
-    drawer.hLine(blkL + 5, cy - 4, blkR - blkL - 6, cBlanketLight);
-    drawer.hLine(blkL + 5, cy + 3, blkR - blkL - 6, cBlanketDark);
-    drawer.hLine(blkL + 5, cy + 2, blkR - blkL - 6, cBlanketLight);
-    drawer.hLine(blkL + 5, cy, blkR - blkL - 6, cBlanketLight);
-
-    // Right side edge
-    drawer.vLine(blkR - 1, blkT + 1, blkB - blkT - 2, cBlanketDark);
-
-    // Blanket right shadow (follows blanket shape)
-    drawer.fillPath([
-        {x: blkR - 3, y: blkT + 1}, {x: blkR - 1, y: blkT + 1},
-        {x: blkR - 1, y: blkB - 1}, {x: blkR - 3, y: blkB - 1}
-    ], cShadow);
-
-    // === 5. FOOTBOARD (right) ===
-    const footL = 42;
-    const footR = 47;
-    // Main face
-    drawer.fillPath([
-        {x: footL, y: T}, {x: footR, y: T},
-        {x: footR, y: B}, {x: footL, y: B}
-    ], cWood);
-    // Top face
-    drawer.fillPath([
-        {x: footL, y: T - 1}, {x: footR, y: T - 1},
-        {x: footR, y: T + 1}, {x: footL, y: T + 1}
-    ], cWoodDark);
-    drawer.hLine(footL, T - 1, footR - footL, cWoodHighlight);
-    // Front face (bottom, 2.5D depth)
-    drawer.fillPath([
-        {x: footL, y: B}, {x: footR, y: B},
-        {x: footR, y: B + 3}, {x: footL, y: B + 3}
-    ], cWoodDark);
-    drawer.hLine(footL, B, footR - footL, cWoodHighlight);
-    drawer.hLine(footL + 1, B + 1, footR - footL - 2, cWood);
-    // Side edges
-    drawer.vLine(footR - 1, T, B - T + 3, cWoodDark);
-    drawer.hLine(footL, B + 3, footR - footL, cWoodDark);
-    // Footboard right shadow
-    drawer.fillPath([
-        {x: footR - 2, y: T + 1}, {x: footR - 1, y: T + 1},
-        {x: footR - 1, y: B + 2}, {x: footR - 2, y: B + 2}
-    ], cShadow);
-
-    // Front legs (visible below mattress front face)
-    drawer.fillPath([
-        {x: matL + 2, y: B + 2}, {x: matL + 4, y: B + 2},
-        {x: matL + 4, y: B + 4}, {x: matL + 2, y: B + 4}
-    ], cWoodDark);
-    drawer.fillPath([
-        {x: matR - 4, y: B + 2}, {x: matR - 2, y: B + 2},
-        {x: matR - 2, y: B + 4}, {x: matR - 4, y: B + 4}
-    ], cWoodDark);
+    // --- 6. 氛围细节：踢落的毛绒拖鞋 (Fuzzy Slippers) ---
+    // 放在床边地毯上 (x:24, y:28)
+    const slX = 22;
+    const slY = botY + 5;
+    drawer.rect(slX, slY, 3, 2, '#e67e22'); // 左拖鞋
+    drawer.rect(slX + 1, slY, 1, 1, '#d35400'); // 拖鞋洞口
+    drawer.rect(slX + 5, slY + 1, 3, 2, '#e67e22'); // 右拖鞋 (稍稍错开)
+    drawer.rect(slX + 6, slY + 1, 1, 1, '#d35400');
+    // 拖鞋阴影
+    drawer.hLine(slX - 1, slY + 2, 4, cShadowDeep);
+    drawer.hLine(slX + 4, slY + 3, 4, cShadowDeep);
 
     return drawer.getCanvas();
 }

@@ -40,6 +40,12 @@ const COSTUME_DROP_POOL = [
     'costume:glasses_round',
     'costume:glasses_goggles',
     'costume:beard_full',
+    'costume:hat_santa',
+    'costume:clothes_santa',
+    'costume:beard_santa',
+    'costume:hat_clown',
+    'costume:clothes_clown',
+    'costume:hair_clown',
 ];
 const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 

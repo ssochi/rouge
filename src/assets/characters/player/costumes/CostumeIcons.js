@@ -195,6 +195,161 @@ export function generateNoGlassesIcon() {
     return d.getCanvas();
 }
 
+// ---- Santa Icons ----
+
+export function generateSantaHatIcon() {
+    const d = new PixelDraw(16, 16);
+    const hat = '#c0392b';
+    const fur = '#ecf0f1';
+    const furD = '#bdc3c7';
+    // Hat body (drooping cone)
+    d.fillPath([
+        { x: 2, y: 9 }, { x: 6, y: 4 },
+        { x: 10, y: 1 }, { x: 12, y: 3 },
+        { x: 9, y: 6 }, { x: 14, y: 9 }
+    ], hat);
+    // Fur trim band
+    d.rect(2, 9, 12, 3, fur);
+    d.pixel(4, 10, furD);
+    d.pixel(8, 9, furD);
+    d.pixel(12, 10, furD);
+    // Pompom
+    d.rect(10, 0, 3, 3, fur);
+    d.pixel(11, 1, furD);
+    return d.getCanvas();
+}
+
+export function generateSantaSuitIcon() {
+    const d = new PixelDraw(16, 16);
+    const coat = '#c0392b';
+    const dark = '#922b21';
+    const fur = '#ecf0f1';
+    const belt = '#1a1a1a';
+    const buckle = '#f1c40f';
+    // Coat body
+    d.rect(4, 2, 8, 10, coat);
+    // Sleeves
+    d.fillPath([
+        { x: 3, y: 8 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 8 }
+    ], coat);
+    d.fillPath([
+        { x: 13, y: 8 }, { x: 12, y: 2 }, { x: 11, y: 2 }, { x: 11, y: 8 }
+    ], coat);
+    // Fur collar
+    d.hLine(5, 2, 6, fur);
+    d.hLine(4, 3, 2, fur);
+    d.hLine(10, 3, 2, fur);
+    // Belt
+    d.rect(4, 8, 8, 2, belt);
+    d.rect(7, 8, 2, 2, buckle);
+    // Buttons
+    d.pixel(8, 5, buckle);
+    d.pixel(8, 7, buckle);
+    // Bottom fur trim
+    d.hLine(4, 12, 8, fur);
+    return d.getCanvas();
+}
+
+export function generateSantaBeardIcon() {
+    const d = new PixelDraw(16, 16);
+    const beard = '#ecf0f1';
+    const beardD = '#bdc3c7';
+    const skin = '#f5cba7';
+    // Face outline
+    d.fillQuadCurve(3, 4, 8, 1, 13, 4, skin);
+    d.rect(4, 4, 8, 6, skin);
+    // Big white beard
+    d.fillPath([
+        { x: 3, y: 7 }, { x: 2, y: 12 },
+        { x: 5, y: 15 }, { x: 8, y: 16 },
+        { x: 11, y: 15 }, { x: 14, y: 12 },
+        { x: 13, y: 7 }, { x: 11, y: 9 }, { x: 5, y: 9 }
+    ], beard);
+    // Texture
+    d.pixel(5, 11, beardD);
+    d.pixel(8, 13, beardD);
+    d.pixel(11, 11, beardD);
+    // Mustache
+    d.rect(5, 8, 6, 2, beard);
+    // Eyes
+    d.pixel(6, 5, '#333');
+    d.pixel(10, 5, '#333');
+    return d.getCanvas();
+}
+
+// ---- Clown Icons ----
+
+export function generateClownHatIcon() {
+    const d = new PixelDraw(16, 16);
+    const red = '#e74c3c';
+    const blue = '#3498db';
+    const bell = '#f1c40f';
+    // Left point (red)
+    d.fillPath([
+        { x: 3, y: 10 }, { x: 8, y: 8 },
+        { x: 7, y: 4 }, { x: 1, y: 1 }, { x: 2, y: 7 }
+    ], red);
+    // Right point (blue)
+    d.fillPath([
+        { x: 13, y: 10 }, { x: 8, y: 8 },
+        { x: 9, y: 4 }, { x: 15, y: 1 }, { x: 14, y: 7 }
+    ], blue);
+    // Band
+    d.rect(3, 10, 10, 2, '#c0392b');
+    // Bells
+    d.rect(0, 0, 2, 2, bell);
+    d.rect(14, 0, 2, 2, bell);
+    return d.getCanvas();
+}
+
+export function generateClownSuitIcon() {
+    const d = new PixelDraw(16, 16);
+    const red = '#e74c3c';
+    const blue = '#3498db';
+    const ruffle = '#ecf0f1';
+    const button = '#f1c40f';
+    // Left half (red)
+    d.rect(4, 3, 4, 10, red);
+    d.fillPath([{ x: 3, y: 8 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 5, y: 8 }], red);
+    // Right half (blue)
+    d.rect(8, 3, 4, 10, blue);
+    d.fillPath([{ x: 13, y: 8 }, { x: 12, y: 3 }, { x: 11, y: 3 }, { x: 11, y: 8 }], blue);
+    // Collar ruffle
+    d.fillPath([{ x: 5, y: 2 }, { x: 8, y: 5 }, { x: 11, y: 2 }], ruffle);
+    // Buttons
+    d.pixel(8, 5, button);
+    d.pixel(8, 7, button);
+    d.pixel(8, 9, button);
+    return d.getCanvas();
+}
+
+export function generateClownHairIcon() {
+    const d = new PixelDraw(16, 16);
+    const hair = '#e74c3c';
+    const hl = '#f39c12';
+    const skin = '#f5cba7';
+    // Bald top
+    d.fillQuadCurve(4, 6, 8, 1, 12, 6, skin);
+    d.rect(5, 4, 6, 3, skin);
+    // Left puff
+    d.fillPath([
+        { x: 1, y: 4 }, { x: 0, y: 7 },
+        { x: 1, y: 12 }, { x: 4, y: 10 }, { x: 3, y: 5 }
+    ], hair);
+    // Right puff
+    d.fillPath([
+        { x: 15, y: 4 }, { x: 16, y: 7 },
+        { x: 15, y: 12 }, { x: 12, y: 10 }, { x: 13, y: 5 }
+    ], hair);
+    // Highlights
+    d.pixel(1, 8, hl);
+    d.pixel(14, 8, hl);
+    // Eyes
+    d.pixel(6, 6, '#333');
+    d.pixel(10, 6, '#333');
+    return d.getCanvas();
+}
+
 // ---- Beard Icons ----
 export function generateBeardFullIcon() {
     const d = new PixelDraw(16, 16);
