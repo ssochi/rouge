@@ -18,7 +18,7 @@ export const SANTA_HAT = {
         const w = 18;
         const h = 14;
         const x = cx - w / 2;
-        const y = headY - h + 5;
+        const y = headY - h + 2;
 
         // Base dome — cover hair top area (stop before eyes)
         drawer.fillQuadCurve(x, y + 5, cx, y, x + w, y + 5, colors.hat);
@@ -53,7 +53,7 @@ export const SANTA_HAT = {
     },
     drawAvatar(drawer, hx, hy, headW, headH, colors) {
         const cx = hx + headW / 2;
-        const cy = hy + 2;
+        const cy = hy - 1;
 
         // Base dome — cover hair top
         drawer.fillQuadCurve(hx - 2, cy + 7, cx, cy - 1, hx + headW + 2, cy + 7, colors.hat);

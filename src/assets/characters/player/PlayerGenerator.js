@@ -25,7 +25,7 @@ const BARE_COLORS = { shirt: '#95a5a6', pants: '#5d6d7e', boots: '#1a1a1a' };
 export class PlayerGenerator {
     constructor() {
         this.width = 32;
-        this.height = 32;
+        this.height = 48;
         // Fixed colors (face/skin - never change with costume)
         this.cSkin = PALETTE['s'];
         this.cSkinShadow = PALETTE['S'];
@@ -47,9 +47,9 @@ export class PlayerGenerator {
     generateFrameWithCostume(pose = {}, costume) {
         const drawer = new PixelDraw(this.width, this.height);
         const px = 16;
-        const py = 29;
-        const bodyY = 22 + (pose.bodySquash || 0);
-        const headY = 14 + (pose.headOffset?.y || 0);
+        const py = 45;
+        const bodyY = 38 + (pose.bodySquash || 0);
+        const headY = 30 + (pose.headOffset?.y || 0);
 
         const clothesColors = costume.clothes ? costume.clothes.colors : BARE_COLORS;
 

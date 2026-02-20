@@ -16,7 +16,7 @@ export const BERET_HAT = {
         const w = 18;
         const h = 14;
         const x = cx - w / 2;
-        const y = headY - h + 5;
+        const y = headY - h;
 
         // Base dome — cover hair top area (stop before eyes)
         drawer.fillQuadCurve(x, y + 4, cx, y - 1, x + w, y + 4, colors.hat);
@@ -45,7 +45,7 @@ export const BERET_HAT = {
     },
     drawAvatar(drawer, hx, hy, headW, headH, colors) {
         const cx = hx + headW / 2;
-        const cy = hy + 2;
+        const cy = hy - 2;
 
         // Base dome — cover hair top
         drawer.fillQuadCurve(hx - 2, cy + 7, cx, cy - 2, hx + headW + 2, cy + 7, colors.hat);

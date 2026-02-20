@@ -19,7 +19,7 @@ const cBeard = '#2c1a0e';
  * @param {Object} costumeState - { hairstyle, hat, clothes, glasses } (IDs or null)
  */
 export function generateAvatar(costumeState) {
-    const drawer = new PixelDraw(32, 32);
+    const drawer = new PixelDraw(32, 48);
     const cx = 16;
 
     // Resolve costume pieces
@@ -34,7 +34,7 @@ export function generateAvatar(costumeState) {
     const headW = 20;
     const headH = 22;
     const hx = cx - headW / 2;
-    const hy = 4;
+    const hy = 20;
 
     // -- Shoulders/Collar (Bottom) --
     if (costume.clothes && costume.clothes.drawAvatar) {
@@ -42,23 +42,23 @@ export function generateAvatar(costumeState) {
     } else if (!costume.clothes) {
         // Bare shoulders (no clothes)
         drawer.fillPath([
-            { x: 4, y: 32 }, { x: 8, y: 25 }, { x: 12, y: 26 },
-            { x: 20, y: 26 }, { x: 24, y: 25 }, { x: 28, y: 32 }
+            { x: 4, y: 48 }, { x: 8, y: 41 }, { x: 12, y: 42 },
+            { x: 20, y: 42 }, { x: 24, y: 41 }, { x: 28, y: 48 }
         ], cSkin);
     } else {
         // Fallback: default coat shoulders
         drawer.fillPath([
-            { x: 2, y: 32 }, { x: 6, y: 24 }, { x: 12, y: 26 },
-            { x: 20, y: 26 }, { x: 26, y: 24 }, { x: 30, y: 32 }
+            { x: 2, y: 48 }, { x: 6, y: 40 }, { x: 12, y: 42 },
+            { x: 20, y: 42 }, { x: 26, y: 40 }, { x: 30, y: 48 }
         ], '#455a64');
         drawer.fillPath([
-            { x: 12, y: 26 }, { x: 16, y: 32 }, { x: 20, y: 26 }
+            { x: 12, y: 42 }, { x: 16, y: 48 }, { x: 20, y: 42 }
         ], '#95a5a6');
     }
 
     // -- Neck --
-    drawer.rect(12, 22, 8, 6, cSkin);
-    drawer.rect(12, 23, 8, 2, cSkinShadow);
+    drawer.rect(12, 38, 8, 6, cSkin);
+    drawer.rect(12, 39, 8, 2, cSkinShadow);
 
     // -- Hair Back --
     if (costume.hairstyle && costume.hairstyle.drawAvatarBack) {

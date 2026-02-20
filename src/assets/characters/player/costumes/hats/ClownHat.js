@@ -19,7 +19,7 @@ export const CLOWN_HAT = {
         const w = 18;
         const h = 14;
         const x = cx - w / 2;
-        const y = headY - h + 5;
+        const y = headY - h;
 
         // Base dome — cover head top
         drawer.fillQuadCurve(x, y + 5, cx, y, x + w, y + 5, colors.red);
@@ -54,7 +54,7 @@ export const CLOWN_HAT = {
     },
     drawAvatar(drawer, hx, hy, headW, headH, colors) {
         const cx = hx + headW / 2;
-        const cy = hy + 2;
+        const cy = hy - 2;
 
         // Base dome — cover head top
         drawer.fillQuadCurve(hx - 2, cy + 7, cx, cy, hx + headW + 2, cy + 7, colors.red);

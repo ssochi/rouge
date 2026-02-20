@@ -376,7 +376,7 @@ export class Renderer {
                         // --- Main body with rotation + scale ---
                         this.ctx.rotate(rotation);
                         this.ctx.scale(scaleX, scaleY);
-                        this.ctx.drawImage(sprite, -16, -16);
+                        this.ctx.drawImage(sprite, -16, -32);
 
                     } else {
                         if (!this.player.facingRight) this.ctx.scale(-1, 1);
@@ -389,7 +389,7 @@ export class Renderer {
                             const frameIndex = Math.floor(this.player.animationTimer / 10) % playerFrames.idle.length;
                             sprite = playerFrames.idle[frameIndex];
                         }
-                        this.ctx.drawImage(sprite, -16, -16);
+                        this.ctx.drawImage(sprite, -16, -32);
                     }
 
                     if (this.player.state !== 'roll') {
