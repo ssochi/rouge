@@ -350,6 +350,149 @@ export function generateClownHairIcon() {
     return d.getCanvas();
 }
 
+// ---- Cyberpunk Icons ----
+
+export function generateCyberHairIcon() {
+    const d = new PixelDraw(16, 16);
+    const hair = '#1a1a2e';
+    const cyan = '#00ffff';
+    const magenta = '#ff00ff';
+    // Mohawk base
+    d.rect(6, 6, 4, 6, hair);
+    // Center spike (tallest)
+    d.fillPath([
+        { x: 7, y: 6 }, { x: 8, y: 1 }, { x: 9, y: 6 }
+    ], hair);
+    d.pixel(8, 1, cyan);
+    d.pixel(8, 2, cyan);
+    // Left spike
+    d.fillPath([
+        { x: 6, y: 7 }, { x: 6, y: 3 }, { x: 7, y: 6 }
+    ], hair);
+    d.pixel(6, 3, magenta);
+    // Right spike
+    d.fillPath([
+        { x: 9, y: 6 }, { x: 10, y: 3 }, { x: 10, y: 7 }
+    ], hair);
+    d.pixel(10, 3, cyan);
+    // Neon glow at base
+    d.hLine(6, 6, 4, cyan);
+    // Shaved sides
+    d.pixel(4, 8, '#2a2a3e');
+    d.pixel(12, 8, '#2a2a3e');
+    return d.getCanvas();
+}
+
+export function generateCyberJacketIcon() {
+    const d = new PixelDraw(16, 16);
+    const coat = '#1a1a2e';
+    const dark = '#0d0d1a';
+    const cyan = '#00ffff';
+    const magenta = '#ff00ff';
+    // Jacket body
+    d.rect(4, 2, 8, 10, coat);
+    // Sleeves
+    d.fillPath([
+        { x: 3, y: 8 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 8 }
+    ], coat);
+    d.fillPath([
+        { x: 13, y: 8 }, { x: 12, y: 2 }, { x: 11, y: 2 }, { x: 11, y: 8 }
+    ], coat);
+    // Standing collar
+    d.rect(5, 1, 2, 2, dark);
+    d.rect(9, 1, 2, 2, dark);
+    // Neon shoulder lines
+    d.hLine(3, 3, 3, cyan);
+    d.hLine(10, 3, 3, cyan);
+    // Neon side seams
+    d.vLine(3, 4, 4, cyan);
+    d.vLine(13, 4, 4, cyan);
+    // Center circuit line
+    d.vLine(8, 4, 6, magenta);
+    // Bottom neon trim
+    d.hLine(4, 12, 8, cyan);
+    return d.getCanvas();
+}
+
+export function generateCyberVisorIcon() {
+    const d = new PixelDraw(16, 16);
+    const rim = '#1a1a2e';
+    const lens = '#00ffff';
+    const glow = '#ff00ff';
+    // Frame band
+    d.rect(1, 6, 14, 5, rim);
+    // Holographic lens (single continuous band)
+    d.rect(2, 7, 12, 3, lens);
+    // White reflection
+    d.pixel(3, 7, '#ffffff');
+    d.pixel(4, 7, '#ffffff');
+    // Magenta glow bottom
+    d.hLine(2, 10, 12, glow);
+    // HUD dot
+    d.pixel(12, 7, '#ffffff');
+    return d.getCanvas();
+}
+
+export function generateKnightHelmetIcon() {
+    const d = new PixelDraw(16, 16);
+    const steel = '#8e8e8e';
+    const dark = '#4a4a4a';
+    const light = '#b0b0b0';
+    const visor = '#2a2a2a';
+    const gold = '#c9a73e';
+    // Helmet dome
+    d.fillQuadCurve(3, 7, 8, 1, 13, 7, steel);
+    // Helmet body
+    d.rect(4, 5, 8, 8, steel);
+    // Rounded chin
+    d.fillQuadCurve(5, 12, 8, 14, 11, 12, steel);
+    // Side shading
+    d.rect(4, 6, 2, 6, dark);
+    d.rect(10, 6, 2, 6, dark);
+    // Top highlight
+    d.hLine(6, 3, 4, light);
+    // T-visor slit
+    d.rect(6, 7, 4, 2, visor);
+    d.rect(7, 7, 2, 4, visor);
+    // Gold brow trim
+    d.hLine(5, 6, 6, gold);
+    // Crest
+    d.pixel(8, 2, light);
+    return d.getCanvas();
+}
+
+export function generateKnightArmorIcon() {
+    const d = new PixelDraw(16, 16);
+    const steel = '#8e8e8e';
+    const dark = '#4a4a4a';
+    const light = '#b0b0b0';
+    const gold = '#c9a73e';
+    const chain = '#6b6b6b';
+    // Armor body
+    d.rect(4, 3, 8, 10, steel);
+    // Sleeves/shoulders (wider)
+    d.fillPath([
+        { x: 2, y: 6 }, { x: 3, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 6 }
+    ], steel);
+    d.fillPath([
+        { x: 14, y: 6 }, { x: 13, y: 2 }, { x: 11, y: 2 }, { x: 11, y: 6 }
+    ], steel);
+    // Pauldron highlights
+    d.hLine(2, 4, 4, light);
+    d.hLine(10, 4, 4, light);
+    // Chainmail collar
+    d.fillPath([{ x: 7, y: 2 }, { x: 8, y: 5 }, { x: 9, y: 2 }], chain);
+    // Gold cross emblem
+    d.pixel(8, 6, gold);
+    d.hLine(7, 7, 3, gold);
+    d.pixel(8, 8, gold);
+    // Gold belt
+    d.hLine(4, 10, 8, gold);
+    // Center seam
+    d.vLine(8, 5, 4, dark);
+    return d.getCanvas();
+}
+
 // ---- Beard Icons ----
 export function generateBeardFullIcon() {
     const d = new PixelDraw(16, 16);

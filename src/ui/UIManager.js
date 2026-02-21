@@ -415,6 +415,11 @@ export class UIManager {
             'hat_clown': 'costume_hat_clown',
             'clothes_clown': 'costume_clothes_clown',
             'hair_clown': 'costume_hair_clown',
+            'hair_cyber': 'costume_hair_cyber',
+            'clothes_cyber': 'costume_clothes_cyber',
+            'glasses_cyber': 'costume_glasses_cyber',
+            'hat_knight': 'costume_hat_knight',
+            'clothes_knight': 'costume_clothes_knight',
         };
 
         for (const [slot, el] of Object.entries(this.costumeSlotElements)) {

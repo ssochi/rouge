@@ -450,6 +450,33 @@ export class InventorySystem {
             icon: 'costume_hair_clown', maxStack: 1,
             data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_clown' }
         });
+        // Cyberpunk Series
+        this.registerItem({
+            id: 'costume:hair_cyber', type: 'costume', name: '赛博莫霍克',
+            icon: 'costume_hair_cyber', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_cyber' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_cyber', type: 'costume', name: '赛博夹克',
+            icon: 'costume_clothes_cyber', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_cyber' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_cyber', type: 'costume', name: '全息护目镜',
+            icon: 'costume_glasses_cyber', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_cyber' }
+        });
+        // Knight Series
+        this.registerItem({
+            id: 'costume:hat_knight', type: 'costume', name: '骑士头盔',
+            icon: 'costume_hat_knight', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_knight' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_knight', type: 'costume', name: '骑士铠甲',
+            icon: 'costume_clothes_knight', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_knight' }
+        });
 
         // 3. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel
