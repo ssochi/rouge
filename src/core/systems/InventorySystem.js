@@ -284,6 +284,15 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:turret_deployer',
+            type: 'weapon',
+            name: '炮塔部署器',
+            icon: 'turret_deployer',
+            maxStack: 1,
+            data: { weaponConfigId: 'turret_deployer' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',
@@ -449,6 +458,60 @@ export class InventorySystem {
             id: 'costume:hair_clown', type: 'costume', name: '小丑假发',
             icon: 'costume_hair_clown', maxStack: 1,
             data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_clown' }
+        });
+        // Cyberpunk Series
+        this.registerItem({
+            id: 'costume:hair_cyber', type: 'costume', name: '赛博莫霍克',
+            icon: 'costume_hair_cyber', maxStack: 1,
+            data: { costumeSlot: 'hairstyle', costumePieceId: 'hair_cyber' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_cyber', type: 'costume', name: '赛博夹克',
+            icon: 'costume_clothes_cyber', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_cyber' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_cyber', type: 'costume', name: '全息护目镜',
+            icon: 'costume_glasses_cyber', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_cyber' }
+        });
+        // Knight Series
+        this.registerItem({
+            id: 'costume:hat_knight', type: 'costume', name: '骑士头盔',
+            icon: 'costume_hat_knight', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_knight' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_knight', type: 'costume', name: '骑士铠甲',
+            icon: 'costume_clothes_knight', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_knight' }
+        });
+        // Ninja Series
+        this.registerItem({
+            id: 'costume:hat_ninja', type: 'costume', name: '忍者头巾',
+            icon: 'costume_hat_ninja', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_ninja' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_ninja', type: 'costume', name: '忍者装',
+            icon: 'costume_clothes_ninja', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_ninja' }
+        });
+        // Pirate Series
+        this.registerItem({
+            id: 'costume:hat_pirate', type: 'costume', name: '海盗三角帽',
+            icon: 'costume_hat_pirate', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_pirate' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_pirate', type: 'costume', name: '海盗大衣',
+            icon: 'costume_clothes_pirate', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_pirate' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_eyepatch', type: 'costume', name: '眼罩',
+            icon: 'costume_glasses_eyepatch', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_eyepatch' }
         });
 
         // 3. Register Placeables from Assets.objects

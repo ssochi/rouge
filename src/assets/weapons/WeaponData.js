@@ -878,5 +878,32 @@ export const WEAPONS = {
         magazineSize: 4,
         maxReserve: 20,
         reloadTime: 2500
+    },
+    turret_deployer: {
+        name: "炮塔部署器",
+        type: WeaponType.RIFLE,
+        sprite: "turret_deployer",
+        drawOffset: { x: -12, y: -7 },
+        muzzleOffset: { x: 20, y: 0 },
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        scale: 1.5,
+        orbitRadius: 10,
+        fireRate: 1500,
+        damage: 0,
+        bulletSpeed: 3,
+        bulletLife: 20,
+        bulletColor: '#66bb6a',
+        bulletSize: 6,
+        bulletType: 'turret_deploy',
+        initialZ: 0,
+        vzInitial: 3,
+        gravityZ: 0.3,
+        magazineSize: 3,
+        maxReserve: 9,
+        reloadTime: 3000,
+        rarity: 'legendary'
     }
 };

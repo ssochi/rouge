@@ -94,6 +94,8 @@ import { FORCE_GUN_SPRITE } from '../assets/weapons/ForceGunGenerator.js';
 import { VAMPYRE_GUN_SPRITE } from '../assets/weapons/VampyreGunGenerator.js';
 import { NEEDLE_GUN_SPRITE } from '../assets/weapons/NeedleGunGenerator.js';
 import { RAILGUN_SPRITE } from '../assets/weapons/RailgunGenerator.js';
+import { generateTurretDeployer } from '../assets/weapons/TurretDeployerGenerator.js';
+import { createTurretSprite } from '../assets/objects/TurretSprite.js';
 import {
     generateHairLongIcon, generateMessyHairIcon, generateShortHairIcon,
     generateBeretIcon, generateBandanaIcon,
@@ -102,7 +104,11 @@ import {
     generateNoGlassesIcon,
     generateBeardFullIcon,
     generateSantaHatIcon, generateSantaSuitIcon, generateSantaBeardIcon,
-    generateClownHatIcon, generateClownSuitIcon, generateClownHairIcon
+    generateClownHatIcon, generateClownSuitIcon, generateClownHairIcon,
+    generateCyberHairIcon, generateCyberJacketIcon, generateCyberVisorIcon,
+    generateKnightHelmetIcon, generateKnightArmorIcon,
+    generateNinjaHoodIcon, generateNinjaSuitIcon,
+    generatePirateHatIcon, generatePirateCoatIcon, generateEyepatchIcon
 } from '../assets/characters/player/costumes/CostumeIcons.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
@@ -462,6 +468,7 @@ export const Assets = {
     vampyre_gun: VAMPYRE_GUN_SPRITE,
     needle_gun: NEEDLE_GUN_SPRITE,
     railgun: RAILGUN_SPRITE,
+    turret_deployer: generateTurretDeployer(),
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),
@@ -483,6 +490,16 @@ export const Assets = {
     costume_hat_clown: generateClownHatIcon(),
     costume_clothes_clown: generateClownSuitIcon(),
     costume_hair_clown: generateClownHairIcon(),
+    costume_hair_cyber: generateCyberHairIcon(),
+    costume_clothes_cyber: generateCyberJacketIcon(),
+    costume_glasses_cyber: generateCyberVisorIcon(),
+    costume_hat_knight: generateKnightHelmetIcon(),
+    costume_clothes_knight: generateKnightArmorIcon(),
+    costume_hat_ninja: generateNinjaHoodIcon(),
+    costume_clothes_ninja: generateNinjaSuitIcon(),
+    costume_hat_pirate: generatePirateHatIcon(),
+    costume_clothes_pirate: generatePirateCoatIcon(),
+    costume_glasses_eyepatch: generateEyepatchIcon(),
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),
@@ -496,5 +513,6 @@ export const Assets = {
         suv: suvSprites,
         truck: truckSprites,
         police: policeSprites
-    }
+    },
+    turret: createTurretSprite()
 };

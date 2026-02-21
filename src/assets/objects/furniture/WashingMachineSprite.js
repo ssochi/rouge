@@ -5,80 +5,140 @@ export function createWashingMachineSprite() {
     const h = 32;
     const drawer = new PixelDraw(w, h);
 
-    // Palette
-    const cWhite = '#ecf0f1';
-    const cGray = '#bdc3c7';
-    const cDark = '#7f8c8d';
-    const cGlass = '#3498db';
-    const cGlassDark = '#2980b9';
-    const cGlassLight = '#85c1e9';
-    const cShadow = 'rgba(0,0,0,0.15)';
+    // === Color Palette ===
+    const cWhite = '#ffffff';
+    const cLightGray = '#f1f2f6';
+    const cMidGray = '#ced6e0';
+    const cDarkGray = '#a4b0be';
+    const cShadow = '#747d8c';
+    const cDarkest = '#2f3542';
 
-    // 1. Body
-    const topH = 6;
-    const bodyH = 24;
-    const legH = 2;
+    const cGlassDark = '#1e272e';
+    const cGlassMid = '#3742fa';
+    const cGlassLight = '#70a1ff';
+    const cReflect = '#ffffff';
 
-    // Main Body
-    drawer.fillPath([
-        {x: 1, y: topH}, {x: w-1, y: topH},
-        {x: w-1, y: topH + bodyH}, {x: 1, y: topH + bodyH}
-    ], cWhite);
-    
-    // Side Shading
-    drawer.vLine(w-1, topH, bodyH, cGray);
-    drawer.vLine(1, topH, bodyH, '#ffffff');
+    const cGreen = '#2ed573';
+    const cRed = '#ff4757';
+    const cYellow = '#eccc68';
 
-    // Top Surface
-    drawer.fillPath([
-        {x: 1, y: 1}, {x: w-1, y: 1},
-        {x: w, y: 2}, {x: w, y: topH},
-        {x: w-1, y: topH+1}, {x: 1, y: topH+1},
-        {x: 0, y: topH}, {x: 0, y: 2}
-    ], '#ffffff');
-    drawer.hLine(1, topH+1, w-2, cGray); // Lip shadow
+    drawer.clear();
 
-    // 2. Control Panel (Top section of front)
-    const panelH = 6;
-    drawer.rect(2, topH + 2, w-4, panelH, '#f4f6f7');
-    drawer.hLine(2, topH + 2 + panelH, w-4, cGray); // Separator
+    // === 1. Volumetric Base ===
+    // Top surface (faces light source directly)
+    drawer.rect(5, 4, 23, 8, cLightGray);
+    drawer.rect(4, 5, 25, 6, cLightGray);
 
-    // Knob
-    drawer.circle(6, topH + 5, 2, cDark);
-    drawer.pixel(6, topH + 5, '#ffffff');
+    // Front surface
+    drawer.rect(4, 12, 25, 17, cMidGray);
 
-    // Buttons
-    drawer.rect(12, topH + 4, 2, 2, '#e74c3c'); // Red
-    drawer.rect(15, topH + 4, 2, 2, '#2ecc71'); // Green
-    
-    // Digital Display
-    drawer.rect(22, topH + 4, 6, 3, '#2c3e50');
-    drawer.pixel(23, topH + 5, '#e74c3c'); // Digits
-    drawer.pixel(25, topH + 5, '#e74c3c');
+    // === 2. 2.5D Volumetric Shading / Bevels ===
+    // Top surface edges
+    drawer.hLine(5, 4, 23, cWhite);      // Top edge highlight
+    drawer.vLine(4, 5, 6, cWhite);       // Left curve highlight
+    drawer.vLine(5, 5, 6, cWhite);
+    drawer.vLine(27, 5, 6, cMidGray);    // Right curve shadow
+    drawer.vLine(28, 5, 6, cDarkGray);
 
-    // 3. Door (The main feature)
-    const doorCx = w / 2;
-    const doorCy = topH + panelH + (bodyH - panelH) / 2 + 1;
-    const doorR = 9;
+    // Connection Ridge (y=11)
+    drawer.hLine(6, 11, 21, cDarkGray);
+    drawer.hLine(4, 11, 2, cWhite);      // Catch the light on left corner
+    drawer.hLine(27, 11, 2, cShadow);    // Deep shadow on right corner
 
-    // Door Frame (White/Gray ring)
-    drawer.circle(doorCx, doorCy, doorR + 1, cGray);
-    drawer.circle(doorCx, doorCy, doorR, cWhite);
-    
-    // Door Glass (Blue with reflection)
-    drawer.circle(doorCx, doorCy, doorR - 2, cGlassDark); // Base dark blue
-    drawer.fillQuadCurve(doorCx - 5, doorCy, doorCx, doorCy + 5, doorCx + 5, doorCy, cGlass); // Water/Light effect
-    
-    // Glass Reflection (Diagonal)
-    drawer.line(doorCx - 3, doorCy - 4, doorCx - 1, doorCy - 6, cGlassLight);
-    drawer.line(doorCx - 2, doorCy - 2, doorCx + 2, doorCy - 6, cGlassLight);
+    // Front surface edges
+    drawer.vLine(4, 12, 16, cWhite);     // Front left bevel
+    drawer.vLine(5, 12, 16, cLightGray);
+    drawer.vLine(27, 12, 16, cDarkGray); // Front right bevel
+    drawer.vLine(28, 12, 16, cShadow);
 
+    // Bottom gradient & curving
+    drawer.hLine(6, 28, 20, cDarkGray);
+    drawer.hLine(6, 29, 20, cShadow);
+    drawer.pixel(4, 28, cWhite);
+    drawer.pixel(5, 28, cLightGray);
+    drawer.pixel(4, 29, cLightGray);
+    drawer.pixel(27, 28, cShadow);
+    drawer.pixel(28, 28, cDarkest);
+    drawer.pixel(27, 29, cDarkest);
+
+    // === 3. Ground Cast Shadow & Feet ===
+    drawer.hLine(6, 31, 21, 'rgba(0,0,0,0.3)');
+
+    drawer.rect(6, 30, 3, 2, cDarkGray);
+    drawer.hLine(6, 31, 3, cDarkest);
+
+    drawer.rect(24, 30, 3, 2, cDarkGray);
+    drawer.hLine(24, 31, 3, cDarkest);
+
+    // === 4. Top Surface Extrusion Detail ===
+    drawer.hLine(8, 6, 17, cDarkGray);    // Inset top shadow
+    drawer.hLine(8, 9, 17, cWhite);       // Inset bottom highlight
+    drawer.vLine(7, 6, 4, cDarkGray);     // Inset left shadow
+    drawer.vLine(25, 6, 4, cWhite);       // Inset right highlight
+    drawer.rect(8, 7, 17, 2, cLightGray);
+
+    // === 5. Control Panel ===
+    drawer.rect(6, 13, 21, 5, cLightGray);
+    drawer.hLine(6, 18, 21, cDarkGray);   // Separator groove
+
+    // Detergent Drawer
+    drawer.rect(7, 14, 6, 3, cWhite);
+    drawer.hLine(7, 17, 6, cDarkGray);
+    drawer.hLine(8, 15, 4, cLightGray);   // Finger grip indent
+
+    // Main Dial
+    drawer.circle(16, 15, 2, cShadow);    // Base shadow
+    drawer.circle(16, 15, 1, cWhite);     // Knob face
+    drawer.pixel(17, 15, cDarkest);       // Position indicator
+
+    // Digital Display Screen
+    drawer.rect(20, 14, 6, 3, cGlassDark);
+    drawer.pixel(21, 15, cGreen);         // Operation LED
+    drawer.pixel(23, 15, cRed);           // Seven-segment digits
+    drawer.pixel(24, 15, cRed);
+    drawer.pixel(24, 16, cRed);
+    drawer.pixel(18, 16, cYellow);        // Extra option button
+
+    // === 6. Machine Body Details ===
+    // Energy Efficiency Level Sticker
+    drawer.rect(23, 19, 3, 4, cWhite);
+    drawer.hLine(23, 19, 2, cGreen);
+    drawer.hLine(23, 20, 2, cYellow);
+    drawer.hLine(23, 21, 2, cRed);
+    drawer.pixel(24, 22, cDarkGray);
+
+    // === 7. Door Mechanism (Hinge & Handle) ===
+    const cx = 16, cy = 23;
+    // Metallic Hinge
+    drawer.rect(9, 22, 2, 3, cDarkGray);
+    drawer.vLine(10, 22, 3, cShadow);
     // Door Handle
-    drawer.rect(doorCx + doorR - 1, doorCy - 2, 2, 4, cDark);
+    drawer.rect(21, 22, 2, 4, cDarkest);
+    drawer.vLine(22, 22, 4, cWhite);      // Sharp metallic catch
 
-    // 4. Feet
-    drawer.rect(2, 30, 3, 2, cDark);
-    drawer.rect(w-5, 30, 3, 2, cDark);
+    // === 8. The Glass Loading Door ===
+    drawer.circle(cx + 1, cy + 1, 6, cShadow);    // Directional drop shadow
+    drawer.circle(cx, cy, 6, cDarkGray);          // Outer thick frame structure
+    drawer.circle(cx, cy, 5, cLightGray);         // Main metallic seal
+    drawer.circle(cx - 1, cy - 1, 5, cWhite);     // 3D Rim bevel light
+    drawer.circle(cx, cy, 4, cShadow);            // Inner slope tunnel downward
+    drawer.circle(cx, cy, 3, cGlassDark);         // Interior void domain
+
+    // === 9. Washing Machine Interior Visuals ===
+    // Splashing water
+    drawer.hLine(14, 23, 5, cGlassMid);
+    drawer.hLine(14, 24, 5, cGlassLight);
+
+    // Tumble washing clothes
+    drawer.pixel(15, 24, cRed);
+    drawer.pixel(17, 25, cGreen);
+    drawer.pixel(14, 25, cGlassMid);
+
+    // Curved glass outer reflection glare
+    drawer.pixel(14, 21, cReflect);
+    drawer.pixel(15, 21, cReflect);
+    drawer.pixel(14, 22, cReflect);
+    drawer.pixel(13, 20, cReflect);       // Edge sparkle
 
     return drawer.getCanvas();
 }

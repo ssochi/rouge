@@ -415,6 +415,16 @@ export class UIManager {
             'hat_clown': 'costume_hat_clown',
             'clothes_clown': 'costume_clothes_clown',
             'hair_clown': 'costume_hair_clown',
+            'hair_cyber': 'costume_hair_cyber',
+            'clothes_cyber': 'costume_clothes_cyber',
+            'glasses_cyber': 'costume_glasses_cyber',
+            'hat_knight': 'costume_hat_knight',
+            'clothes_knight': 'costume_clothes_knight',
+            'hat_ninja': 'costume_hat_ninja',
+            'clothes_ninja': 'costume_clothes_ninja',
+            'hat_pirate': 'costume_hat_pirate',
+            'clothes_pirate': 'costume_clothes_pirate',
+            'glasses_eyepatch': 'costume_glasses_eyepatch',
         };
 
         for (const [slot, el] of Object.entries(this.costumeSlotElements)) {

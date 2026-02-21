@@ -1,4 +1,5 @@
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
+import { Turret } from '../entities/Turret.js';
 
 export class BulletSystem {
     constructor({ bullets, particles, enemies, breakableObjects, walls, vehicles, player, camera, handSystem, particleSpawner, statusEffects }) {
@@ -1150,6 +1151,36 @@ export class BulletSystem {
                                 life: 12,
                                 color: '#ffb74d',
                                 size: Math.random() * 2 + 1,
+                                friction: 0.9
+                            });
+                        }
+                    } else if (b.type === 'turret_deploy') {
+                        // Spawn defense turret at impact location
+                        const turret = new Turret(
+                            b.x - 12, b.y - 12,  // Center turret on impact point
+                            this.enemies, this.bullets, this.particles
+                        );
+                        // Enforce turret limit
+                        Turret.enforceTurretLimit(this.breakableObjects);
+                        this.breakableObjects.push(turret);
+                        // Deploy flash effect
+                        this.particles.push({
+                            type: 'flash',
+                            x: b.x, y: b.y,
+                            size: 16,
+                            color: '#00b894',
+                            alpha: 0.8,
+                            life: 10
+                        });
+                        for (let s = 0; s < 8; s++) {
+                            const a = Math.random() * Math.PI * 2;
+                            this.particles.push({
+                                x: b.x, y: b.y,
+                                vx: Math.cos(a) * (Math.random() * 2 + 1),
+                                vy: Math.sin(a) * (Math.random() * 2 + 1),
+                                life: 20,
+                                color: Math.random() > 0.5 ? '#00b894' : '#55efc4',
+                                size: Math.random() * 3 + 1,
                                 friction: 0.9
                             });
                         }
