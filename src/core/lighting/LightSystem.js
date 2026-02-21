@@ -85,7 +85,7 @@ export class LightSystem {
     }
 
     _cullLightsByViewport(lights, camera, viewportWidth, viewportHeight) {
-        const pad = 48;
+        const pad = 96;
         const left = camera.x - pad;
         const top = camera.y - pad;
         const right = camera.x + viewportWidth + pad;
@@ -119,18 +119,35 @@ export class LightSystem {
     _collectDynamicLights(timeMs) {
         this.dynamicLights.length = 0;
 
-        // Subtle personal light to preserve gameplay readability in dark scenes.
+        // Player personal light — dim ambient glow.
         this._pushEmitter(this.dynamicLights, {
             x: this.player.x,
             y: this.player.y + 8,
-            radius: 92,
+            radius: 69,
             color: '#ffe8c1',
-            intensity: 0.34,
+            intensity: 0.5,
             castsShadows: true,
             priority: 50,
             owner: this.player,
             ignoreSelfShadow: true,
             kind: 'player'
+        });
+
+        // Player flashlight — cone light following aim direction.
+        const aimAngle = this.handSystem?.angle ?? 0;
+        this._pushEmitter(this.dynamicLights, {
+            x: this.player.x,
+            y: this.player.y + 4,
+            radius: 400,
+            color: '#ffe8c1',
+            intensity: 1.0,
+            castsShadows: true,
+            priority: 95,
+            owner: this.player,
+            ignoreSelfShadow: true,
+            kind: 'flashlight',
+            coneAngle: Math.PI / 6,
+            coneDirection: aimAngle
         });
 
         this._pushEmitter(this.dynamicLights, this.emitterRegistry.getMuzzleFlashEmitter(this.handSystem, timeMs, this.player));
@@ -213,7 +230,10 @@ export class LightSystem {
         this._frame++;
 
         const walls = this.worldSystem?.walls || [];
-        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, this.breakableObjects);
+        const wallObjects = this.breakableObjects.filter(obj =>
+            obj && !obj.isBroken && (obj.type === 'wall' || obj.type === 'door_h' || obj.type === 'door_v')
+        );
+        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, wallObjects);
         if (castersChanged) {
             this._forceStaticRefresh = true;
         }

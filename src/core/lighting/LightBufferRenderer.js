@@ -118,24 +118,38 @@ export class LightBufferRenderer {
     }
 
     _computeVisibilityPolygon(light, rayCount, viewX, viewY, scale, includeContourPoints = false) {
-        const points = new Array(rayCount);
         const contourPoints = includeContourPoints ? [] : null;
         const contourSeen = includeContourPoints ? new Set() : null;
-
-        const angleStep = TWO_PI / rayCount;
-        const startAngle = ((light.x * 0.0017 + light.y * 0.0023) % 1) * angleStep;
 
         const ox = (light.x - viewX) * scale;
         const oy = (light.y - viewY) * scale;
         const maxDist = Math.max(1, light.radius * scale);
 
-        for (let i = 0; i < rayCount; i++) {
-            const angle = startAngle + angleStep * i;
+        const isCone = light.coneAngle > 0 && Number.isFinite(light.coneDirection);
+        let startAngle, totalAngle;
+        if (isCone) {
+            startAngle = light.coneDirection - light.coneAngle * 0.5;
+            totalAngle = light.coneAngle;
+        } else {
+            totalAngle = TWO_PI;
+            const angleStep = totalAngle / rayCount;
+            startAngle = ((light.x * 0.0017 + light.y * 0.0023) % 1) * angleStep;
+        }
+
+        const angleStep = totalAngle / rayCount;
+        const points = [];
+
+        if (isCone) {
+            points.push({ x: ox, y: oy });
+        }
+
+        for (let i = 0; i <= rayCount; i++) {
+            const angle = startAngle + angleStep * Math.min(i, rayCount);
             const dx = Math.cos(angle);
             const dy = Math.sin(angle);
 
             const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
-            points[i] = { x: result.x, y: result.y };
+            points.push({ x: result.x, y: result.y });
 
             if (includeContourPoints && result.hit && result.ownerId > 0) {
                 const qx = Math.floor(result.x);
@@ -146,6 +160,10 @@ export class LightBufferRenderer {
                     contourPoints.push({ x: qx, y: qy });
                 }
             }
+        }
+
+        if (isCone) {
+            points.push({ x: ox, y: oy });
         }
 
         return { points, contourPoints };
@@ -166,36 +184,30 @@ export class LightBufferRenderer {
         return true;
     }
 
-    _drawLightBands(ctx, x, y, radius, color, intensity, steps) {
+    _drawLightBands(ctx, x, y, radius, color, intensity, _steps) {
         const rgb = this._parseColor(color);
-        const localSteps = Math.max(1, steps | 0);
-        for (let i = localSteps; i >= 1; i--) {
-            const t = i / localSteps;
-            const edge = 1 - t;
-            const r = Math.max(1, Math.round(radius * t));
-            const alpha = (intensity / localSteps) * (0.42 + edge * 0.95);
-
-            ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(4)})`;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, TWO_PI);
-            ctx.fill();
-        }
+        const r = Math.max(1, Math.round(radius));
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${intensity.toFixed(4)})`);
+        grad.addColorStop(0.4, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.55).toFixed(4)})`);
+        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TWO_PI);
+        ctx.fill();
     }
 
-    _drawGlowBands(ctx, x, y, radius, color, intensity, steps) {
+    _drawGlowBands(ctx, x, y, radius, color, intensity, _steps) {
         const rgb = this._parseColor(color);
-        const localSteps = Math.max(1, steps | 0);
-        for (let i = localSteps; i >= 1; i--) {
-            const t = i / localSteps;
-            const edge = 1 - t;
-            const r = Math.max(1, Math.round(radius * (0.65 + t * 0.45)));
-            const alpha = (intensity / localSteps) * (0.18 + edge * 0.4);
-
-            ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(4)})`;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, TWO_PI);
-            ctx.fill();
-        }
+        const r = Math.max(1, Math.round(radius * 1.1));
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.3).toFixed(4)})`);
+        grad.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.12).toFixed(4)})`);
+        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TWO_PI);
+        ctx.fill();
     }
 
     _drawContourGlow(ctx, points, radius, color, intensity) {
@@ -220,10 +232,11 @@ export class LightBufferRenderer {
     render({ ctx, camera, viewportWidth, viewportHeight, lights, shadowBuilder }) {
         const begin = performance.now();
 
-        const viewX = Math.floor(camera.x);
-        const viewY = Math.floor(camera.y);
-        const viewW = Math.ceil(viewportWidth) + 1;
-        const viewH = Math.ceil(viewportHeight) + 1;
+        const PADDING = 128;
+        const viewX = Math.floor(camera.x) - PADDING;
+        const viewY = Math.floor(camera.y) - PADDING;
+        const viewW = Math.ceil(viewportWidth) + 1 + PADDING * 2;
+        const viewH = Math.ceil(viewportHeight) + 1 + PADDING * 2;
 
         this._ensureBufferSize(viewW, viewH);
 
@@ -257,7 +270,11 @@ export class LightBufferRenderer {
 
             let polygon = null;
             let contourPoints = null;
-            if (light.castsShadows && shadowBuilder) {
+            const isCone = light.coneAngle > 0;
+            const needsShadows = light.castsShadows && shadowBuilder;
+            let hasBlockers = false;
+
+            if (needsShadows) {
                 const blockers = shadowBuilder.query(
                     light.x,
                     light.y,
@@ -265,20 +282,26 @@ export class LightBufferRenderer {
                     this.config.maxBlockersPerLight,
                     light.ignoreSelfShadow ? light.owner : null
                 );
-
                 if (blockers.length > 0) {
                     this._buildOcclusionField(blockers, viewX, viewY, bufferScale);
-                    const result = this._computeVisibilityPolygon(
-                        light,
-                        rayCount,
-                        viewX,
-                        viewY,
-                        bufferScale,
-                        enableContourGlow
-                    );
-                    polygon = result.points;
-                    contourPoints = result.contourPoints;
+                    hasBlockers = true;
                 }
+            }
+
+            if (hasBlockers || isCone) {
+                if (!hasBlockers) {
+                    this.occlusionField.clear();
+                }
+                const result = this._computeVisibilityPolygon(
+                    light,
+                    rayCount,
+                    viewX,
+                    viewY,
+                    bufferScale,
+                    enableContourGlow
+                );
+                polygon = result.points;
+                contourPoints = result.contourPoints;
             }
 
             lctx.save();
@@ -302,18 +325,26 @@ export class LightBufferRenderer {
             }
         }
 
+        const padBuf = Math.ceil(PADDING * bufferScale);
+        const srcW = this.bufferWidth - padBuf * 2;
+        const srcH = this.bufferHeight - padBuf * 2;
+        const dstX = viewX + PADDING;
+        const dstY = viewY + PADDING;
+        const dstW = viewW - PADDING * 2;
+        const dstH = viewH - PADDING * 2;
+
         ctx.save();
         ctx.imageSmoothingEnabled = false;
 
         ctx.globalCompositeOperation = 'multiply';
         ctx.globalAlpha = 1;
-        ctx.drawImage(this.lightCanvas, 0, 0, this.bufferWidth, this.bufferHeight, viewX, viewY, viewW, viewH);
+        ctx.drawImage(this.lightCanvas, padBuf, padBuf, srcW, srcH, dstX, dstY, dstW, dstH);
 
         const glowStrength = this.config.glowStrength || 0;
         if (glowStrength > 0) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = glowStrength;
-            ctx.drawImage(this.glowCanvas, 0, 0, this.bufferWidth, this.bufferHeight, viewX, viewY, viewW, viewH);
+            ctx.drawImage(this.glowCanvas, padBuf, padBuf, srcW, srcH, dstX, dstY, dstW, dstH);
         }
 
         ctx.restore();

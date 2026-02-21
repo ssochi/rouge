@@ -12,7 +12,7 @@ export const LIGHTING_QUALITY_PRESETS = {
         maxParticleLights: 20,
         maxBlockersPerLight: 320,
         staticUpdateInterval: 3,
-        ambientBrightness: 60,
+        ambientBrightness: 30,
         glowStrength: 0.38,
         overBudgetMs: 6.2,
         underBudgetMs: 2.8,
@@ -32,7 +32,7 @@ export const LIGHTING_QUALITY_PRESETS = {
         maxParticleLights: 12,
         maxBlockersPerLight: 220,
         staticUpdateInterval: 4,
-        ambientBrightness: 54,
+        ambientBrightness: 27,
         glowStrength: 0.32,
         overBudgetMs: 4.8,
         underBudgetMs: 2.2,
@@ -52,7 +52,7 @@ export const LIGHTING_QUALITY_PRESETS = {
         maxParticleLights: 6,
         maxBlockersPerLight: 140,
         staticUpdateInterval: 6,
-        ambientBrightness: 62,
+        ambientBrightness: 31,
         glowStrength: 0.24,
         overBudgetMs: 4.2,
         underBudgetMs: 1.8,
@@ -70,5 +70,5 @@ export function cloneLightingPreset(quality = DEFAULT_LIGHTING_QUALITY) {
 
 export function clampRadius(radius) {
     if (!Number.isFinite(radius)) return 0;
-    return Math.max(8, Math.min(240, radius));
+    return Math.max(8, Math.min(480, radius));
 }

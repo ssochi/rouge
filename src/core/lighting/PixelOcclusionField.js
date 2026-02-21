@@ -108,12 +108,8 @@ export class PixelOcclusionField {
 
     traceRay(ox, oy, dx, dy, maxDist) {
         const limit = Math.max(1, Math.ceil(maxDist));
-        let hit = false;
-        let hitOwner = 0;
-        let lastSolidX = ox;
-        let lastSolidY = oy;
-        let lastInsideX = ox;
-        let lastInsideY = oy;
+        let lastFreeX = ox;
+        let lastFreeY = oy;
 
         for (let step = 1; step <= limit; step++) {
             const px = ox + dx * step;
@@ -122,46 +118,22 @@ export class PixelOcclusionField {
             const iy = Math.floor(py);
 
             if (ix < 0 || iy < 0 || ix >= this.width || iy >= this.height) {
-                const dist = Math.min(step, maxDist);
-                if (hit) {
-                    return { hit: true, ownerId: hitOwner, dist, x: lastSolidX, y: lastSolidY };
-                }
-                return { hit: false, ownerId: 0, dist, x: lastInsideX, y: lastInsideY };
+                return { hit: false, ownerId: 0, dist: Math.min(step, maxDist), x: lastFreeX, y: lastFreeY };
             }
 
             const idx = iy * this.width + ix;
-            const solid = this.solid[idx] !== 0;
-
-            if (!hit) {
-                if (solid) {
-                    hit = true;
-                    hitOwner = this.ownerIds[idx] | 0;
-                    lastSolidX = px;
-                    lastSolidY = py;
-                } else {
-                    lastInsideX = px;
-                    lastInsideY = py;
-                }
-                continue;
+            if (this.solid[idx] !== 0) {
+                return {
+                    hit: true,
+                    ownerId: this.ownerIds[idx] | 0,
+                    dist: Math.min(step, maxDist),
+                    x: lastFreeX,
+                    y: lastFreeY
+                };
             }
 
-            if (solid) {
-                lastSolidX = px;
-                lastSolidY = py;
-                continue;
-            }
-
-            return {
-                hit: true,
-                ownerId: hitOwner,
-                dist: Math.min(step, maxDist),
-                x: lastSolidX,
-                y: lastSolidY
-            };
-        }
-
-        if (hit) {
-            return { hit: true, ownerId: hitOwner, dist: maxDist, x: lastSolidX, y: lastSolidY };
+            lastFreeX = px;
+            lastFreeY = py;
         }
 
         const px = ox + dx * maxDist;

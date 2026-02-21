@@ -88,22 +88,31 @@ function createEmitter({
     ignoreSelfShadow = false,
     priority = 0,
     kind = 'generic',
-    seed = 0
+    seed = 0,
+    coneAngle = 0,
+    coneDirection = 0
 }, timeMs = 0) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
 
-    return {
+    const emitter = {
         x,
         y,
         radius: clampRadius(radius),
         color: color || '#ffffff',
-        intensity: Math.max(0, Math.min(1.5, withFlicker(intensity ?? 0.5, flicker, timeMs, seed))),
+        intensity: Math.max(0, Math.min(2.0, withFlicker(intensity ?? 0.5, flicker, timeMs, seed))),
         castsShadows: castsShadows !== false,
         owner,
         ignoreSelfShadow: ignoreSelfShadow === true,
         priority,
         kind
     };
+
+    if (coneAngle > 0) {
+        emitter.coneAngle = coneAngle;
+        emitter.coneDirection = coneDirection;
+    }
+
+    return emitter;
 }
 
 export class LightEmitterRegistry {
