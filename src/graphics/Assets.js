@@ -94,6 +94,8 @@ import { FORCE_GUN_SPRITE } from '../assets/weapons/ForceGunGenerator.js';
 import { VAMPYRE_GUN_SPRITE } from '../assets/weapons/VampyreGunGenerator.js';
 import { NEEDLE_GUN_SPRITE } from '../assets/weapons/NeedleGunGenerator.js';
 import { RAILGUN_SPRITE } from '../assets/weapons/RailgunGenerator.js';
+import { generateTurretDeployer } from '../assets/weapons/TurretDeployerGenerator.js';
+import { createTurretSprite } from '../assets/objects/TurretSprite.js';
 import {
     generateHairLongIcon, generateMessyHairIcon, generateShortHairIcon,
     generateBeretIcon, generateBandanaIcon,
@@ -466,6 +468,7 @@ export const Assets = {
     vampyre_gun: VAMPYRE_GUN_SPRITE,
     needle_gun: NEEDLE_GUN_SPRITE,
     railgun: RAILGUN_SPRITE,
+    turret_deployer: generateTurretDeployer(),
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),
@@ -510,5 +513,6 @@ export const Assets = {
         suv: suvSprites,
         truck: truckSprites,
         police: policeSprites
-    }
+    },
+    turret: createTurretSprite()
 };

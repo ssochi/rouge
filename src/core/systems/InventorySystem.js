@@ -284,6 +284,15 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:turret_deployer',
+            type: 'weapon',
+            name: '炮塔部署器',
+            icon: 'turret_deployer',
+            maxStack: 1,
+            data: { weaponConfigId: 'turret_deployer' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',

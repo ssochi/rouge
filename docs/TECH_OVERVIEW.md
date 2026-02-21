@@ -16,7 +16,7 @@
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -33,6 +33,7 @@
       - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗，远距离自动传送）。
       - `PetCat.js`: 宠物猫实体（与 PetDog 同架构，速度更快，体型更小，灰白虎斑外观）。
       - `Pet2B.js`: 尼尔机械纪元 2B 宠物实体（人形角色，scale 0.65，白蓝科技风传送特效）。
+      - `Turret.js`: 炮塔实体（静态防御设施，HP 80，自动攻击范围内敌人，具有部署动画和破坏效果）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
       - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。

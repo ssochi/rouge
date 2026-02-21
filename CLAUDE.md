@@ -50,3 +50,16 @@ npm run preview  # 预览生产构建
 - **武器**：遵循 `docs/WEAPON_GUIDE.md`（字符模板 + `WeaponData.js` 挂载配置 + `Assets.js` 注册）。
 - **物体**：遵循 `docs/OBJECT_CREATION_GUIDE.md`（PixelDraw 绘制 → Assets 注册 → ObjectRegistry 注册逻辑）。
 - **复杂像素物体**：参考 `docs/PIXEL_ART_GUIDE.md`，使用 `PixelDraw` 程序化绘制。
+
+## Gemini 像素画优化
+
+当用户要求使用 Gemini 优化像素画时，工作流程：
+1. 运行脚本获取 Gemini 输出（仅输出到 stdout）：
+```bash
+python3 tools/gemini_pixel_art.py <像素画文件路径> [--prompt "优化提示"]
+```
+2. 审查输出代码，修复语法错误或接口不兼容问题
+3. 确认无误后使用 Write/Edit 工具写入目标文件
+4. 运行 `npm run build` 验证构建通过
+
+脚本自动读取 `src/utils/PixelDraw.js` 作为 API 上下文，调用 Gemini 3.1 Pro Preview 生成优化后的像素画代码。
