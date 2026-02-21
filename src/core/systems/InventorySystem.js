@@ -477,6 +477,33 @@ export class InventorySystem {
             icon: 'costume_clothes_knight', maxStack: 1,
             data: { costumeSlot: 'clothes', costumePieceId: 'clothes_knight' }
         });
+        // Ninja Series
+        this.registerItem({
+            id: 'costume:hat_ninja', type: 'costume', name: '忍者头巾',
+            icon: 'costume_hat_ninja', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_ninja' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_ninja', type: 'costume', name: '忍者装',
+            icon: 'costume_clothes_ninja', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_ninja' }
+        });
+        // Pirate Series
+        this.registerItem({
+            id: 'costume:hat_pirate', type: 'costume', name: '海盗三角帽',
+            icon: 'costume_hat_pirate', maxStack: 1,
+            data: { costumeSlot: 'hat', costumePieceId: 'hat_pirate' }
+        });
+        this.registerItem({
+            id: 'costume:clothes_pirate', type: 'costume', name: '海盗大衣',
+            icon: 'costume_clothes_pirate', maxStack: 1,
+            data: { costumeSlot: 'clothes', costumePieceId: 'clothes_pirate' }
+        });
+        this.registerItem({
+            id: 'costume:glasses_eyepatch', type: 'costume', name: '眼罩',
+            icon: 'costume_glasses_eyepatch', maxStack: 1,
+            data: { costumeSlot: 'glasses', costumePieceId: 'glasses_eyepatch' }
+        });
 
         // 3. Register Placeables from Assets.objects
         // Filter out implementation details like _flash, _frame, _panel

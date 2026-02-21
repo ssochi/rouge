@@ -493,6 +493,145 @@ export function generateKnightArmorIcon() {
     return d.getCanvas();
 }
 
+// ---- Ninja Icons ----
+
+export function generateNinjaHoodIcon() {
+    const d = new PixelDraw(16, 16);
+    const cloth = '#1a1a1a';
+    const dark = '#0d0d0d';
+    const band = '#8b0000';
+    // Hood dome
+    d.fillQuadCurve(3, 8, 8, 2, 13, 8, cloth);
+    d.rect(4, 6, 8, 7, cloth);
+    // Eye slit
+    d.rect(5, 8, 6, 2, '#2d2d2d');
+    // Red headband
+    d.rect(3, 7, 10, 2, band);
+    // Trailing tails
+    d.fillPath([
+        { x: 13, y: 7 }, { x: 15, y: 6 },
+        { x: 16, y: 8 }, { x: 14, y: 9 }
+    ], band);
+    // Side shadow
+    d.vLine(4, 7, 5, dark);
+    d.vLine(11, 7, 5, dark);
+    return d.getCanvas();
+}
+
+export function generateNinjaSuitIcon() {
+    const d = new PixelDraw(16, 16);
+    const coat = '#1a1a1a';
+    const dark = '#0d0d0d';
+    const light = '#2d2d2d';
+    const band = '#8b0000';
+    // Body
+    d.rect(4, 2, 8, 11, coat);
+    // Sleeves
+    d.fillPath([
+        { x: 3, y: 8 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 8 }
+    ], coat);
+    d.fillPath([
+        { x: 13, y: 8 }, { x: 12, y: 2 }, { x: 11, y: 2 }, { x: 11, y: 8 }
+    ], coat);
+    // Cross wrap
+    d.fillPath([
+        { x: 5, y: 3 }, { x: 11, y: 8 }, { x: 11, y: 9 }, { x: 5, y: 4 }
+    ], light);
+    d.fillPath([
+        { x: 11, y: 3 }, { x: 5, y: 8 }, { x: 5, y: 9 }, { x: 11, y: 4 }
+    ], light);
+    // Red belt/sash
+    d.rect(4, 10, 8, 2, band);
+    return d.getCanvas();
+}
+
+// ---- Pirate Icons ----
+
+export function generatePirateHatIcon() {
+    const d = new PixelDraw(16, 16);
+    const hat = '#2c1810';
+    const dark = '#1a0e08';
+    const gold = '#c9a73e';
+    const skull = '#ecf0f1';
+    // Crown dome
+    d.fillQuadCurve(4, 8, 8, 2, 12, 8, hat);
+    // Top peak
+    d.fillPath([
+        { x: 6, y: 4 }, { x: 8, y: 1 }, { x: 10, y: 4 }
+    ], hat);
+    // Brim (turned up sides)
+    d.fillPath([
+        { x: 1, y: 9 }, { x: 4, y: 7 }, { x: 12, y: 7 },
+        { x: 15, y: 9 }, { x: 14, y: 11 }, { x: 2, y: 11 }
+    ], hat);
+    // Gold trim
+    d.hLine(2, 10, 12, gold);
+    // Skull
+    d.pixel(7, 5, skull);
+    d.pixel(8, 5, skull);
+    d.pixel(9, 5, skull);
+    d.pixel(8, 6, skull);
+    // Side shadow
+    d.vLine(2, 8, 2, dark);
+    d.vLine(13, 8, 2, dark);
+    return d.getCanvas();
+}
+
+export function generatePirateCoatIcon() {
+    const d = new PixelDraw(16, 16);
+    const coat = '#8b0000';
+    const dark = '#5c0000';
+    const gold = '#c9a73e';
+    const shirt = '#ecf0f1';
+    // Coat body
+    d.rect(4, 2, 8, 6, coat);
+    // Sleeves
+    d.fillPath([
+        { x: 3, y: 8 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 8 }
+    ], coat);
+    d.fillPath([
+        { x: 13, y: 8 }, { x: 12, y: 2 }, { x: 11, y: 2 }, { x: 11, y: 8 }
+    ], coat);
+    // Coat tails
+    d.fillPath([
+        { x: 4, y: 8 }, { x: 3, y: 15 }, { x: 7, y: 15 }, { x: 7, y: 8 }
+    ], coat);
+    d.fillPath([
+        { x: 9, y: 8 }, { x: 9, y: 15 }, { x: 13, y: 15 }, { x: 12, y: 8 }
+    ], coat);
+    // White shirt V
+    d.fillPath([{ x: 7, y: 2 }, { x: 8, y: 5 }, { x: 9, y: 2 }], shirt);
+    // Gold buttons
+    d.pixel(6, 4, gold);
+    d.pixel(6, 6, gold);
+    d.pixel(10, 4, gold);
+    d.pixel(10, 6, gold);
+    // Gold trim on tails
+    d.hLine(3, 14, 4, gold);
+    d.hLine(9, 14, 4, gold);
+    return d.getCanvas();
+}
+
+export function generateEyepatchIcon() {
+    const d = new PixelDraw(16, 16);
+    const patch = '#1a1a1a';
+    const strap = '#2c1810';
+    const skin = '#f5cba7';
+    // Face
+    d.fillQuadCurve(3, 4, 8, 1, 13, 4, skin);
+    d.rect(4, 4, 8, 6, skin);
+    // Good eye
+    d.pixel(6, 6, '#333');
+    // Strap
+    d.hLine(2, 7, 4, strap);
+    d.hLine(12, 7, 3, strap);
+    // Eyepatch
+    d.rect(9, 5, 4, 4, patch);
+    d.rect(9, 5, 4, 1, strap);
+    d.rect(9, 8, 4, 1, strap);
+    return d.getCanvas();
+}
+
 // ---- Beard Icons ----
 export function generateBeardFullIcon() {
     const d = new PixelDraw(16, 16);

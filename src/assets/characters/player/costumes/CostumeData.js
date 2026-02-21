@@ -23,6 +23,11 @@ import { CYBER_JACKET } from './clothes/CyberJacket.js';
 import { CYBER_VISOR } from './glasses/CyberVisor.js';
 import { KNIGHT_HELMET } from './hats/KnightHelmet.js';
 import { KNIGHT_ARMOR } from './clothes/KnightArmor.js';
+import { NINJA_HOOD } from './hats/NinjaHood.js';
+import { NINJA_SUIT } from './clothes/NinjaSuit.js';
+import { PIRATE_HAT } from './hats/PirateHat.js';
+import { PIRATE_COAT } from './clothes/PirateCoat.js';
+import { EYEPATCH } from './glasses/Eyepatch.js';
 
 // ============================================================
 // Costume Pieces Registry
@@ -41,6 +46,8 @@ export const COSTUME_PIECES = {
         'hat_santa': SANTA_HAT,
         'hat_clown': CLOWN_HAT,
         'hat_knight': KNIGHT_HELMET,
+        'hat_ninja': NINJA_HOOD,
+        'hat_pirate': PIRATE_HAT,
     },
     clothes: {
         'clothes_coat': DEFAULT_CLOTHES,
@@ -50,12 +57,15 @@ export const COSTUME_PIECES = {
         'clothes_clown': CLOWN_SUIT,
         'clothes_cyber': CYBER_JACKET,
         'clothes_knight': KNIGHT_ARMOR,
+        'clothes_ninja': NINJA_SUIT,
+        'clothes_pirate': PIRATE_COAT,
     },
     glasses: {
         'glasses_sun': DEFAULT_GLASSES,
         'glasses_round': ROUND_GLASSES,
         'glasses_goggles': GOGGLES,
         'glasses_cyber': CYBER_VISOR,
+        'glasses_eyepatch': EYEPATCH,
     },
     beard: {
         'beard_full': DEFAULT_BEARD,

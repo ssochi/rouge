@@ -104,7 +104,9 @@ import {
     generateSantaHatIcon, generateSantaSuitIcon, generateSantaBeardIcon,
     generateClownHatIcon, generateClownSuitIcon, generateClownHairIcon,
     generateCyberHairIcon, generateCyberJacketIcon, generateCyberVisorIcon,
-    generateKnightHelmetIcon, generateKnightArmorIcon
+    generateKnightHelmetIcon, generateKnightArmorIcon,
+    generateNinjaHoodIcon, generateNinjaSuitIcon,
+    generatePirateHatIcon, generatePirateCoatIcon, generateEyepatchIcon
 } from '../assets/characters/player/costumes/CostumeIcons.js';
 import { ROCKET_PROJECTILE_TEMPLATE } from '../assets/weapons/RocketProjectileSprite.js';
 import { EXPLOSION_FRAMES } from '../assets/fx/ExplosionSprite.js';
@@ -490,6 +492,11 @@ export const Assets = {
     costume_glasses_cyber: generateCyberVisorIcon(),
     costume_hat_knight: generateKnightHelmetIcon(),
     costume_clothes_knight: generateKnightArmorIcon(),
+    costume_hat_ninja: generateNinjaHoodIcon(),
+    costume_clothes_ninja: generateNinjaSuitIcon(),
+    costume_hat_pirate: generatePirateHatIcon(),
+    costume_clothes_pirate: generatePirateCoatIcon(),
+    costume_glasses_eyepatch: generateEyepatchIcon(),
     rocket_projectile: spriteGenerator.generate(ROCKET_PROJECTILE_TEMPLATE, PALETTE),
     muzzleFlash: spriteGenerator.generate(MUZZLE_FLASH_TEMPLATE, PALETTE),
     explosion: EXPLOSION_FRAMES.map(t => spriteGenerator.generate(t, PALETTE)),
