@@ -393,6 +393,7 @@ export class Game {
         this.combatSystem.updateForceEffects();
         this.combatSystem.updateNeedleEffects();
         this.combatSystem.updateBurst();
+        this.combatSystem.updateEcho();
         this.profiler.end('Combat');
 
         // --- World Objects ---

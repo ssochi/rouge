@@ -267,6 +267,23 @@ export class PlayerSystem {
         const startState = this.player.state;
         const effectiveSpeed = this.getEffectivePlayerSpeed();
 
+        // M12: Grapple movement — pull player toward target
+        if (this.player._grappleTarget) {
+            const gt = this.player._grappleTarget;
+            const dx = gt.x - this.player.x;
+            const dy = gt.y - this.player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 16) {
+                this.player._grappleTarget = null;
+            } else {
+                const speed = this.player._grappleSpeed || 8;
+                const moveX = (dx / dist) * speed;
+                const moveY = (dy / dist) * speed;
+                this.resolveMove(this.player.x + moveX, this.player.y + moveY);
+                return; // Skip normal movement while grappling
+            }
+        }
+
         if (Math.abs(this.player.knockbackX) > 0.1 || Math.abs(this.player.knockbackY) > 0.1) {
             const nextX = this.player.x + this.player.knockbackX;
             const nextY = this.player.y + this.player.knockbackY;
@@ -579,15 +596,35 @@ export class PlayerSystem {
                     this.meleeSystem.tryAttack();
                 }
             } else {
-                // Shoot Mode (Auto-fire supported by CombatSystem rate limiting)
-                if (this.handSystem.canShoot()) {
-                    const shotFired = this.combatSystem.tryShoot();
-                    if (shotFired) {
-                        this.handSystem.consumeAmmo();
+                const weapon = this.handSystem.currentWeapon;
+
+                // M1: Charge weapons — hold to charge
+                if (weapon && weapon.chargeTime) {
+                    this.combatSystem.updateCharge(true);
+                }
+                // M8: Continuous beam — hold to fire
+                else if (weapon && weapon.continuous) {
+                    if (this.handSystem.canShoot()) {
+                        this.combatSystem.updateBeam(true);
+                    }
+                }
+                // Normal Shoot Mode (Auto-fire supported by CombatSystem rate limiting)
+                else if (this.handSystem.canShoot()) {
+                    // M14: Blood cost weapons bypass ammo but cost HP
+                    if (weapon && weapon.bloodCost) {
+                        const shotFired = this.combatSystem.tryShoot();
+                        // Don't consume ammo for blood weapons
+                        if (shotFired) {
+                            // HP deduction handled in tryShoot
+                        }
+                    } else {
+                        const shotFired = this.combatSystem.tryShoot();
+                        if (shotFired) {
+                            this.handSystem.consumeAmmo();
+                        }
                     }
                 } else {
                     // Auto reload if empty and clicking
-                    // Only if not already reloading
                     if (!this.handSystem.isReloading) {
                         const state = this.handSystem.getWeaponState();
                         if (state && state.currentAmmo === 0 && state.reserveAmmo > 0) {
@@ -598,6 +635,18 @@ export class PlayerSystem {
             }
         } else {
             this.mousePressed = false;
+            // M1: Release charge — fire charged shot
+            const weapon = this.handSystem.currentWeapon;
+            if (weapon && weapon.chargeTime && this.combatSystem.chargeState) {
+                const shotFired = this.combatSystem.updateCharge(false);
+                if (shotFired) {
+                    this.handSystem.consumeAmmo();
+                }
+            }
+            // M8: Release beam
+            if (weapon && weapon.continuous) {
+                this.combatSystem.updateBeam(false);
+            }
         }
     }
 }

@@ -548,6 +548,257 @@ export class BulletSystem {
                         friction: 0.9
                     });
                 }
+            // === NEW MECHANICS: Movement modifiers ===
+
+            // M5: Wave modifier — sine oscillation
+            if (b.waveAmplitude) {
+                b.waveTimer = (b.waveTimer || 0) + 1;
+                const perpAngle = b.waveBaseAngle + Math.PI / 2;
+                const offset = Math.sin(b.waveTimer * b.waveFrequency) * b.waveAmplitude;
+                const prevOffset = Math.sin((b.waveTimer - 1) * b.waveFrequency) * b.waveAmplitude;
+                const delta = offset - prevOffset;
+                b.x += Math.cos(perpAngle) * delta;
+                b.y += Math.sin(perpAngle) * delta;
+            }
+
+            // M2: Mine — state machine
+            if (b.type === 'mine') {
+                if (b.mineState === 'flying') {
+                    // Grenade-like trail
+                    if (Math.random() > 0.7) {
+                        this.particles.push({
+                            x: b.x, y: b.y,
+                            vx: (Math.random() - 0.5) * 0.3,
+                            vy: (Math.random() - 0.5) * 0.3,
+                            life: 10, color: '#7f8c8d',
+                            size: Math.random() * 2 + 1, friction: 0.9
+                        });
+                    }
+                } else if (b.mineState === 'armed') {
+                    b.vx = 0; b.vy = 0;
+                    b.life = Math.max(b.life, 2); // Keep alive while armed
+                    // Pulsing red indicator
+                    if (Math.random() > 0.7) {
+                        this.particles.push({
+                            x: b.x + (Math.random() - 0.5) * 4,
+                            y: b.y + (Math.random() - 0.5) * 4,
+                            vx: 0, vy: -0.3,
+                            life: 15, color: '#e74c3c',
+                            size: Math.random() * 2 + 1, friction: 0.95
+                        });
+                    }
+                    // Check proximity to enemies
+                    const detectR = b.mineDetectRadius || 64;
+                    const targets = b.source === 'player' ? this.enemies : [this.player];
+                    for (const e of targets) {
+                        if (!e || e.hp <= 0) continue;
+                        const dx = e.x - b.x;
+                        const dy = e.y - b.y;
+                        if (dx * dx + dy * dy < detectR * detectR) {
+                            b.life = 0; // Trigger despawn → explosion
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // M3: Sticky — attachment tracking
+            if (b.type === 'sticky') {
+                if (b.stickyState === 'attached') {
+                    b.life = Math.max(b.life, 2); // Keep alive while attached
+                    if (b.attachedTo) {
+                        if (b.attachedTo.hp <= 0) {
+                            b.life = 0; // Host died, explode
+                        } else {
+                            b.x = b.attachedTo.x;
+                            b.y = b.attachedTo.y;
+                        }
+                    } else if (b.stuckAt) {
+                        b.x = b.stuckAt.x;
+                        b.y = b.stuckAt.y;
+                    }
+                    b.vx = 0; b.vy = 0;
+                    b.stickyTimer--;
+                    // Flashing particles (faster as timer decreases)
+                    const flashRate = b.stickyTimer > 60 ? 0.8 : (b.stickyTimer > 30 ? 0.5 : 0.2);
+                    if (Math.random() > flashRate) {
+                        this.particles.push({
+                            x: b.x + (Math.random() - 0.5) * 6,
+                            y: b.y + (Math.random() - 0.5) * 6,
+                            vx: (Math.random() - 0.5) * 0.5,
+                            vy: (Math.random() - 0.5) * 0.5,
+                            life: 8, color: '#e74c3c',
+                            size: Math.random() * 2 + 2, friction: 0.9
+                        });
+                    }
+                    if (b.stickyTimer <= 0) {
+                        b.life = 0; // Trigger despawn → explosion
+                    }
+                } else {
+                    // Flying state trail
+                    if (Math.random() > 0.6) {
+                        this.particles.push({
+                            x: b.x, y: b.y,
+                            vx: (Math.random() - 0.5) * 0.3,
+                            vy: (Math.random() - 0.5) * 0.3,
+                            life: 10, color: '#e67e22',
+                            size: Math.random() * 2 + 1, friction: 0.9
+                        });
+                    }
+                }
+            }
+
+            // M4: Split — timer check
+            if (b.type === 'split') {
+                b.splitTimer = (b.splitTimer || 0) + 1;
+                if (b.splitTimer >= b.splitAfter && b.splitGeneration > 0) {
+                    // Spawn sub-bullets
+                    const count = b.splitCount || 3;
+                    const spreadDeg = b.splitSpread || 60;
+                    const spreadRad = spreadDeg * Math.PI / 180;
+                    const baseAngle = Math.atan2(b.vy, b.vx);
+                    for (let s = 0; s < count; s++) {
+                        const angle = baseAngle + (s / (count - 1) - 0.5) * spreadRad;
+                        this.bullets.push({
+                            x: b.x, y: b.y,
+                            vx: Math.cos(angle) * (b.splitBulletSpeed || 10),
+                            vy: Math.sin(angle) * (b.splitBulletSpeed || 10),
+                            life: b.splitBulletLife || 40,
+                            maxLife: b.splitBulletLife || 40,
+                            damage: b.splitBulletDamage || b.damage,
+                            color: b.color,
+                            size: Math.max(2, b.size * 0.7),
+                            type: b.splitGeneration > 1 ? 'split' : 'standard',
+                            source: b.source, owner: b.owner, team: b.team,
+                            hitList: [],
+                            // Pass split params for recursive splitting
+                            splitAfter: b.splitAfter,
+                            splitCount: b.splitCount,
+                            splitSpread: b.splitSpread,
+                            splitGeneration: b.splitGeneration - 1,
+                            splitTimer: 0,
+                            splitBulletSpeed: b.splitBulletSpeed,
+                            splitBulletLife: b.splitBulletLife,
+                            splitBulletDamage: b.splitBulletDamage,
+                            // Inherit wave modifier if present
+                            waveAmplitude: b.waveAmplitude,
+                            waveFrequency: b.waveFrequency,
+                            waveTimer: 0,
+                            waveBaseAngle: angle
+                        });
+                    }
+                    // Flash at split point
+                    this.particles.push({
+                        type: 'flash', x: b.x, y: b.y,
+                        size: 12, color: b.color, alpha: 0.7, life: 6
+                    });
+                    b.life = 0; // Remove original bullet
+                    continue; // Skip collision for this frame
+                }
+                // Trail
+                if (Math.random() > 0.5) {
+                    this.particles.push({
+                        x: b.x, y: b.y,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 12, color: b.color,
+                        size: Math.random() * 2 + 1, friction: 0.9
+                    });
+                }
+            }
+
+            // M6: Phase bullet trail (ghost effect)
+            if (b.phaseThrough) {
+                if (Math.random() > 0.5) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 6,
+                        y: b.y + (Math.random() - 0.5) * 6,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        life: 15,
+                        color: Math.random() > 0.5 ? '#6c5ce7' : '#a29bfe',
+                        size: Math.random() * 3 + 1,
+                        friction: 0.92
+                    });
+                }
+            }
+
+            // M7: Orbit — circular movement around player
+            if (b.type === 'orbit') {
+                b.orbitAngle += b.orbitSpeed || 0.08;
+                const cx = this.player.x;
+                const cy = this.player.y;
+                b.x = cx + Math.cos(b.orbitAngle) * b.orbitRadius;
+                b.y = cy + Math.sin(b.orbitAngle) * b.orbitRadius;
+                b.vx = 0; b.vy = 0; // Override velocity
+                // Orbit trail
+                if (Math.random() > 0.6) {
+                    this.particles.push({
+                        x: b.x, y: b.y,
+                        vx: (Math.random() - 0.5) * 0.3,
+                        vy: (Math.random() - 0.5) * 0.3,
+                        life: 10, color: b.color,
+                        size: Math.random() * 2 + 1, friction: 0.9
+                    });
+                }
+            }
+
+            // M11: Meteor — state machine
+            if (b.type === 'meteor') {
+                if (b.meteorState === 'marking') {
+                    // Marker travels to target
+                    if (Math.random() > 0.4) {
+                        this.particles.push({
+                            x: b.x + (Math.random() - 0.5) * 4,
+                            y: b.y + (Math.random() - 0.5) * 4,
+                            vx: 0, vy: -0.5,
+                            life: 15, color: '#e74c3c',
+                            size: Math.random() * 2 + 1, friction: 0.9
+                        });
+                    }
+                } else if (b.meteorState === 'waiting') {
+                    b.vx = 0; b.vy = 0;
+                    b.life = Math.max(b.life, 2);
+                    b.meteorDelay--;
+                    // Warning circle pulsing
+                    if (Math.random() > 0.3) {
+                        const a = Math.random() * Math.PI * 2;
+                        const r = (b.meteorBlastRadius || 64) * 0.5;
+                        this.particles.push({
+                            x: b.x + Math.cos(a) * r,
+                            y: b.y + Math.sin(a) * r,
+                            vx: 0, vy: 0,
+                            life: 10, color: '#e74c3c',
+                            size: 2, friction: 0.9
+                        });
+                    }
+                    if (b.meteorDelay <= 0) {
+                        // Spawn falling meteor(s)
+                        const count = b.meteorCount || 1;
+                        for (let m = 0; m < count; m++) {
+                            const spreadOff = b.meteorSpread ? (Math.random() - 0.5) * b.meteorSpread * 2 : 0;
+                            this.bullets.push({
+                                x: b.x + spreadOff,
+                                y: b.y - 200 + (Math.random() - 0.5) * 20,
+                                vx: 0, vy: 15,
+                                life: 30, maxLife: 30,
+                                damage: b.meteorBlastDamage || 60,
+                                color: '#e74c3c',
+                                size: 8,
+                                type: 'rocket',
+                                blastRadius: b.meteorBlastRadius || 128,
+                                knockback: 12,
+                                source: b.source,
+                                owner: b.owner,
+                                team: b.team,
+                                hitList: []
+                            });
+                        }
+                        b.life = 0;
+                    }
+                }
+            }
+
             } else if (b.type === 'railgun') {
                 // Accelerate
                 const currentSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
@@ -595,8 +846,8 @@ export class BulletSystem {
             const p1 = {x: prevX, y: prevY};
             const p2 = {x: b.x, y: b.y};
 
-            // Wall Collision
-            if (!b.gravityZ) {
+            // Wall Collision — M6: phase bullets skip wall collision
+            if (!b.gravityZ && !b.phaseThrough && b.type !== 'orbit') {
             // Compute bullet path AABB for spatial queries
             const _pMinX = prevX < b.x ? prevX : b.x;
             const _pMinY = prevY < b.y ? prevY : b.y;
@@ -627,6 +878,8 @@ export class BulletSystem {
                             b.x = prevX;
                             b.y = prevY;
                             b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                             for (let s = 0; s < 3; s++) {
                                 this.particles.push({
                                     x: b.x, y: b.y,
@@ -667,6 +920,8 @@ export class BulletSystem {
                             b.x = prevX;
                             b.y = prevY;
                             b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                             for (let s = 0; s < 3; s++) {
                                 this.particles.push({
                                     x: b.x, y: b.y,
@@ -770,6 +1025,8 @@ export class BulletSystem {
                                 b.x = prevX;
                                 b.y = prevY;
                                 b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                                 obj.takeDamage(b.damage);
                                 if (obj.isBroken) {
                                     this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -839,6 +1096,8 @@ export class BulletSystem {
                                 b.x = prevX;
                                 b.y = prevY;
                                 b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                                 obj.takeDamage(b.damage);
                                 if (obj.isBroken) {
                                     this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -893,7 +1152,26 @@ export class BulletSystem {
                             };
 
                         if (eRect && CollisionUtils.lineIntersectsRect(p1, p2, eRect)) {
-                            if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
+                            // M3: Sticky — attach to enemy instead of dealing damage
+                            if (b.type === 'sticky' && b.stickyState === 'flying') {
+                                b.stickyState = 'attached';
+                                b.attachedTo = e;
+                                hit = false;
+                                break;
+                            }
+
+                            // M12: Grapple (enemy pull mode) — pull enemy toward player
+                            if (b.type === 'grapple' && b.grapplePull === 'enemy') {
+                                const pullAngle = Math.atan2(this.player.y - e.y, this.player.x - e.x);
+                                const pullForce = b.grappleSpeed || 8;
+                                e.knockbackX = (e.knockbackX || 0) + Math.cos(pullAngle) * pullForce * 3;
+                                e.knockbackY = (e.knockbackY || 0) + Math.sin(pullAngle) * pullForce * 3;
+                                if (e.takeDamage) e.takeDamage(b.damage, { x: 0, y: 0 });
+                                hit = true;
+                                break;
+                            }
+
+                            if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing' && b.type !== 'mine' && b.type !== 'meteor') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
                                 // Use dynamic damage for railgun
@@ -1018,12 +1296,45 @@ export class BulletSystem {
 
                                 if (e.hp <= 0) {
                                     this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                                    // M10: Chain Explosion — enemy death triggers chain explosion
+                                    if (b.chainExplosion && (b.chainDepth || 0) < (b.chainMaxDepth || 3)) {
+                                        const chainDmg = Math.floor((b.chainBlastRadius ? b.damage : 30) * Math.pow(0.5, b.chainDepth || 0));
+                                        this.statusEffects.spawnExplosion(e.x, e.y, chainDmg, b.chainBlastRadius || 64, 6);
+                                        // Mark nearby enemies for chain tracking
+                                        for (const other of this.enemies) {
+                                            if (other === e || other.hp <= 0) continue;
+                                            const cdx = other.x - e.x;
+                                            const cdy = other.y - e.y;
+                                            if (cdx * cdx + cdy * cdy < (b.chainBlastRadius || 64) * (b.chainBlastRadius || 64)) {
+                                                other._chainExplosionPending = {
+                                                    depth: (b.chainDepth || 0) + 1,
+                                                    maxDepth: b.chainMaxDepth || 3,
+                                                    blastRadius: b.chainBlastRadius || 64,
+                                                    baseDamage: b.damage
+                                                };
+                                            }
+                                        }
+                                    }
                                 } else {
                                     this.particleSpawner.spawnBloodSplatter(e.x, e.y, angle);
                                 }
                             }
 
-                            if (b.piercing > 0) {
+                            // M6: Phase bullets pass through everything
+                            if (b.phaseThrough) {
+                                if (!Array.isArray(b.hitList)) b.hitList = [];
+                                b.hitList.push(e);
+                                b.phasePierceCount = (b.phasePierceCount || 0) + 1;
+                                // Damage gain per pierce
+                                if (b.phaseDamageGain > 0) {
+                                    b.damage = Math.floor(b.damage * (1 + b.phaseDamageGain));
+                                }
+                                // Apply slow to pierced enemy
+                                if (b.phaseSlowAmount > 0) {
+                                    e.slowTimer = Math.max(e.slowTimer || 0, 60);
+                                    e.slowAmount = Math.max(e.slowAmount || 0, b.phaseSlowAmount);
+                                }
+                            } else if (b.piercing > 0) {
                                 if (!Array.isArray(b.hitList)) b.hitList = [];
                                 b.hitList.push(e);
                                 b.piercing--;
@@ -1046,6 +1357,8 @@ export class BulletSystem {
                                 b.vx = b.vx - 2 * dot * nnx;
                                 b.vy = b.vy - 2 * dot * nny;
                                 b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                                 // Bounce spark
                                 for (let s = 0; s < 3; s++) {
                                     this.particles.push({
@@ -1109,6 +1422,8 @@ export class BulletSystem {
                             b.vx = b.vx - 2 * dot * nnx;
                             b.vy = b.vy - 2 * dot * nny;
                             b.bounceCount--;
+                            // M9: Bounce Grow — increase damage/size on bounce
+                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
                             for (let s = 0; s < 3; s++) {
                                 this.particles.push({
                                     x: b.x, y: b.y,
@@ -1128,8 +1443,48 @@ export class BulletSystem {
             }
 
             }
+            // M2: Mine — transition from flying to armed on landing
+            if (b.type === 'mine' && b.mineState === 'flying' && b.gravityZ && b.z <= 0) {
+                b.mineState = 'armed';
+                b.z = 0;
+                b.vx = 0; b.vy = 0; b.vz = 0;
+                hit = false; // Don't remove, enter armed state
+            }
+
+            // M3: Sticky — attach on hit (handled here before removal)
+            if (b.type === 'sticky' && b.stickyState === 'flying' && hit) {
+                b.stickyState = 'attached';
+                if (!b.stuckAt) b.stuckAt = { x: b.x, y: b.y };
+                hit = false; // Don't remove, enter attached state
+            }
+
+            // M11: Meteor — transition from marking to waiting on hit
+            if (b.type === 'meteor' && b.meteorState === 'marking' && (hit || expired)) {
+                b.meteorState = 'waiting';
+                b.meteorDelay = b.meteorDelay || 90;
+                hit = false; // Don't remove
+            }
+
+            // M12: Grapple — on wall hit, pull player
+            if (b.type === 'grapple' && hit) {
+                if (b.grapplePull === 'player' || !b.grapplePull) {
+                    // Set grapple target on player
+                    this.player._grappleTarget = { x: b.x, y: b.y };
+                    this.player._grappleSpeed = b.grappleSpeed || 8;
+                }
+            }
+
             const expired = b.life <= 0;
                 if (hit || expired) {
+                    // M2: Mine explodes
+                    if (b.type === 'mine' && b.mineState === 'armed') {
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.mineBlastDamage, b.mineBlastRadius, 8);
+                    }
+                    // M3: Sticky explodes
+                    if (b.type === 'sticky' && b.stickyState === 'attached') {
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.stickyBlastDamage, b.stickyBlastRadius, 6);
+                    }
+
                     if (hit && b.type === 'rocket') {
                         this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius, b.knockback);
                     } else if (b.type === 'grenade') {
