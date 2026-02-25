@@ -50,7 +50,16 @@
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
-    - `Renderer.js`: 负责场景绘制与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角 140×140，按房间状态着色，楼层标签 F1/F2，脉冲玩家标记点）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
+    - `lighting/`: 像素光影子系统。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
+      - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。
+      - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
+    - `shared/`: 跨系统共享缓存。
+      - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角 140×140，按房间状态着色，楼层标签 F1/F2，脉冲玩家标记点）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
     - `Input.js`: 统一的键鼠输入处理。
@@ -70,7 +79,8 @@
 ### 渲染流程
 1. **字符生成**: 使用 `SpriteGenerator` 将 ASCII 字符数组 + 调色板转换为 Canvas 图像。部分物体（如 BreakableObjects）使用 `PixelDraw` 进行程序化绘制。
 2. **绘制循环**: `Renderer.js` 负责每帧清屏并按 Z 排序绘制场景元素。
-3. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
+3. **像素光照**: `LightSystem` 生成低分辨率光照缓冲并在 `Renderer` 中合成。包含环境暗层、动态光源、遮挡射线与彩色光晕。
+4. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
 
 ### 游戏循环
 - 采用标准的 `requestAnimationFrame` 循环。
@@ -138,6 +148,9 @@
   - 子系统耗时分解面板（毫秒 + 百分比 + 比例条）
 - 接入新系统只需 2 行代码，详见 `docs/PROFILER_GUIDE.md`。
 - `WorldObjects` 已细分为 `Breakables` / `Particles` / `EnemyUpdate` / `Portals` / `DroppedItems`，便于定位高并发场景下的真实热点。
+- 光影系统新增两个热点标签：
+  - `LightingUpdate`: 光源扫描、遮挡缓存与可见性裁剪。
+  - `LightingRender`: 离屏光照缓冲绘制与主画布合成。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品+服装）。快捷栏（Hotbar）支持键盘选择。服装物品拾取后可在背包界面左侧的装备槽中装备。
@@ -210,3 +223,4 @@
   - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。
   - `hurtboxes` (`getHurtboxes()`): 用于子弹/激光命中检测。
   - `occlusion hitboxes` (`getOcclusionHitboxes()`): 用于渲染遮挡排序，不直接复用碰撞底边。
+- 可破坏物 `hurtboxes` 已改为自动生成：除 `door_h/door_v` 外，优先使用物体素材 alpha 的当前帧最小包围盒（缺失时回退并集包围盒），不再依赖每个 object 文件手工维护。
