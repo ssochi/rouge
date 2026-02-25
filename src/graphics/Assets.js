@@ -47,6 +47,7 @@ import { createWineRackSprite } from '../assets/objects/furniture/WineRackSprite
 import { createCoatRackSprite } from '../assets/objects/furniture/CoatRackSprite.js';
 import { createFishTankSprite } from '../assets/objects/furniture/FishTankSprite.js';
 import { createWorkbenchSprite } from '../assets/objects/furniture/WorkbenchSprite.js';
+import { createComputerDeskSprite } from '../assets/objects/furniture/ComputerDeskSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -186,6 +187,7 @@ const wineRackSprite = createWineRackSprite();
 const coatRackSprite = createCoatRackSprite();
 const fishTankSprite = createFishTankSprite();
 const workbenchSprite = createWorkbenchSprite();
+const computerDeskSprite = createComputerDeskSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -408,6 +410,8 @@ export const Assets = {
             : PixelDraw.createSilhouette(fishTankSprite),
         workbench: workbenchSprite,
         workbench_flash: PixelDraw.createSilhouette(workbenchSprite),
+        computer_desk: computerDeskSprite,
+        computer_desk_flash: PixelDraw.createSilhouette(computerDeskSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

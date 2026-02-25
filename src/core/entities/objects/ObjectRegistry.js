@@ -40,6 +40,7 @@ import { WineRackObject } from './WineRackObject.js';
 import { CoatRackObject } from './CoatRackObject.js';
 import { FishTankObject } from './FishTankObject.js';
 import { WorkbenchObject } from './WorkbenchObject.js';
+import { ComputerDeskObject } from './ComputerDeskObject.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -85,7 +86,8 @@ const OBJECT_DEFS = new Map([
     ['wine_rack', WineRackObject],
     ['coat_rack', CoatRackObject],
     ['fish_tank', FishTankObject],
-    ['workbench', WorkbenchObject]
+    ['workbench', WorkbenchObject],
+    ['computer_desk', ComputerDeskObject]
 ]);
 
 export function getObjectDef(type) {
