@@ -229,18 +229,30 @@ export class LightBufferRenderer {
         ctx.restore();
     }
 
-    render({ ctx, camera, viewportWidth, viewportHeight, lights, shadowBuilder }) {
+    render({ ctx, camera, viewportWidth, viewportHeight, lights, shadowBuilder, screenScale }) {
         const begin = performance.now();
 
         const PADDING = 128;
-        const viewX = Math.floor(camera.x) - PADDING;
-        const viewY = Math.floor(camera.y) - PADDING;
+        const bufferScale = this.config.bufferScale;
+        const ss = screenScale || 1;
+
+        // Snap view origin to buffer-pixel grid for internal consistency.
+        // This ensures world-to-buffer transforms only shift by whole buffer pixels,
+        // eliminating sub-pixel jitter in shadow rasterization and ray tracing.
+        const bufferSnapX = Math.floor(camera.x * bufferScale) / bufferScale;
+        const bufferSnapY = Math.floor(camera.y * bufferScale) / bufferScale;
+        const viewX = bufferSnapX - PADDING;
+        const viewY = bufferSnapY - PADDING;
+
+        // Screen-aligned camera (same formula as main Renderer.js).
+        const screenSnapX = Math.floor(camera.x * ss) / ss;
+        const screenSnapY = Math.floor(camera.y * ss) / ss;
+
         const viewW = Math.ceil(viewportWidth) + 1 + PADDING * 2;
         const viewH = Math.ceil(viewportHeight) + 1 + PADDING * 2;
 
         this._ensureBufferSize(viewW, viewH);
 
-        const bufferScale = this.config.bufferScale;
         const rayCount = this.config.shadowRays;
         const gradientSteps = this.config.gradientSteps;
         const glowSteps = this.config.glowSteps;
@@ -268,83 +280,150 @@ export class LightBufferRenderer {
                 continue;
             }
 
-            let polygon = null;
-            let contourPoints = null;
             const isCone = light.coneAngle > 0;
             const needsShadows = light.castsShadows && shadowBuilder;
-            let hasBlockers = false;
 
+            // Query all blockers once.
+            let allBlockers = [];
             if (needsShadows) {
-                const blockers = shadowBuilder.query(
+                allBlockers = shadowBuilder.query(
                     light.x,
                     light.y,
                     light.radius,
                     this.config.maxBlockersPerLight,
                     light.ignoreSelfShadow ? light.owner : null
                 );
-                if (blockers.length > 0) {
-                    this._buildOcclusionField(blockers, viewX, viewY, bufferScale);
-                    hasBlockers = true;
-                }
             }
 
-            if (hasBlockers || isCone) {
-                if (!hasBlockers) {
-                    this.occlusionField.clear();
+            // Separate wall/door blockers from furniture/object blockers.
+            // ownerId === 0 = world geometry walls; breakable walls/doors have ownerId > 0
+            // but their owner.type starts with 'wall' or 'door'.
+            const wallBlockers = allBlockers.filter(b => {
+                if (b.ownerId === 0) return true;
+                const t = b.owner?.type || '';
+                return t.startsWith('wall') || t.startsWith('door');
+            });
+            const hasObjectBlockers = allBlockers.length > wallBlockers.length;
+
+            if (!hasObjectBlockers) {
+                // No object blockers nearby — ambient and point polygons are identical.
+                // Render once at full intensity (70% + 30% = 100%).
+                let polygon = null;
+                let contourPoints = null;
+                const hasWalls = wallBlockers.length > 0;
+
+                if (hasWalls || isCone) {
+                    if (hasWalls) {
+                        this._buildOcclusionField(wallBlockers, viewX, viewY, bufferScale);
+                    } else {
+                        this.occlusionField.clear();
+                    }
+                    const result = this._computeVisibilityPolygon(
+                        light, rayCount, viewX, viewY, bufferScale, enableContourGlow
+                    );
+                    polygon = result.points;
+                    contourPoints = result.contourPoints;
                 }
+
+                lctx.save();
+                if (polygon) this._clipByPolygon(lctx, polygon);
+                lctx.globalCompositeOperation = 'lighter';
+                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity, gradientSteps);
+                lctx.restore();
+
+                gctx.save();
+                if (polygon) this._clipByPolygon(gctx, polygon);
+                gctx.globalCompositeOperation = 'lighter';
+                this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
+                gctx.restore();
+
+                if (enableContourGlow) {
+                    this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
+                }
+            } else {
+                // Object blockers present — two-pass rendering.
+
+                // --- Ambient pass (70%): only walls block ---
+                let ambientPoly = null;
+                const hasWalls = wallBlockers.length > 0;
+
+                if (hasWalls || isCone) {
+                    if (hasWalls) {
+                        this._buildOcclusionField(wallBlockers, viewX, viewY, bufferScale);
+                    } else {
+                        this.occlusionField.clear();
+                    }
+                    ambientPoly = this._computeVisibilityPolygon(
+                        light, rayCount, viewX, viewY, bufferScale, false
+                    ).points;
+                }
+
+                lctx.save();
+                if (ambientPoly) this._clipByPolygon(lctx, ambientPoly);
+                lctx.globalCompositeOperation = 'lighter';
+                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity * 0.7, gradientSteps);
+                lctx.restore();
+
+                // --- Point pass (30%): walls + objects block ---
+                let pointPoly = null;
+                let contourPoints = null;
+
+                this._buildOcclusionField(allBlockers, viewX, viewY, bufferScale);
                 const result = this._computeVisibilityPolygon(
-                    light,
-                    rayCount,
-                    viewX,
-                    viewY,
-                    bufferScale,
-                    enableContourGlow
+                    light, rayCount, viewX, viewY, bufferScale, enableContourGlow
                 );
-                polygon = result.points;
+                pointPoly = result.points;
                 contourPoints = result.contourPoints;
-            }
 
-            lctx.save();
-            if (polygon) {
-                this._clipByPolygon(lctx, polygon);
-            }
-            lctx.globalCompositeOperation = 'lighter';
-            this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity, gradientSteps);
-            lctx.restore();
+                lctx.save();
+                if (pointPoly) this._clipByPolygon(lctx, pointPoly);
+                lctx.globalCompositeOperation = 'lighter';
+                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity * 0.3, gradientSteps);
+                lctx.restore();
 
-            gctx.save();
-            if (polygon) {
-                this._clipByPolygon(gctx, polygon);
-            }
-            gctx.globalCompositeOperation = 'lighter';
-            this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
-            gctx.restore();
+                // Glow follows point light (all blockers).
+                gctx.save();
+                if (pointPoly) this._clipByPolygon(gctx, pointPoly);
+                gctx.globalCompositeOperation = 'lighter';
+                this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
+                gctx.restore();
 
-            if (enableContourGlow) {
-                this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
+                if (enableContourGlow) {
+                    this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
+                }
             }
         }
 
+        // Composite light buffer back to main canvas.
+        // Compensate for offset between buffer-pixel-snapped and screen-snapped camera
+        // so the light layer aligns perfectly with the scene.
         const padBuf = Math.ceil(PADDING * bufferScale);
+        const snapOffsetX = (bufferSnapX - screenSnapX) * bufferScale;
+        const snapOffsetY = (bufferSnapY - screenSnapY) * bufferScale;
+
+        const srcX = padBuf + snapOffsetX;
+        const srcY = padBuf + snapOffsetY;
         const srcW = this.bufferWidth - padBuf * 2;
         const srcH = this.bufferHeight - padBuf * 2;
-        const dstX = viewX + PADDING;
-        const dstY = viewY + PADDING;
+        const dstX = screenSnapX;
+        const dstY = screenSnapY;
         const dstW = viewW - PADDING * 2;
         const dstH = viewH - PADDING * 2;
 
         ctx.save();
-        ctx.imageSmoothingEnabled = false;
+        // Use bilinear filtering to smooth sub-buffer-pixel offset from snap compensation.
+        // The light buffer content is soft gradients, so interpolation is imperceptible.
+        ctx.imageSmoothingEnabled = true;
 
         ctx.globalCompositeOperation = 'multiply';
         ctx.globalAlpha = 1;
-        ctx.drawImage(this.lightCanvas, padBuf, padBuf, srcW, srcH, dstX, dstY, dstW, dstH);
+        ctx.drawImage(this.lightCanvas, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
 
         const glowStrength = this.config.glowStrength || 0;
         if (glowStrength > 0) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = glowStrength;
-            ctx.drawImage(this.glowCanvas, padBuf, padBuf, srcW, srcH, dstX, dstY, dstW, dstH);
+            ctx.drawImage(this.glowCanvas, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
         }
 
         ctx.restore();

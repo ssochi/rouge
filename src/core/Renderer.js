@@ -1047,7 +1047,8 @@ export class Renderer {
             this.lightSystem.render(this.ctx, {
                 camera: this.camera,
                 viewportWidth: viewportW,
-                viewportHeight: viewportH
+                viewportHeight: viewportH,
+                screenScale: this.scale
             });
             if (this.profiler) this.profiler.end('LightingRender');
         }

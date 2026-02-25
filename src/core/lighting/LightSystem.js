@@ -119,36 +119,6 @@ export class LightSystem {
     _collectDynamicLights(timeMs) {
         this.dynamicLights.length = 0;
 
-        // Player personal light — dim ambient glow.
-        this._pushEmitter(this.dynamicLights, {
-            x: this.player.x,
-            y: this.player.y + 8,
-            radius: 69,
-            color: '#ffe8c1',
-            intensity: 0.5,
-            castsShadows: true,
-            priority: 50,
-            owner: this.player,
-            ignoreSelfShadow: true,
-            kind: 'player'
-        });
-
-        // Player flashlight — cone light following aim direction.
-        const aimAngle = this.handSystem?.angle ?? 0;
-        this._pushEmitter(this.dynamicLights, {
-            x: this.player.x,
-            y: this.player.y + 4,
-            radius: 400,
-            color: '#ffe8c1',
-            intensity: 1.0,
-            castsShadows: true,
-            priority: 95,
-            owner: this.player,
-            ignoreSelfShadow: true,
-            kind: 'flashlight',
-            coneAngle: Math.PI / 6,
-            coneDirection: aimAngle
-        });
 
         this._pushEmitter(this.dynamicLights, this.emitterRegistry.getMuzzleFlashEmitter(this.handSystem, timeMs, this.player));
 
@@ -230,10 +200,8 @@ export class LightSystem {
         this._frame++;
 
         const walls = this.worldSystem?.walls || [];
-        const wallObjects = this.breakableObjects.filter(obj =>
-            obj && !obj.isBroken && (obj.type === 'wall' || obj.type === 'door_h' || obj.type === 'door_v')
-        );
-        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, wallObjects);
+        const shadowObjects = this.breakableObjects.filter(obj => obj && !obj.isBroken);
+        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, shadowObjects);
         if (castersChanged) {
             this._forceStaticRefresh = true;
         }
@@ -281,14 +249,15 @@ export class LightSystem {
         };
     }
 
-    render(ctx, { camera, viewportWidth, viewportHeight }) {
+    render(ctx, { camera, viewportWidth, viewportHeight, screenScale }) {
         this.lastRenderMs = this.bufferRenderer.render({
             ctx,
             camera,
             viewportWidth,
             viewportHeight,
             lights: this.visibleLights,
-            shadowBuilder: this.shadowBuilder
+            shadowBuilder: this.shadowBuilder,
+            screenScale
         });
 
         this._adaptQuality(this.lastRenderMs);
