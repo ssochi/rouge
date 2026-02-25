@@ -905,5 +905,36 @@ export const WEAPONS = {
         maxReserve: 9,
         reloadTime: 3000,
         rarity: 'legendary'
+    },
+    truck_launcher: {
+        name: "Truck Launcher",
+        type: WeaponType.RIFLE,
+        sprite: "truck_launcher",
+        drawOffset: { x: -10, y: -9 },
+        muzzleOffset: { x: 28, y: -1 },
+        shellEject: false,
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 12, y: 3 }
+        },
+        orbitRadius: 10,
+        // Stats
+        fireRate: 3000,        // Very slow - you're launching a truck!
+        damage: 60,            // Impact damage
+        bulletSpeed: 6,        // Initial speed (truck accelerates)
+        bulletLife: 300,       // 5 seconds at 60fps before forced explosion
+        bulletType: 'truck_projectile',
+        blastRadius: 128,      // Massive explosion
+        knockback: 15,
+        // Truck behavior params
+        truckStraightTime: 60,    // Frames driving straight (1 second)
+        truckErraticTurnRate: 0.08, // How wildly it turns when erratic
+        truckMaxSpeed: 7,
+        truckAcceleration: 0.1,
+        // Ammo
+        magazineSize: 1,
+        maxReserve: 5,
+        reloadTime: 4000
     }
 };

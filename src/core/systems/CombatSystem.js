@@ -255,6 +255,15 @@ export class CombatSystem {
                 bullet.currentDamage = bullet.damage;
             }
 
+            // Truck projectile: carry truck behavior params
+            if (weapon.bulletType === 'truck_projectile') {
+                bullet.truckStraightTime = weapon.truckStraightTime || 60;
+                bullet.truckErraticTurnRate = weapon.truckErraticTurnRate || 0.08;
+                bullet.truckMaxSpeed = weapon.truckMaxSpeed || 7;
+                bullet.truckAcceleration = weapon.truckAcceleration || 0.1;
+                bullet.truckTimer = 0;
+            }
+
             // M2: Mine — carry mine params
             if (weapon.bulletType === 'mine') {
                 bullet.mineArmTime = weapon.mineArmTime || 120;

@@ -799,6 +799,124 @@ export class BulletSystem {
                 }
             }
 
+            } else if (b.type === 'truck_projectile') {
+                b.truckTimer = (b.truckTimer || 0) + 1;
+                const straightTime = b.truckStraightTime || 60;
+
+                if (b.truckTimer <= straightTime) {
+                    // Phase 1: Drive straight, accelerate
+                    const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    const maxSpeed = b.truckMaxSpeed || 7;
+                    if (speed < maxSpeed) {
+                        const accel = b.truckAcceleration || 0.1;
+                        const angle = Math.atan2(b.vy, b.vx);
+                        b.vx += Math.cos(angle) * accel;
+                        b.vy += Math.sin(angle) * accel;
+                    }
+                } else {
+                    // Phase 2: Erratic driving - random steering
+                    const turnRate = b.truckErraticTurnRate || 0.08;
+                    const currentAngle = Math.atan2(b.vy, b.vx);
+                    // Random turn with occasional sharp turns
+                    const turnAmount = (Math.random() - 0.5) * turnRate * 2;
+                    const sharpTurn = Math.random() < 0.03 ? (Math.random() - 0.5) * Math.PI * 0.5 : 0;
+                    const newAngle = currentAngle + turnAmount + sharpTurn;
+                    const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    const maxSpeed = b.truckMaxSpeed || 7;
+                    // Randomly accelerate/decelerate
+                    const targetSpeed = Math.min(maxSpeed, speed + (Math.random() - 0.3) * 0.3);
+                    b.vx = Math.cos(newAngle) * targetSpeed;
+                    b.vy = Math.sin(newAngle) * targetSpeed;
+                }
+
+                // Exhaust smoke trail
+                if (Math.random() > 0.3) {
+                    const angle = Math.atan2(b.vy, b.vx);
+                    this.particles.push({
+                        x: b.x - Math.cos(angle) * 12,
+                        y: b.y - Math.sin(angle) * 12,
+                        vx: (Math.random() - 0.5) * 1 - Math.cos(angle) * 0.5,
+                        vy: (Math.random() - 0.5) * 1 - Math.sin(angle) * 0.5,
+                        life: 25 + Math.floor(Math.random() * 15),
+                        color: Math.random() > 0.5 ? '#555555' : '#777777',
+                        size: Math.random() * 4 + 2,
+                        friction: 0.92
+                    });
+                }
+
+                // Tire marks during erratic phase
+                if (b.truckTimer > straightTime && Math.random() > 0.5) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 8,
+                        y: b.y + (Math.random() - 0.5) * 8,
+                        vx: 0,
+                        vy: 0,
+                        life: 40 + Math.floor(Math.random() * 20),
+                        color: '#333333',
+                        size: Math.random() * 2 + 1,
+                        friction: 1.0
+                    });
+                }
+
+                // Damage enemies on contact (ram damage) without removing the truck
+                const truckWidth = 32;
+                const truckHeight = 16;
+                const truckRect = {
+                    x: b.x - truckWidth / 2,
+                    y: b.y - truckHeight / 2,
+                    width: truckWidth,
+                    height: truckHeight
+                };
+                const targets = b.source === 'player' ? this.enemies : [this.player];
+                for (const e of targets) {
+                    if (!e || e.hp <= 0) continue;
+                    if (Array.isArray(b._truckHitCooldown) && b._truckHitCooldown.find(h => h.target === e && h.timer > 0)) continue;
+                    const eRect = e.getBulletHurtbox
+                        ? e.getBulletHurtbox()
+                        : { x: e.x - (e.width || 24) / 2, y: e.y - (e.height || 24) / 2, width: e.width || 24, height: e.height || 24 };
+                    if (truckRect.x < eRect.x + eRect.width && truckRect.x + truckRect.width > eRect.x &&
+                            truckRect.y < eRect.y + eRect.height && truckRect.y + truckRect.height > eRect.y) {
+                        const angle = Math.atan2(b.vy, b.vx);
+                        const ramDamage = Math.floor(b.damage * 0.5);
+                        if (e.takeDamage) {
+                            e.takeDamage(ramDamage, {
+                                x: Math.cos(angle) * 8,
+                                y: Math.sin(angle) * 8
+                            });
+                        } else {
+                            e.hp -= ramDamage;
+                        }
+                        if (e.hp <= 0) {
+                            this.particleSpawner.spawnBloodExplosion(e.x, e.y);
+                        } else {
+                            this.particleSpawner.spawnBloodSplatter(e.x, e.y, angle);
+                        }
+                        // Cooldown to prevent hitting same enemy every frame
+                        if (!Array.isArray(b._truckHitCooldown)) b._truckHitCooldown = [];
+                        b._truckHitCooldown.push({ target: e, timer: 30 });
+                    }
+                }
+                // Update hit cooldowns
+                if (Array.isArray(b._truckHitCooldown)) {
+                    for (const h of b._truckHitCooldown) h.timer--;
+                    b._truckHitCooldown = b._truckHitCooldown.filter(h => h.timer > 0);
+                }
+
+                // Damage breakable objects on contact
+                for (const obj of this.breakableObjects) {
+                    if (obj.isBroken) continue;
+                    const objHitbox = obj.getHitbox();
+                    if (truckRect.x < objHitbox.x + objHitbox.width && truckRect.x + truckRect.width > objHitbox.x &&
+                            truckRect.y < objHitbox.y + objHitbox.height && truckRect.y + truckRect.height > objHitbox.y) {
+                        obj.takeDamage(b.damage);
+                        if (obj.isBroken) {
+                            this.particleSpawner.spawnDebris(obj.x + obj.width / 2, obj.y + obj.height / 2, obj.type);
+                            if (obj.type === 'explosive_barrel') {
+                                this.statusEffects.spawnExplosion(obj.x + obj.width / 2, obj.y + obj.height / 2, 80, 100, 10);
+                            }
+                        }
+                    }
+                }
             } else if (b.type === 'railgun') {
                 // Accelerate
                 const currentSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
@@ -1135,8 +1253,8 @@ export class BulletSystem {
                 }
             }
 
-            // Entity Collision
-            if (!hit) {
+            // Entity Collision (truck_projectile handles its own ram damage in movement section)
+            if (!hit && b.type !== 'truck_projectile') {
                 if (b.source === 'player') {
                     // Check Enemies
                     for (let j = this.enemies.length - 1; j >= 0; j--) {
@@ -1171,7 +1289,7 @@ export class BulletSystem {
                                 break;
                             }
 
-                            if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing' && b.type !== 'mine' && b.type !== 'meteor') {
+                            if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing' && b.type !== 'mine' && b.type !== 'meteor' && b.type !== 'truck_projectile') {
                                 const angle = Math.atan2(b.vy, b.vx);
                                 const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
                                 // Use dynamic damage for railgun
@@ -1541,6 +1659,37 @@ export class BulletSystem {
                                 color: '#ffb74d',
                                 size: Math.random() * 2 + 1,
                                 friction: 0.9
+                            });
+                        }
+                    } else if (b.type === 'truck_projectile') {
+                        // Truck explodes with a massive blast
+                        this.statusEffects.spawnExplosion(b.x, b.y, b.damage, b.blastRadius || 128, b.knockback || 15);
+                        // Extra fire particles for dramatic effect
+                        for (let s = 0; s < 12; s++) {
+                            const a = Math.random() * Math.PI * 2;
+                            const r = Math.random() * 40;
+                            this.particles.push({
+                                x: b.x + Math.cos(a) * r,
+                                y: b.y + Math.sin(a) * r,
+                                vx: Math.cos(a) * (Math.random() * 4 + 1),
+                                vy: Math.sin(a) * (Math.random() * 4 + 1),
+                                life: 30 + Math.floor(Math.random() * 30),
+                                color: Math.random() > 0.5 ? '#e74c3c' : '#f39c12',
+                                size: Math.random() * 5 + 3,
+                                friction: 0.9
+                            });
+                        }
+                        // Debris / metal shrapnel
+                        for (let s = 0; s < 8; s++) {
+                            const a = Math.random() * Math.PI * 2;
+                            this.particles.push({
+                                x: b.x, y: b.y,
+                                vx: Math.cos(a) * (Math.random() * 6 + 2),
+                                vy: Math.sin(a) * (Math.random() * 6 + 2),
+                                life: 40 + Math.floor(Math.random() * 20),
+                                color: Math.random() > 0.5 ? '#95a5a6' : '#7f8c8d',
+                                size: Math.random() * 3 + 1,
+                                friction: 0.88
                             });
                         }
                     } else if (b.type === 'turret_deploy') {

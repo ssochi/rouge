@@ -952,6 +952,51 @@ export class Renderer {
                 this.ctx.arc(0, 0, b.size * 1.5 + intensity * 3, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
+            } else if (b.type === 'truck_projectile') {
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const truckAngle = Math.atan2(b.vy, b.vx);
+                this.ctx.rotate(truckAngle);
+                // Use truck vehicle sprite layers
+                const truckSprites = Assets.vehicle.truck;
+                if (truckSprites) {
+                    const scale = 0.5;  // Smaller than real vehicle
+                    const tw = 64 * scale;
+                    const th = 28 * scale;
+                    // Draw chassis, body, roof layers
+                    if (truckSprites.chassis) {
+                        this.ctx.drawImage(truckSprites.chassis, -tw / 2, -th / 2, tw, th);
+                    }
+                    if (truckSprites.body) {
+                        this.ctx.drawImage(truckSprites.body, -tw / 2 + 2 * scale, -th / 2 + 2 * scale, 60 * scale, 24 * scale);
+                    }
+                    if (truckSprites.roof) {
+                        this.ctx.drawImage(truckSprites.roof, -tw / 2 + 2 * scale, -th / 2 + 4 * scale, 60 * scale, 20 * scale);
+                    }
+                } else {
+                    // Fallback: simple truck shape
+                    this.ctx.fillStyle = '#c62828';
+                    this.ctx.fillRect(-12, -6, 10, 12);  // Cab
+                    this.ctx.fillStyle = '#eeeeee';
+                    this.ctx.fillRect(-24, -6, 12, 12);  // Cargo
+                    this.ctx.fillStyle = '#111111';
+                    this.ctx.fillRect(-22, -8, 4, 3);    // Wheels
+                    this.ctx.fillRect(-22, 5, 4, 3);
+                    this.ctx.fillRect(-6, -8, 4, 3);
+                    this.ctx.fillRect(-6, 5, 4, 3);
+                }
+                // Erratic phase: add shaking effect
+                if (b.truckTimer > (b.truckStraightTime || 60)) {
+                    // Flash warning
+                    const flash = Math.sin((b.truckTimer || 0) * 0.3) > 0;
+                    if (flash) {
+                        this.ctx.globalAlpha = 0.3;
+                        this.ctx.fillStyle = '#e74c3c';
+                        this.ctx.fillRect(-16, -8, 32, 16);
+                        this.ctx.globalAlpha = 1.0;
+                    }
+                }
+                this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();

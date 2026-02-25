@@ -16,7 +16,7 @@
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`、`TruckLauncherGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -116,7 +116,8 @@
 - `CombatSystem._chainLightning()`：处理闪电链式跳跃（查找最近未命中敌人、衰减伤害、生成 `lightning_arc` 粒子）。
 - **冻结易伤**：所有伤害源（子弹、爆炸、燃烧 DOT、闪电链）对冻结中敌人造成 1.5x 伤害。
 - **敌人速度系统**：`Enemy.getEffectiveSpeed()` 统一处理减速/冻结对移动速度的影响，所有敌人子类使用此方法。
-- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang`、`plasma`、`homing`、`acid`、`cluster`、`force`、`vampyre`、`needle`、`railgun` 与默认圆形子弹分支。
+- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang`、`plasma`、`homing`、`acid`、`cluster`、`force`、`vampyre`、`needle`、`railgun`、`truck_projectile` 与默认圆形子弹分支。
+- **卡车发射器**：`truck_projectile` 弹道类型，发射后卡车沿发射方向直行（`truckStraightTime` 帧），之后进入失控阶段随机转向（`truckErraticTurnRate`），碰撞敌人时持续造成碾压伤害（30帧冷却），寿命结束或撞墙时产生大范围爆炸（`blastRadius: 128`），使用车辆精灵渲染。
 - **激光瞄准**：`Renderer.drawLaserSight()` 为狙击枪绘制激光线，使用 `HandSystem.angle` 确保方向与枪管一致，通过 `laserOffset` 定位发射器起点，射线检测墙壁遮挡。
 - **武器发射动画**：`HandSystem` 支持 `fireSprite` 配置，当弹药为空时自动切换精灵（如弩发射后弓臂前弹、弦松弛、无箭矢）。
 - 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。

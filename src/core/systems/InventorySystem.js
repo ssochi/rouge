@@ -293,6 +293,15 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:truck_launcher',
+            type: 'weapon',
+            name: 'Truck Launcher',
+            icon: 'truck_launcher',
+            maxStack: 1,
+            data: { weaponConfigId: 'truck_launcher' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',
