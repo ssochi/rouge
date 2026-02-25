@@ -16,7 +16,7 @@
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
     - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
-    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`）。
+    - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`、`LaserRifleGenerator.js`、`LaserShotgunGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
     - `entities/`: 游戏实体类。
       - `Zombie.js`: 男性僵尸敌人逻辑。
@@ -85,7 +85,7 @@
 - 远程敌人当 `canShootFrom()` 失败时会转入追击绕路，不再隔墙盲射；同时移除了“距离近时后退”行为。
 - 远程敌人换弹时会在头顶显示换弹进度条（与血条可双行叠加显示）。
 - `CombatSystem.tryShoot()` 支持：
-  - **瞬间光束**（`laser_beam`）：激光枪使用 hitscan 射线检测，瞬间伤害射线上所有敌人，光束视觉效果通过粒子系统渲染。
+  - **瞬间光束**（`laser_beam`）：激光枪使用 hitscan 射线检测，瞬间伤害射线上所有敌人，光束视觉效果通过粒子系统渲染。支持 `pelletCount` + `spread` 多束散射（霰弹激光枪）和 `continuous` 持续光束模式（激光步枪）。
   - **火焰弹**（`flame`）：喷火枪发射短程火焰粒子，命中后施加燃烧 DOT（`burnDamage` + `burnDuration`）。
   - **闪电弹**（`lightning`）：闪电枪发射快速弹丸，命中后链式跳跃到附近最多 3 个敌人，每跳衰减 60% 伤害。
   - **冰晶弹**（`ice_shard`）：冰冻枪持续发射冰晶锥，命中减速 50%，累计 5 次命中冻结敌人 2 秒（冻结期间受 1.5x 伤害）。

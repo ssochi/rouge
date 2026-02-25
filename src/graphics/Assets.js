@@ -65,6 +65,8 @@ import { SNIPER_SPRITE } from '../assets/weapons/SniperGenerator.js';
 import { CROSSBOW_SPRITE, CROSSBOW_FIRED_SPRITE } from '../assets/weapons/CrossbowGenerator.js';
 import { GRENADE_LAUNCHER_SPRITE } from '../assets/weapons/GrenadeLauncherGenerator.js';
 import { LASER_GUN_SPRITE } from '../assets/weapons/LaserGunGenerator.js';
+import { LASER_RIFLE_SPRITE } from '../assets/weapons/LaserRifleGenerator.js';
+import { LASER_SHOTGUN_SPRITE } from '../assets/weapons/LaserShotgunGenerator.js';
 import { FLAMETHROWER_SPRITE } from '../assets/weapons/FlamethrowerGenerator.js';
 import { BLACK_HOLE_GUN_SPRITE } from '../assets/weapons/BlackHoleGunGenerator.js';
 import { TELEPORT_GUN_SPRITE } from '../assets/weapons/TeleportGunGenerator.js';
@@ -448,6 +450,8 @@ export const Assets = {
     crossbow_fired: CROSSBOW_FIRED_SPRITE,
     grenade_launcher: GRENADE_LAUNCHER_SPRITE,
     laser_gun: LASER_GUN_SPRITE,
+    laser_rifle: LASER_RIFLE_SPRITE,
+    laser_shotgun: LASER_SHOTGUN_SPRITE,
     flamethrower: FLAMETHROWER_SPRITE,
     black_hole_gun: BLACK_HOLE_GUN_SPRITE,
     teleport_gun: TELEPORT_GUN_SPRITE,

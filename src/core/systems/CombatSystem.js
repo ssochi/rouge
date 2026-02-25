@@ -363,11 +363,23 @@ export class CombatSystem {
         if (!resolvedWeapon) return false;
 
         if (resolvedWeapon.bulletType === 'laser_beam') {
-            this.bulletSystem.fireLaserBeam(resolvedWeapon, muzzle, {
-                source: 'enemy',
-                shooter,
-                friendlyFire: true
-            });
+            const pellets = resolvedWeapon.pelletCount || 1;
+            const spreadRad = (resolvedWeapon.spread || 0) * Math.PI / 180;
+            for (let p = 0; p < pellets; p++) {
+                const offsetAngle = pellets > 1
+                    ? (Math.random() - 0.5) * spreadRad
+                    : 0;
+                const spreadMuzzle = {
+                    x: muzzle.x,
+                    y: muzzle.y,
+                    angle: muzzle.angle + offsetAngle
+                };
+                this.bulletSystem.fireLaserBeam(resolvedWeapon, spreadMuzzle, {
+                    source: 'enemy',
+                    shooter,
+                    friendlyFire: true
+                });
+            }
             return true;
         }
 
@@ -402,9 +414,21 @@ export class CombatSystem {
             this.handSystem.triggerShoot();
             const muzzle = this.handSystem.getMuzzleWorldPosition(now);
 
-            // Laser beam: hitscan, no bullet
+            // Laser beam: hitscan, no bullet (supports spread for shotgun lasers)
             if (weapon.bulletType === 'laser_beam') {
-                this.bulletSystem.fireLaserBeam(weapon, muzzle);
+                const pellets = weapon.pelletCount || 1;
+                const spreadRad = (weapon.spread || 0) * Math.PI / 180;
+                for (let p = 0; p < pellets; p++) {
+                    const offsetAngle = pellets > 1
+                        ? (Math.random() - 0.5) * spreadRad
+                        : 0;
+                    const spreadMuzzle = {
+                        x: muzzle.x,
+                        y: muzzle.y,
+                        angle: muzzle.angle + offsetAngle
+                    };
+                    this.bulletSystem.fireLaserBeam(weapon, spreadMuzzle);
+                }
                 const recoil = (weapon.damage || 10) / 5;
                 this.camera.x += (Math.random() - 0.5) * recoil;
                 this.camera.y += (Math.random() - 0.5) * recoil;
