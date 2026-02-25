@@ -398,8 +398,11 @@ export class LightBufferRenderer {
         // Compensate for offset between buffer-pixel-snapped and screen-snapped camera
         // so the light layer aligns perfectly with the scene.
         const padBuf = Math.ceil(PADDING * bufferScale);
-        const snapOffsetX = (bufferSnapX - screenSnapX) * bufferScale;
-        const snapOffsetY = (bufferSnapY - screenSnapY) * bufferScale;
+        // Convert from screen-snap world space to buffer source pixels.
+        // Sign must be (screen - buffer): we sample a later source region when
+        // destination starts from a later snapped world origin.
+        const snapOffsetX = (screenSnapX - bufferSnapX) * bufferScale;
+        const snapOffsetY = (screenSnapY - bufferSnapY) * bufferScale;
 
         const srcX = padBuf + snapOffsetX;
         const srcY = padBuf + snapOffsetY;
