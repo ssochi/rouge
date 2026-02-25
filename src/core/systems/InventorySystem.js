@@ -108,6 +108,24 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:laser_rifle',
+            type: 'weapon',
+            name: 'Laser Rifle',
+            icon: 'laser_rifle',
+            maxStack: 1,
+            data: { weaponConfigId: 'laser_rifle' }
+        });
+
+        this.registerItem({
+            id: 'weapon:laser_shotgun',
+            type: 'weapon',
+            name: 'Laser Shotgun',
+            icon: 'laser_shotgun',
+            maxStack: 1,
+            data: { weaponConfigId: 'laser_shotgun' }
+        });
+
+        this.registerItem({
             id: 'weapon:flamethrower',
             type: 'weapon',
             name: 'Flamethrower',
