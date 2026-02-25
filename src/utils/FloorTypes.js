@@ -8,16 +8,18 @@ export const FLOOR_TYPES = {
     GRASS: 1,
     WOOD: 2,
     CONCRETE: 3,
-    DIRT: 4
+    DIRT: 4,
+    STONE: 5
 };
 
 /** Map type ID → key string for Assets.floors lookup */
-export const FLOOR_TYPE_KEYS = ['none', 'grass', 'wood', 'concrete', 'dirt'];
+export const FLOOR_TYPE_KEYS = ['none', 'grass', 'wood', 'concrete', 'dirt', 'stone'];
 
 /** Base color per floor type (for dithering transitions) */
 export const FLOOR_BASE_COLORS = {
     1: '#4a7a3b',
     2: '#6d4c33',
     3: '#7a7a78',
-    4: '#8b7355'
+    4: '#8b7355',
+    5: '#5a5a6a'
 };

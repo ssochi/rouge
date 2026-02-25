@@ -1,6 +1,25 @@
 import { Assets } from '../../graphics/Assets.js';
 import { InputHandler } from '../Input.js';
 
+// Spider leg configuration: 6 legs with IK target positions
+// hipX/hipY: joint attachment on body (body-local coords)
+// homeX/homeY: default foot resting position (body-local coords)
+// kneeSide: +1 = knee bends toward positive perpendicular (right/down), -1 = opposite
+const SPIDER_LEG_CONFIG = [
+    // Right side (3 legs, knee bends outward = +1)
+    { hipX: 14,  hipY: 10,  homeX: 32,  homeY: 24,  kneeSide: +1, group: 'A' },
+    { hipX: 0,   hipY: 14,  homeX: 0,   homeY: 38,  kneeSide: +1, group: 'B' },
+    { hipX: -14, hipY: 10,  homeX: -32, homeY: 24,  kneeSide: +1, group: 'A' },
+    // Left side (3 legs, knee bends outward = -1)
+    { hipX: 14,  hipY: -10, homeX: 32,  homeY: -24, kneeSide: -1, group: 'B' },
+    { hipX: 0,   hipY: -14, homeX: 0,   homeY: -38, kneeSide: -1, group: 'A' },
+    { hipX: -14, hipY: -10, homeX: -32, homeY: -24, kneeSide: -1, group: 'B' },
+];
+const SPIDER_UPPER_LEN = 18;
+const SPIDER_LOWER_LEN = 16;
+const SPIDER_STEP_THRESHOLD = 14;
+const SPIDER_STEP_SPEED = 0.1;
+
 export class Vehicle {
     constructor(x, y, type = 'suv') {
         this.x = x;
@@ -45,7 +64,27 @@ export class Vehicle {
         
         // Collision Box
         this.hitbox = stats.hitbox;
-        
+
+        // Tank turret state
+        this.isTank = stats.isTank || false;
+        this.turretAngle = 0;
+        this.fireCooldown = 0;
+        this.fireRate = 90; // ~1.5s at 60fps
+        this.muzzleFlashTimer = 0;
+
+        // Spider state
+        this.isSpider = stats.isSpider || false;
+        this.legStates = SPIDER_LEG_CONFIG.map(leg => ({
+            targetX: this.x + leg.homeX,
+            targetY: this.y + leg.homeY,
+            stepping: false,
+            stepProgress: 0,
+            stepFromX: 0, stepFromY: 0,
+            stepToX: 0, stepToY: 0,
+            hipAngle: 0,
+            kneeAngle: 0,
+        }));
+
         this.showHint = false;
     }
     
@@ -72,6 +111,30 @@ export class Vehicle {
                     hp: 200,
                     ramDamage: 100,
                     hitbox: { width: 36, height: 20 }
+                };
+            case 'tank':
+                return {
+                    width: 56,
+                    height: 36,
+                    maxSpeed: 3.5,
+                    acceleration: 0.06,
+                    turnSpeed: 0.025,
+                    hp: 1000,
+                    ramDamage: 400,
+                    hitbox: { width: 48, height: 30 },
+                    isTank: true
+                };
+            case 'spider':
+                return {
+                    width: 48,
+                    height: 36,
+                    maxSpeed: 2.5,
+                    acceleration: 0.06,
+                    turnSpeed: 0.05,
+                    hp: 600,
+                    ramDamage: 150,
+                    hitbox: { width: 40, height: 30 },
+                    isSpider: true
                 };
             case 'suv':
             default:
@@ -202,6 +265,72 @@ export class Vehicle {
         } else {
             this.speed = 0;
             this.steeringAngle = 0;
+        }
+
+        // Tank turret logic
+        if (this.isTank && this.controlled && input) {
+            // Rotate turret toward mouse
+            const targetAngle = Math.atan2(
+                input.mouse.worldY - this.y,
+                input.mouse.worldX - this.x
+            );
+            let angleDiff = targetAngle - this.turretAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            const turretTurnSpeed = 0.08;
+            if (Math.abs(angleDiff) < turretTurnSpeed) {
+                this.turretAngle = targetAngle;
+            } else {
+                this.turretAngle += Math.sign(angleDiff) * turretTurnSpeed;
+            }
+
+            // Fire on mouse click
+            if (input.mouse.down) {
+                this._fireTankShell(combatSystem, particles, camera);
+            }
+
+            if (this.fireCooldown > 0) this.fireCooldown--;
+            if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer--;
+        }
+
+        // Spider leg IK always runs (legs must display correctly even uncontrolled)
+        if (this.isSpider) {
+            this._updateSpiderLegs();
+        }
+
+        // Spider turret & weapon logic (only when driven)
+        if (this.isSpider && this.controlled && input) {
+
+            // Spider body bob based on stepping activity
+            const steppingCount = this.legStates.filter(s => s.stepping).length;
+            if (steppingCount > 0) {
+                this.suspensionOffset = Math.sin(Date.now() / 80) * 1.2;
+            } else {
+                this.suspensionOffset *= 0.9;
+            }
+
+            // Turret aim toward mouse (faster than tank)
+            const targetAngle = Math.atan2(
+                input.mouse.worldY - this.y,
+                input.mouse.worldX - this.x
+            );
+            let angleDiff = targetAngle - this.turretAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            const turretTurnSpeed = 0.10;
+            if (Math.abs(angleDiff) < turretTurnSpeed) {
+                this.turretAngle = targetAngle;
+            } else {
+                this.turretAngle += Math.sign(angleDiff) * turretTurnSpeed;
+            }
+
+            // Laser bolt fire with cooldown
+            if (this.fireCooldown > 0) this.fireCooldown--;
+            if (input.mouse.down && this.fireCooldown <= 0) {
+                this._fireSpiderLaser(combatSystem, particles, camera);
+            }
+
+            if (this.muzzleFlashTimer > 0) this.muzzleFlashTimer--;
         }
 
         if (this.hpBarTimer > 0) this.hpBarTimer--;
@@ -386,17 +515,276 @@ export class Vehicle {
     explode(combatSystem) {
         this.isDead = true;
         this.speed = 0;
-        
+
         // Eject driver first (so they can be damaged by explosion)
         this.exit();
-        
+
         if (combatSystem && combatSystem.spawnExplosion) {
-            // Damage 80, Radius 100, Knockback 10
-            combatSystem.spawnExplosion(this.x, this.y, 80, 100, 10);
+            if (this.isTank) {
+                combatSystem.spawnExplosion(this.x, this.y, 120, 150, 15);
+            } else if (this.isSpider) {
+                combatSystem.spawnExplosion(this.x, this.y, 100, 120, 12);
+            } else {
+                combatSystem.spawnExplosion(this.x, this.y, 80, 100, 10);
+            }
+        }
+    }
+
+    _fireTankShell(combatSystem, particles, camera) {
+        if (this.fireCooldown > 0 || !combatSystem) return;
+
+        const muzzleDist = 32;
+        const turretCenterY = this.y - 8; // Match turret visual Y offset in _drawTank
+        const muzzleX = this.x + Math.cos(this.turretAngle) * muzzleDist;
+        const muzzleY = turretCenterY + Math.sin(this.turretAngle) * muzzleDist;
+
+        combatSystem._pushWeaponProjectiles({
+            weapon: {
+                damage: 60,
+                bulletSpeed: 8,
+                bulletLife: 100,
+                bulletColor: '#ecf0f1',
+                bulletSize: 5,
+                bulletType: 'rocket',
+                blastRadius: 96,
+                knockback: 12,
+                pelletCount: 1,
+                spread: 0
+            },
+            muzzle: { x: muzzleX, y: muzzleY, angle: this.turretAngle },
+            source: 'player',
+            owner: this.driver,
+            team: null
+        });
+
+        this.fireCooldown = this.fireRate;
+        this.muzzleFlashTimer = 6;
+
+        // Camera shake
+        if (camera) {
+            camera.x += (Math.random() - 0.5) * 10;
+            camera.y += (Math.random() - 0.5) * 10;
+        }
+
+        // Muzzle flash particles
+        if (particles) {
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: muzzleX + (Math.random() - 0.5) * 6,
+                    y: muzzleY + (Math.random() - 0.5) * 6,
+                    vx: Math.cos(this.turretAngle) * (1 + Math.random() * 2),
+                    vy: Math.sin(this.turretAngle) * (1 + Math.random() * 2),
+                    life: 6 + Math.random() * 4,
+                    color: '#ffeb3b',
+                    size: 3 + Math.random() * 4,
+                    type: 'particle',
+                    alpha: 0.8
+                });
+            }
+            for (let i = 0; i < 3; i++) {
+                particles.push({
+                    x: muzzleX,
+                    y: muzzleY,
+                    vx: Math.cos(this.turretAngle) * (1 + Math.random()),
+                    vy: Math.sin(this.turretAngle) * (1 + Math.random()),
+                    life: 20 + Math.random() * 10,
+                    color: '#95a5a6',
+                    size: 3 + Math.random() * 3,
+                    type: 'smoke',
+                    alpha: 0.6
+                });
+            }
         }
     }
     
+    _fireSpiderLaser(combatSystem, particles, camera) {
+        if (!combatSystem || !combatSystem.bulletSystem) return;
+
+        const muzzleDist = 22;
+        const turretCenterY = this.y - 12;
+        const muzzleX = this.x + Math.cos(this.turretAngle) * muzzleDist;
+        const muzzleY = turretCenterY + Math.sin(this.turretAngle) * muzzleDist;
+
+        const speed = 14;
+        combatSystem.bulletSystem.bullets.push({
+            x: muzzleX,
+            y: muzzleY,
+            vx: Math.cos(this.turretAngle) * speed,
+            vy: Math.sin(this.turretAngle) * speed,
+            life: 50,
+            maxLife: 50,
+            damage: 18,
+            color: '#00e5ff',
+            size: 4,
+            type: 'laser_bolt',
+            source: 'player',
+            hitList: [],
+            piercing: 0,
+            knockback: 3
+        });
+
+        this.fireCooldown = 8; // ~7.5 shots/sec at 60fps
+        this.muzzleFlashTimer = 3;
+
+        // Muzzle flash particle
+        if (particles) {
+            particles.push({
+                x: muzzleX, y: muzzleY,
+                vx: Math.cos(this.turretAngle) * 2,
+                vy: Math.sin(this.turretAngle) * 2,
+                life: 4, color: '#00e5ff', size: 6, friction: 0.8
+            });
+        }
+
+        if (camera) {
+            camera.x += (Math.random() - 0.5) * 0.8;
+            camera.y += (Math.random() - 0.5) * 0.8;
+        }
+    }
+
+    _updateSpiderLegs() {
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+        const absSpeed = Math.abs(this.speed);
+
+        // Dynamic step speed: faster movement = faster leg animation
+        const stepSpeed = SPIDER_STEP_SPEED + absSpeed * 0.03;
+
+        // Count how many legs in each group are currently stepping
+        const groupStepping = { A: 0, B: 0 };
+        for (let i = 0; i < 6; i++) {
+            if (this.legStates[i].stepping) {
+                groupStepping[SPIDER_LEG_CONFIG[i].group]++;
+            }
+        }
+
+        for (let i = 0; i < 6; i++) {
+            const leg = SPIDER_LEG_CONFIG[i];
+            const state = this.legStates[i];
+
+            // Compute home position in world space
+            const homeWorldX = this.x + leg.homeX * cos - leg.homeY * sin;
+            const homeWorldY = this.y + leg.homeX * sin + leg.homeY * cos;
+
+            if (state.stepping) {
+                // Continuously update step destination to track current home
+                const overshoot = absSpeed * 2;
+                state.stepToX = homeWorldX + Math.cos(this.angle) * overshoot;
+                state.stepToY = homeWorldY + Math.sin(this.angle) * overshoot;
+
+                // Advance step animation (speed scales with movement)
+                state.stepProgress += stepSpeed;
+                if (state.stepProgress >= 1) {
+                    state.stepProgress = 0;
+                    state.stepping = false;
+                    state.targetX = state.stepToX;
+                    state.targetY = state.stepToY;
+                } else {
+                    // Smooth interpolation (smoothstep)
+                    const t = state.stepProgress;
+                    const smooth = t * t * (3 - 2 * t);
+                    state.targetX = state.stepFromX + (state.stepToX - state.stepFromX) * smooth;
+                    state.targetY = state.stepFromY + (state.stepToY - state.stepFromY) * smooth;
+                }
+            } else {
+                // Check if leg needs to step
+                const dx = state.targetX - homeWorldX;
+                const dy = state.targetY - homeWorldY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Emergency snap: if leg is way too far, teleport immediately
+                if (dist > SPIDER_STEP_THRESHOLD * 3) {
+                    state.targetX = homeWorldX;
+                    state.targetY = homeWorldY;
+                } else if (dist > SPIDER_STEP_THRESHOLD) {
+                    // Only step if same group isn't already stepping (tripod stability)
+                    if (groupStepping[leg.group] === 0) {
+                        state.stepping = true;
+                        state.stepProgress = 0;
+                        state.stepFromX = state.targetX;
+                        state.stepFromY = state.targetY;
+                        const overshoot = absSpeed * 2;
+                        state.stepToX = homeWorldX + Math.cos(this.angle) * overshoot;
+                        state.stepToY = homeWorldY + Math.sin(this.angle) * overshoot;
+                        groupStepping[leg.group]++;
+                    }
+                }
+            }
+
+            // Compute foot lift (arc during stepping)
+            const footLift = state.stepping ? Math.sin(state.stepProgress * Math.PI) * 6 : 0;
+
+            // Compute hip position in world space
+            const hipWorldX = this.x + leg.hipX * cos - leg.hipY * sin;
+            const hipWorldY = this.y + leg.hipX * sin + leg.hipY * cos;
+
+            // Solve 2-bone IK with foot lift applied to target Y
+            const ik = this._solveSpiderLegIK(
+                hipWorldX, hipWorldY,
+                state.targetX, state.targetY - footLift,
+                SPIDER_UPPER_LEN, SPIDER_LOWER_LEN, leg.kneeSide
+            );
+            state.hipAngle = ik.hipAngle;
+            state.kneeAngle = ik.kneeAngle;
+        }
+    }
+
+    _solveSpiderLegIK(hipX, hipY, targetX, targetY, upperLen, lowerLen, kneeSide) {
+        const dx = targetX - hipX;
+        const dy = targetY - hipY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Clamp to reachable range
+        const maxReach = upperLen + lowerLen - 0.5;
+        const minReach = Math.abs(upperLen - lowerLen) + 0.5;
+        dist = Math.max(minReach, Math.min(maxReach, dist));
+
+        const angleToTarget = Math.atan2(dy, dx);
+
+        // Law of cosines: knee angle
+        const cosKnee = (upperLen * upperLen + lowerLen * lowerLen - dist * dist) / (2 * upperLen * lowerLen);
+        const kneeAngle = Math.PI - Math.acos(Math.max(-1, Math.min(1, cosKnee)));
+
+        // Law of cosines: hip offset from line-to-target
+        const cosHip = (upperLen * upperLen + dist * dist - lowerLen * lowerLen) / (2 * upperLen * dist);
+        const hipOffset = Math.acos(Math.max(-1, Math.min(1, cosHip)));
+
+        return {
+            hipAngle: angleToTarget + kneeSide * hipOffset,
+            kneeAngle: -kneeSide * kneeAngle
+        };
+    }
+
+    _spawnSpiderDust(particles) {
+        for (let i = 0; i < 6; i++) {
+            const state = this.legStates[i];
+            // Spawn dust when a step just finished (foot planted)
+            if (!state.stepping && state.stepProgress === 1) {
+                state.stepProgress = 0; // reset so dust only spawns once
+                particles.push({
+                    x: state.targetX + (Math.random() - 0.5) * 4,
+                    y: state.targetY + (Math.random() - 0.5) * 4,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    life: 15 + Math.random() * 8,
+                    color: '#795548',
+                    size: Math.random() * 2 + 1,
+                    type: 'smoke',
+                    alpha: 0.4
+                });
+            }
+        }
+    }
+
     _spawnDust(particles) {
+        if (this.isTank) {
+            this._spawnTrackDust(particles);
+            return;
+        }
+        if (this.isSpider) {
+            this._spawnSpiderDust(particles);
+            return;
+        }
         // Spawn at rear wheels
         // Rear wheels are at x = -14 (relative)
         // Need to rotate relative position
@@ -434,6 +822,28 @@ export class Vehicle {
         });
     }
     
+    _spawnTrackDust(particles) {
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+        const rearX = -this.width / 2 + 4;
+        const trackY1 = -this.height / 2 + 4;
+        const trackY2 = this.height / 2 - 4;
+
+        for (const ry of [trackY1, trackY2]) {
+            particles.push({
+                x: this.x + rearX * cos - ry * sin,
+                y: this.y + rearX * sin + ry * cos,
+                vx: (Math.random() - 0.5),
+                vy: (Math.random() - 0.5),
+                life: 20 + Math.random() * 10,
+                color: '#795548',
+                size: Math.random() * 4 + 2,
+                type: 'smoke',
+                alpha: 0.6
+            });
+        }
+    }
+
     _spawnImpactParticles(particles, x, y) {
         for(let i=0; i<8; i++) {
             particles.push({
@@ -623,6 +1033,15 @@ export class Vehicle {
     }
 
     draw(ctx) {
+        if (this.isSpider) {
+            this._drawSpider(ctx);
+            return;
+        }
+        if (this.isTank) {
+            this._drawTank(ctx);
+            return;
+        }
+
         // Draw Shadow
         ctx.save();
         ctx.translate(this.x + 4, this.y + 4);
@@ -642,11 +1061,11 @@ export class Vehicle {
         this._drawLayer(ctx, 0, (ctx) => {
             const wx = 14; // wheel x offset
             const wy = 10; // wheel y offset
-            
+
             // Front Wheels (Steerable)
             this._drawWheel(ctx, wx, -wy, this.steeringAngle); // Front Right
             this._drawWheel(ctx, wx, wy, this.steeringAngle);  // Front Left
-            
+
             // Rear Wheels (Fixed)
             this._drawWheel(ctx, -wx, -wy, 0); // Rear Right
             this._drawWheel(ctx, -wx, wy, 0);  // Rear Left
@@ -680,9 +1099,212 @@ export class Vehicle {
         this.drawHpBar(ctx);
     }
 
+    _drawTank(ctx) {
+        const susp = this.suspensionOffset;
+
+        // Shadow
+        ctx.save();
+        ctx.translate(this.x + 3, this.y + 3);
+        ctx.rotate(this.angle);
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.restore();
+
+        ctx.save();
+        if (this.hitFlashTimer > 0) {
+            ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
+        }
+
+        // Layer 1: Tracks (ground level, rotate with hull)
+        this._drawLayer(ctx, 0, () => {
+            const trackSprite = this.sprites.tracks;
+            // Left track
+            ctx.drawImage(trackSprite, -this.width / 2 + 2, -this.height / 2);
+            // Right track
+            ctx.drawImage(trackSprite, -this.width / 2 + 2, this.height / 2 - trackSprite.height);
+        });
+
+        // Layer 2: Chassis (half suspension)
+        this._drawLayer(ctx, susp * 0.5, () => {
+            const s = this.sprites.chassis;
+            ctx.drawImage(s, -s.width / 2, -s.height / 2);
+        });
+
+        // Layer 3: Hull body (full suspension)
+        this._drawLayer(ctx, -4 + susp, () => {
+            const s = this.sprites.body;
+            ctx.drawImage(s, -s.width / 2, -s.height / 2);
+        });
+
+        // Layer 4: Turret (independent rotation)
+        // Turret sprite is 48x48, visual center at pixel (16,24)
+        // Offset: draw at (-16, -24) relative to rotation origin
+        ctx.save();
+        ctx.translate(this.x, this.y + (-8 + susp));
+        ctx.rotate(this.turretAngle);
+        const t = this.sprites.turret;
+        ctx.drawImage(t, -16, -t.height / 2);
+
+        // Muzzle flash at barrel tip (barrel tip ~31px from turret rotation center)
+        if (this.muzzleFlashTimer > 0) {
+            const flashDist = 31;
+            ctx.fillStyle = '#ffeb3b';
+            ctx.globalAlpha = this.muzzleFlashTimer / 6;
+            ctx.beginPath();
+            ctx.arc(flashDist, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+            // Inner white core
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = (this.muzzleFlashTimer / 6) * 0.6;
+            ctx.beginPath();
+            ctx.arc(flashDist, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+
+        ctx.restore();
+
+        // Interaction Hint
+        if (this.showHint) {
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 7px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('[E] DRIVE', Math.floor(this.x), Math.floor(this.y - 36));
+        }
+
+        this.drawHpBar(ctx);
+    }
+
+    _drawSpider(ctx) {
+        const susp = this.suspensionOffset;
+        const bodyElevation = -8 + susp;
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+
+        // Classify legs by screen Y for 2.5D occlusion
+        const farLegs = [];
+        const nearLegs = [];
+        for (let i = 0; i < 6; i++) {
+            const leg = SPIDER_LEG_CONFIG[i];
+            const hipWorldY = leg.hipX * sin + leg.hipY * cos;
+            if (hipWorldY < 0) {
+                farLegs.push(i);
+            } else {
+                nearLegs.push(i);
+            }
+        }
+
+        ctx.save();
+        if (this.hitFlashTimer > 0) {
+            ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
+        }
+
+        // 1. Draw far-side legs (behind body)
+        for (const i of farLegs) {
+            this._drawSpiderLeg(ctx, i, bodyElevation);
+        }
+
+        // 2. Shadow
+        ctx.save();
+        ctx.translate(this.x + 3, this.y + 3);
+        ctx.rotate(this.angle);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 22, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 3. Body (elevated)
+        this._drawLayer(ctx, bodyElevation, () => {
+            const s = this.sprites.body;
+            ctx.drawImage(s, -s.width / 2, -s.height / 2);
+        });
+
+        // 4. Turret (independent rotation, higher elevation)
+        const turretElevation = -12 + susp;
+        ctx.save();
+        ctx.translate(this.x, this.y + turretElevation);
+        ctx.rotate(this.turretAngle);
+        const t = this.sprites.turret;
+        ctx.drawImage(t, -10, -t.height / 2); // pivot at (10, 16) of 32x32
+
+        // Muzzle glow at barrel tip
+        if (this.muzzleFlashTimer > 0) {
+            const flashDist = 22;
+            ctx.fillStyle = '#00e5ff';
+            ctx.globalAlpha = this.muzzleFlashTimer / 3;
+            ctx.beginPath();
+            ctx.arc(flashDist, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = (this.muzzleFlashTimer / 3) * 0.6;
+            ctx.beginPath();
+            ctx.arc(flashDist, 0, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+
+        // 5. Draw near-side legs (in front of body)
+        for (const i of nearLegs) {
+            this._drawSpiderLeg(ctx, i, bodyElevation);
+        }
+
+        ctx.restore();
+
+        // Interaction Hint
+        if (this.showHint) {
+            ctx.fillStyle = '#00e5ff';
+            ctx.font = 'bold 7px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('[E] PILOT', Math.floor(this.x), Math.floor(this.y - 40));
+        }
+
+        this.drawHpBar(ctx);
+    }
+
+    _drawSpiderLeg(ctx, legIndex, bodyElevation) {
+        const leg = SPIDER_LEG_CONFIG[legIndex];
+        const state = this.legStates[legIndex];
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+
+        // Hip position in world space (on the elevated body)
+        const hipWorldX = this.x + leg.hipX * cos - leg.hipY * sin;
+        const hipWorldY = this.y + bodyElevation + leg.hipX * sin + leg.hipY * cos;
+
+        ctx.save();
+
+        // Translate to hip joint, rotate by IK-solved hip angle (world space)
+        ctx.translate(hipWorldX, hipWorldY);
+        ctx.rotate(state.hipAngle);
+
+        // Upper leg (femur)
+        const lu = this.sprites.legUpper;
+        ctx.drawImage(lu, 0, -lu.height / 2);
+
+        // Move to knee joint
+        ctx.translate(SPIDER_UPPER_LEN, 0);
+
+        // Lower leg (tibia) with IK-solved knee angle
+        ctx.rotate(state.kneeAngle);
+        const ll = this.sprites.legLower;
+        ctx.drawImage(ll, 0, -ll.height / 2);
+
+        // Move to foot
+        ctx.translate(SPIDER_LOWER_LEN, 0);
+
+        // Foot
+        const f = this.sprites.foot;
+        ctx.drawImage(f, -f.width / 2, -f.height / 2);
+
+        ctx.restore();
+    }
+
     drawHpBar(ctx) {
         if (this.hpBarTimer <= 0) return;
-        
+
         const barWidth = 32;
         const barHeight = 4;
         const x = Math.floor(this.x - barWidth / 2);

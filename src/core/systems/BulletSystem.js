@@ -122,9 +122,9 @@ export class BulletSystem {
             if (d !== null && d < beamDist) beamDist = d;
         }
 
-        // Vehicles
+        // Vehicles (skip shooter's own vehicle)
         for (const v of this.vehicles) {
-            if (v.isDead) continue;
+            if (v.isDead || v === shooter) continue;
             const vRect = { x: v.x - v.width / 2, y: v.y - v.height / 2, width: v.width, height: v.height };
             const d = CollisionUtils.rayRectIntersect(muzzle, dir, vRect, beamDist);
             if (d !== null && d < beamDist) beamDist = d;
@@ -349,6 +349,20 @@ export class BulletSystem {
                         color: Math.random() > 0.5 ? '#a8d8ea' : '#dfe6e9',
                         size: Math.random() * 2 + 1,
                         friction: 0.95
+                    });
+                }
+            } else if (b.type === 'laser_bolt') {
+                // Cyan energy trail
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 2,
+                        y: b.y + (Math.random() - 0.5) * 2,
+                        vx: -b.vx * 0.05 + (Math.random() - 0.5) * 0.3,
+                        vy: -b.vy * 0.05 + (Math.random() - 0.5) * 0.3,
+                        life: 8,
+                        color: Math.random() > 0.5 ? '#00e5ff' : '#80f0ff',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.85
                     });
                 }
             } else if (b.type === 'ricochet') {
@@ -946,6 +960,8 @@ export class BulletSystem {
                 // Vehicle Collision
                 for (const v of this.vehicles) {
                     if (v.isDead) continue;
+                    // Skip vehicle the player is driving
+                    if (b.source === 'player' && v.driver) continue;
 
                     const vRect = {
                         x: v.x - v.width/2,
@@ -980,124 +996,111 @@ export class BulletSystem {
 
             if (!hit) {
                 // Breakable Object Collision
+                let candidateObjects = [];
                 if (this.obstacleIndex) {
                     // Broad-phase: spatial index query with padding for hurtbox extent
                     const objAABB = { x: _pMinX - 16, y: _pMinY - 16, width: _pMaxX - _pMinX + 32, height: _pMaxY - _pMinY + 32 };
                     const objCandidates = this.obstacleIndex.queryRect(objAABB, { objectsOnly: true });
-                    for (let ci = 0; ci < objCandidates.length; ci++) {
-                        const obj = objCandidates[ci].object;
-                        if (obj.isBroken) continue;
-                        // Dedup: same object may have multiple hitbox entries
-                        let dup = false;
-                        for (let cj = 0; cj < ci; cj++) {
-                            if (objCandidates[cj].object === obj) { dup = true; break; }
-                        }
-                        if (dup) continue;
+                    const seenObjects = new Set();
 
+                    for (const entry of objCandidates) {
+                        const obj = entry.object;
+                        if (!obj || obj.isBroken || seenObjects.has(obj)) continue;
+                        seenObjects.add(obj);
+                        candidateObjects.push(obj);
+                    }
+
+                    // Objects with zero movement hitboxes are not indexed.
+                    // Include them via hurtbox AABB test to keep bullet collision complete.
+                    for (const obj of this.breakableObjects) {
+                        if (!obj || obj.isBroken || seenObjects.has(obj)) continue;
                         const hurtboxes = obj.getHurtboxes
                             ? obj.getHurtboxes()
                             : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
 
-                        let intersectedBox = null;
                         for (const box of hurtboxes) {
-                            if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
-                                intersectedBox = box;
-                                break;
+                            const bw = box.width ?? box.w ?? 0;
+                            const bh = box.height ?? box.h ?? 0;
+                            if (bw <= 0 || bh <= 0) continue;
+                            if (box.x > objAABB.x + objAABB.width || box.x + bw < objAABB.x ||
+                                box.y > objAABB.y + objAABB.height || box.y + bh < objAABB.y) {
+                                continue;
                             }
-                        }
-
-                        if (intersectedBox) {
-                            if (b.type === 'ricochet' && b.bounceCount > 0) {
-                                const boxLeft = intersectedBox.x;
-                                const boxRight = intersectedBox.x + intersectedBox.width;
-                                const boxTop = intersectedBox.y;
-                                const boxBottom = intersectedBox.y + intersectedBox.height;
-                                const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
-                                const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
-                                if (wasOutsideX && wasOutsideY) {
-                                    b.vx = -b.vx;
-                                    b.vy = -b.vy;
-                                } else if (wasOutsideX) {
-                                    b.vx = -b.vx;
-                                } else {
-                                    b.vy = -b.vy;
-                                }
-                                b.x = prevX;
-                                b.y = prevY;
-                                b.bounceCount--;
-                            // M9: Bounce Grow — increase damage/size on bounce
-                            if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
-                                obj.takeDamage(b.damage);
-                                if (obj.isBroken) {
-                                    this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
-                                    if (obj.type === 'explosive_barrel') {
-                                        this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
-                                    }
-                                }
-                                for (let s = 0; s < 3; s++) {
-                                    this.particles.push({
-                                        x: b.x, y: b.y,
-                                        vx: (Math.random() - 0.5) * 3,
-                                        vy: (Math.random() - 0.5) * 3,
-                                        life: 15,
-                                        color: '#2ecc71',
-                                        size: Math.random() * 3 + 2,
-                                        friction: 0.85
-                                    });
-                                }
-                                break;
-                            } else {
-                                hit = true;
-                                if (b.type !== 'rocket' && b.type !== 'grenade') {
-                                    obj.takeDamage(b.damage);
-                                    if (obj.isBroken) {
-                                        this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
-                                        if (obj.type === 'explosive_barrel') {
-                                            this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
-                                        }
-                                    }
-                                }
-                                break;
-                            }
+                            candidateObjects.push(obj);
+                            seenObjects.add(obj);
+                            break;
                         }
                     }
                 } else {
-                    // Fallback: brute-force breakable object iteration
-                    for (const obj of this.breakableObjects) {
-                        if (obj.isBroken) continue;
-                        const hurtboxes = obj.getHurtboxes
-                            ? obj.getHurtboxes()
-                            : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+                    candidateObjects = this.breakableObjects;
+                }
 
-                        let intersectedBox = null;
-                        for (const box of hurtboxes) {
-                            if (CollisionUtils.lineIntersectsRect(p1, p2, box)) {
-                                intersectedBox = box;
-                                break;
-                            }
+                for (const obj of candidateObjects) {
+                    if (!obj || obj.isBroken) continue;
+                    const hurtboxes = obj.getHurtboxes
+                        ? obj.getHurtboxes()
+                        : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
+
+                    let intersectedBox = null;
+                    for (const box of hurtboxes) {
+                        const bw = box.width ?? box.w ?? 0;
+                        const bh = box.height ?? box.h ?? 0;
+                        if (bw <= 0 || bh <= 0) continue;
+                        const normBox = {
+                            x: box.x,
+                            y: box.y,
+                            width: bw,
+                            height: bh
+                        };
+                        if (CollisionUtils.lineIntersectsRect(p1, p2, normBox)) {
+                            intersectedBox = normBox;
+                            break;
                         }
+                    }
 
-                        if (intersectedBox) {
-                            if (b.type === 'ricochet' && b.bounceCount > 0) {
-                                const boxLeft = intersectedBox.x;
-                                const boxRight = intersectedBox.x + intersectedBox.width;
-                                const boxTop = intersectedBox.y;
-                                const boxBottom = intersectedBox.y + intersectedBox.height;
-                                const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
-                                const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
-                                if (wasOutsideX && wasOutsideY) {
-                                    b.vx = -b.vx;
-                                    b.vy = -b.vy;
-                                } else if (wasOutsideX) {
-                                    b.vx = -b.vx;
-                                } else {
-                                    b.vy = -b.vy;
-                                }
-                                b.x = prevX;
-                                b.y = prevY;
-                                b.bounceCount--;
+                    if (intersectedBox) {
+                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                            const boxLeft = intersectedBox.x;
+                            const boxRight = intersectedBox.x + intersectedBox.width;
+                            const boxTop = intersectedBox.y;
+                            const boxBottom = intersectedBox.y + intersectedBox.height;
+                            const wasOutsideX = (prevX <= boxLeft || prevX >= boxRight);
+                            const wasOutsideY = (prevY <= boxTop || prevY >= boxBottom);
+                            if (wasOutsideX && wasOutsideY) {
+                                b.vx = -b.vx;
+                                b.vy = -b.vy;
+                            } else if (wasOutsideX) {
+                                b.vx = -b.vx;
+                            } else {
+                                b.vy = -b.vy;
+                            }
+                            b.x = prevX;
+                            b.y = prevY;
+                            b.bounceCount--;
                             // M9: Bounce Grow — increase damage/size on bounce
                             if (b.bounceGrowDamage) { b.damage *= b.bounceGrowDamage; b.size *= (b.bounceGrowSize || 1); }
+                            obj.takeDamage(b.damage);
+                            if (obj.isBroken) {
+                                this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
+                                if (obj.type === 'explosive_barrel') {
+                                    this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
+                                }
+                            }
+                            for (let s = 0; s < 3; s++) {
+                                this.particles.push({
+                                    x: b.x, y: b.y,
+                                    vx: (Math.random() - 0.5) * 3,
+                                    vy: (Math.random() - 0.5) * 3,
+                                    life: 15,
+                                    color: '#2ecc71',
+                                    size: Math.random() * 3 + 2,
+                                    friction: 0.85
+                                });
+                            }
+                            break;
+                        } else {
+                            hit = true;
+                            if (b.type !== 'rocket' && b.type !== 'grenade') {
                                 obj.takeDamage(b.damage);
                                 if (obj.isBroken) {
                                     this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
@@ -1105,31 +1108,8 @@ export class BulletSystem {
                                         this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
                                     }
                                 }
-                                for (let s = 0; s < 3; s++) {
-                                    this.particles.push({
-                                        x: b.x, y: b.y,
-                                        vx: (Math.random() - 0.5) * 3,
-                                        vy: (Math.random() - 0.5) * 3,
-                                        life: 15,
-                                        color: '#2ecc71',
-                                        size: Math.random() * 3 + 2,
-                                        friction: 0.85
-                                    });
-                                }
-                                break;
-                            } else {
-                                hit = true;
-                                if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing') {
-                                    obj.takeDamage(b.damage);
-                                    if (obj.isBroken) {
-                                        this.particleSpawner.spawnDebris(obj.x + obj.width/2, obj.y + obj.height/2, obj.type);
-                                        if (obj.type === 'explosive_barrel') {
-                                            this.statusEffects.spawnExplosion(obj.x + obj.width/2, obj.y + obj.height/2, 80, 100, 10);
-                                        }
-                                    }
-                                }
-                                break;
                             }
+                            break;
                         }
                     }
                 }

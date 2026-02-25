@@ -23,6 +23,30 @@ const COLORS = {
     TEST_BARS: ['#e74c3c', '#2ecc71', '#3498db', '#f1c40f', '#9b59b6', '#ecf0f1']
 };
 
+// Pre-computed light colors per program via weighted RGB average of dominant screen colors
+// Formula: r = r1*w1 + r2*w2, same for g,b
+function blendColors(c1, w1, c2, w2) {
+    const p = (hex) => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+    const [r1,g1,b1] = p(c1);
+    const [r2,g2,b2] = p(c2);
+    const r = Math.round(r1*w1 + r2*w2);
+    const g = Math.round(g1*w1 + g2*w2);
+    const b = Math.round(b1*w1 + b2*w2);
+    const h = (v) => v.toString(16).padStart(2,'0');
+    return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+const PROGRAM_LIGHT_COLORS = {
+    [PROGRAMS.STATIC]:  { color: '#4a5568', intensity: 0.45, flicker: 0.12 },
+    [PROGRAMS.NEWS]:    { color: blendColors('#2980b9', 0.7, '#c0392b', 0.3), intensity: 0.7, flicker: 0.03 },
+    [PROGRAMS.SPORTS]:  { color: blendColors('#27ae60', 0.75, '#f39c12', 0.25), intensity: 0.7, flicker: 0.03 },
+    [PROGRAMS.TEST]:    { color: '#b8a8c0', intensity: 0.6, flicker: 0.01 }
+};
+const WEATHER_LIGHT = {
+    sun:  { color: blendColors('#3498db', 0.65, '#f1c40f', 0.35), intensity: 0.65, flicker: 0.02 },
+    rain: { color: blendColors('#3498db', 0.7, '#7f8c8d', 0.3), intensity: 0.5, flicker: 0.02 }
+};
+
 export const TVStandObject = {
     configure(obj) {
         obj.hitbox = { offsetX: 0, offsetY: 16, width: 40, height: 16 };
@@ -71,7 +95,12 @@ export const TVStandObject = {
     },
 
     update(obj) {
-        if (!obj.tv.isOn) return;
+        if (!obj.tv.isOn) {
+            obj.lightColor = null;
+            obj.lightIntensity = null;
+            obj.lightFlicker = null;
+            return;
+        }
         
         const tv = obj.tv;
         tv.frame++;
@@ -128,6 +157,19 @@ export const TVStandObject = {
                 tv.weather.type = (tv.weather.type + 1) % 2;
                 tv.weather.timer = 0;
             }
+        }
+
+        // Compute dynamic light color based on current screen content
+        let lightDef;
+        if (tv.program === PROGRAMS.WEATHER) {
+            lightDef = tv.weather.type === 0 ? WEATHER_LIGHT.sun : WEATHER_LIGHT.rain;
+        } else {
+            lightDef = PROGRAM_LIGHT_COLORS[tv.program];
+        }
+        if (lightDef) {
+            obj.lightColor = lightDef.color;
+            obj.lightIntensity = lightDef.intensity;
+            obj.lightFlicker = lightDef.flicker;
         }
     },
 

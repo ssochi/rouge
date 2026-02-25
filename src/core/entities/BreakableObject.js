@@ -1,5 +1,10 @@
 import { Assets } from '../../graphics/Assets.js';
 import { getObjectDef } from './objects/ObjectRegistry.js';
+import { spriteMaskCache } from '../shared/SpriteMaskCache.js';
+
+function isDoorType(type, baseType) {
+    return type === 'door_h' || type === 'door_v' || baseType === 'door_h' || baseType === 'door_v';
+}
 
 export class BreakableObject {
     constructor(x, y, type) {
@@ -37,25 +42,32 @@ export class BreakableObject {
         };
     }
 
-    // New: Full body hitbox for bullet impact
-    getHurtbox() {
-        if (this.def && this.def.getHurtbox) {
-            return this.def.getHurtbox(this);
-        }
+    _getAutoHurtbox() {
+        const auto = spriteMaskCache.getFrameWorldBounds(this) || spriteMaskCache.getUnionWorldBounds(this);
+        if (auto) return auto;
 
-        // Approximate full visual body
         return {
             x: this.x + this.hitbox.offsetX,
-            y: this.y + 4, // Start from near top
+            y: this.y + this.hitbox.offsetY,
             width: this.hitbox.width,
-            height: 28 // Cover most of the sprite height (32)
+            height: this.hitbox.height,
+            w: this.hitbox.width,
+            h: this.hitbox.height
         };
     }
 
+    getHurtbox() {
+        if (isDoorType(this.type, this.baseType) && this.def && this.def.getHurtbox) {
+            return this.def.getHurtbox(this);
+        }
+        return this._getAutoHurtbox();
+    }
+
     getHurtboxes() {
-        if (this.def && this.def.getHurtboxes) {
+        if (isDoorType(this.type, this.baseType) && this.def && this.def.getHurtboxes) {
             return this.def.getHurtboxes(this);
         }
+
         return [this.getHurtbox()];
     }
 
@@ -88,7 +100,8 @@ export class BreakableObject {
 
     takeDamage(amount, knockback) {
         if (this.isBroken) return;
-        
+        if (this.isLocked) return; // Locked doors are invulnerable
+
         this.hp -= amount;
         this.hitFlashTimer = 5;
         

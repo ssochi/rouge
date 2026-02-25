@@ -15,6 +15,8 @@ import { Vehicle } from '../entities/Vehicle.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
+import { generateDungeonLayout } from './generation/DungeonLayoutGenerator.js';
+import { DungeonManager } from './DungeonManager.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
 import { ObstacleSpatialIndex } from './ObstacleSpatialIndex.js';
@@ -80,6 +82,8 @@ export class WorldSystem {
         this.wallConnectivityDirty = true;
         this._trackedObstacleCount = 0;
         this._trackedObstacleStates = new WeakMap();
+        this.dungeonManager = null;
+        this.currentMapType = 'hub';
     }
 
     loadMap(mapType) {
@@ -100,9 +104,11 @@ export class WorldSystem {
         if (this.obstacleIndex) {
             this.obstacleIndex.clear();
         }
-        
+        this.dungeonManager = null;
+        this.currentMapType = mapType;
+
         // Reset player state if needed (position is handled per map)
-        
+
         switch (mapType) {
             case 'hub':
                 this.initHubMap();
@@ -115,6 +121,12 @@ export class WorldSystem {
                 break;
             case 'test':
                 this.initTestMap();
+                break;
+            case 'dungeon':
+                this.initDungeonMap(1);
+                break;
+            case 'dungeon_f2':
+                this.initDungeonMap(2);
                 break;
             default:
                 console.error('Unknown map type:', mapType);
@@ -178,6 +190,15 @@ export class WorldSystem {
             'construction',
             'BUILD',
             '#e67e22'
+        ));
+
+        // Dungeon Portal (Purple)
+        this.portals.push(new Portal(
+            startX + 15 * TILE_SIZE,
+            startY + 2 * TILE_SIZE,
+            'dungeon',
+            'DUNGEON',
+            '#8e44ad'
         ));
     }
 
@@ -461,6 +482,78 @@ export class WorldSystem {
         this.applyGeneratedLayout({ reservedRects: [] });
         this.spawnRoomWeaponDrops();
         this.spawnGameEncounters();
+    }
+
+    initDungeonMap(floor = 1) {
+        // Generate dungeon layout
+        const layout = generateDungeonLayout(MAP_WIDTH, MAP_HEIGHT, undefined, floor);
+
+        // Boundary walls
+        this.addBoundaryWalls();
+
+        // Build walls from wallTiles
+        for (const key of layout.wallTiles) {
+            const [tx, ty] = key.split(',').map(Number);
+            this.walls.push({
+                x: tx * TILE_SIZE,
+                y: ty * TILE_SIZE,
+                w: TILE_SIZE,
+                h: TILE_SIZE
+            });
+        }
+
+        // Place cover objects (boxes, barrels)
+        for (const cover of layout.coverObjects) {
+            this.breakableObjects.push(new BreakableObject(
+                cover.x * TILE_SIZE,
+                cover.y * TILE_SIZE,
+                cover.type
+            ));
+        }
+
+        // Build floor map (stone for rooms/corridors, NONE elsewhere)
+        const S = FLOOR_TILES_PER_CELL;
+        this.floorMapWidth = MAP_WIDTH * S;
+        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
+        this.floorMap.fill(FLOOR_TYPES.NONE);
+
+        for (const key of layout.floorTiles) {
+            const [tx, ty] = key.split(',').map(Number);
+            for (let sy = 0; sy < S; sy++) {
+                for (let sx = 0; sx < S; sx++) {
+                    const fx = tx * S + sx;
+                    const fy = ty * S + sy;
+                    if (fx >= 0 && fx < this.floorMapWidth && fy >= 0 && fy < this.floorMapHeight) {
+                        this.floorMap[fy * this.floorMapWidth + fx] = FLOOR_TYPES.STONE;
+                    }
+                }
+            }
+        }
+        this.buildFloorCanvas();
+
+        // Player spawn in start room
+        const startRoom = layout.rooms.find(r => r.id === layout.startRoomId);
+        this.player.x = (startRoom.x + Math.floor(startRoom.w / 2)) * TILE_SIZE;
+        this.player.y = (startRoom.y + Math.floor(startRoom.h / 2)) * TILE_SIZE;
+
+        // Return portal in start room
+        this.portals.push(new Portal(
+            (startRoom.x + 1) * TILE_SIZE,
+            (startRoom.y + 1) * TILE_SIZE,
+            'hub',
+            'EXIT',
+            '#9b59b6'
+        ));
+
+        // Initialize dungeon manager with gate system
+        this.dungeonManager = new DungeonManager(layout, this);
+        this.dungeonManager.initGates(layout.gates);
+    }
+
+    updateDungeon() {
+        if (!this.dungeonManager) return;
+        this.dungeonManager.update(this.player);
     }
 
     markWorldStaticDirty() {
@@ -750,7 +843,7 @@ export class WorldSystem {
         const angleStep = Math.max(Math.PI / 18, Number.isFinite(options.angleStep) ? options.angleStep : (Math.PI / 6));
         const typePool = Array.isArray(options.types) && options.types.length > 0
             ? options.types
-            : ['suv', 'truck', 'police'];
+            : ['suv', 'truck', 'police', 'tank', 'spider'];
 
         for (let radius = minRadius; radius <= maxRadius; radius += radiusStep) {
             const angleOffset = Math.random() * Math.PI * 2;

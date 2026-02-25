@@ -16,6 +16,7 @@ import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
 import { TestPanel } from '../ui/TestPanel.js';
 import { PixelOS } from '../pixelOS/PixelOS.js';
+import { LightSystem } from './lighting/LightSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -91,7 +92,7 @@ export class Game {
         };
         
         this.player.takeDamage = (amount, knockback) => {
-            if (this.player.state === 'roll') return;
+            if (this.player.state === 'roll' || this.player.state === 'driving') return;
             this.player.hp -= amount;
             if (knockback) {
                 this.player.knockbackX = knockback.x;
@@ -200,6 +201,18 @@ export class Game {
         this.profiler = new ProfilerSystem();
         this.costumeSystem = new CostumeSystem();
         this.iPressed = false;
+        this.lightSystem = new LightSystem({
+            player: this.player,
+            handSystem: this.handSystem,
+            enemies: this.enemies,
+            bullets: this.bullets,
+            particles: this.particles,
+            breakableObjects: this.breakableObjects,
+            worldSystem: this.worldSystem,
+            blackHoles: this.blackHoles,
+            acidPuddles: this.acidPuddles,
+            quality: 'high'
+        });
 
         this.renderer = new Renderer({
             canvas: this.canvas,
@@ -223,7 +236,8 @@ export class Game {
             acidPuddles: this.acidPuddles,
             profiler: this.profiler,
             pets: this.pets,
-            costumeSystem: this.costumeSystem
+            costumeSystem: this.costumeSystem,
+            lightSystem: this.lightSystem
         });
 
         // Initial Inventory
@@ -428,6 +442,20 @@ export class Game {
         this.profiler.begin('Portals');
         this.worldSystem.updatePortals();
         this.profiler.end('Portals');
+
+        this.profiler.begin('Dungeon');
+        this.worldSystem.updateDungeon();
+        this.profiler.end('Dungeon');
+
+        // --- Lighting ---
+        this.profiler.begin('LightingUpdate');
+        this.lightSystem.update({
+            camera: this.camera,
+            viewportWidth: this.canvas.width / this.scale,
+            viewportHeight: this.canvas.height / this.scale,
+            now: performance.now()
+        });
+        this.profiler.end('LightingUpdate');
 
         this.profiler.begin('DroppedItems');
         this.playerSystem.updateDroppedItems();

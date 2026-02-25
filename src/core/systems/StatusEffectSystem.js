@@ -117,7 +117,7 @@ export class StatusEffectSystem {
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx*pdx + pdy*pdy);
 
-        if (pdist < radius && p.state !== 'roll') {
+        if (pdist < radius && p.state !== 'roll' && p.state !== 'driving') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -212,7 +212,7 @@ export class StatusEffectSystem {
         const pdx = p.x - x;
         const pdy = p.y - y;
         const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-        if (pdist < radius && p.state !== 'roll') {
+        if (pdist < radius && p.state !== 'roll' && p.state !== 'driving') {
             const angle = Math.atan2(pdy, pdx);
             if (p.takeDamage) {
                 p.takeDamage(damage, {
@@ -806,7 +806,7 @@ export class StatusEffectSystem {
                 }
                 if (puddle.source === 'enemy') {
                     const p = this.player;
-                    if (p && p.hp > 0 && p.state !== 'roll') {
+                    if (p && p.hp > 0 && p.state !== 'roll' && p.state !== 'driving') {
                         const dx = p.x - puddle.x;
                         const dy = p.y - puddle.y;
                         if (dx * dx + dy * dy < puddle.radius * puddle.radius) {

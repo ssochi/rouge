@@ -27,5 +27,13 @@ export const FloorPalette = {
     dirtLight: '#a08968',
     dirtDark: '#6d5a42',
     dirtPebble: '#9e8d70',
-    dirtShadow: '#5c4a35'
+    dirtShadow: '#5c4a35',
+
+    // Stone (dungeon floor)
+    stoneBase: '#5a5a6a',
+    stoneLight: '#6b6b7a',
+    stoneDark: '#4a4a58',
+    stoneGap: '#3e3e4c',
+    stoneHighlight: '#75758a',
+    stoneCrack: '#404050'
 };

@@ -25,7 +25,7 @@
       - `Soldier.js`: 军人敌人逻辑 (HP 60, Speed 0.9, SMG 3发点射 + 横移战术)。
       - `MutantBeast.js`: 变异巨兽 BOSS (HP 800, 80×80, 90%击退抗性, 3阶段战斗)。阶段1(100%-60%HP): 重拳砸击/横扫/震地波；阶段2(60%-25%HP): 新增冲锋+跳砸，速度加快；阶段3(25%-0%HP): 新增召唤僵尸，身体变紫。跳砸空中期间无敌（`getBulletHurtbox()` 返回 null）。`isBoss=true` 标记用于 Renderer 绘制屏幕顶部 BOSS 血条。死亡掉落 2-3 把随机武器。
       - `MechaGolem.js`: 机械魔偶 BOSS (HP 600, 64×64, 80%击退抗性, 2阶段弹幕战斗)。参考《挺进地牢》设计的弹幕型BOSS。阶段1(100%-40%HP): 加特林扫射/环形爆发/三连瞄准/火箭齐射 4种弹幕模式；阶段2(40%-0%HP): 新增螺旋风暴/十字交火/绝望弹幕 3种弹幕，速度加快+偶尔冲刺。弹幕使用不同颜色区分（橙/蓝/红/灰/品红/紫）。加权随机攻击选择，环绕式移动AI。`isBoss=true` 标记用于 Renderer BOSS 血条。死亡掉落 2-3 把随机武器。
-      - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。
+      - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。支持坦克类型（`isTank`），具有独立旋转炮塔、导弹发射（复用 rocket bulletType）、履带渲染等坦克专用逻辑。支持蜘蛛类型（`isSpider`），6脚机械蜘蛛使用程序化腿部动画（三足步态 ctx.rotate/translate 实时渲染），配备独立旋转激光炮塔（hitscan laser_beam）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - objects/: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。其中 `FishTankObject.js` 包含复杂的程序化动画逻辑（鱼群游动、水草摇曳、气泡上升）。
       - `DroppedItem.js`: 掉落物逻辑与悬浮效果（支持 weapon/placeable/consumable）。
@@ -36,7 +36,8 @@
       - `Turret.js`: 炮塔实体（静态防御设施，HP 80，自动攻击范围内敌人，具有部署动画和破坏效果）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）通过 BSP 算法生成互联房间，委托 `DungeonManager` 管理运行时状态。
+      - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
@@ -48,8 +49,17 @@
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable/costume）。
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
-      - `generation/`: Build 场景房间生成子模块（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）。
-    - `Renderer.js`: 负责场景绘制与 UI 刷新。含 `drawBossHpBar()` 在屏幕顶部居中绘制 BOSS 血条（名称、阶段指示、HP 比例条、阶段切换标记线）。
+      - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
+    - `lighting/`: 像素光影子系统。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
+      - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。
+      - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
+    - `shared/`: 跨系统共享缓存。
+      - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角 140×140，按房间状态着色，楼层标签 F1/F2，脉冲玩家标记点）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
     - `Input.js`: 统一的键鼠输入处理。
@@ -70,7 +80,8 @@
 ### 渲染流程
 1. **字符生成**: 使用 `SpriteGenerator` 将 ASCII 字符数组 + 调色板转换为 Canvas 图像。部分物体（如 BreakableObjects）使用 `PixelDraw` 进行程序化绘制。
 2. **绘制循环**: `Renderer.js` 负责每帧清屏并按 Z 排序绘制场景元素。
-3. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
+3. **像素光照**: `LightSystem` 生成低分辨率光照缓冲并在 `Renderer` 中合成。包含环境暗层、动态光源、遮挡射线与彩色光晕。
+4. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
 
 ### 游戏循环
 - 采用标准的 `requestAnimationFrame` 循环。
@@ -138,6 +149,9 @@
   - 子系统耗时分解面板（毫秒 + 百分比 + 比例条）
 - 接入新系统只需 2 行代码，详见 `docs/PROFILER_GUIDE.md`。
 - `WorldObjects` 已细分为 `Breakables` / `Particles` / `EnemyUpdate` / `Portals` / `DroppedItems`，便于定位高并发场景下的真实热点。
+- 光影系统新增两个热点标签：
+  - `LightingUpdate`: 光源扫描、遮挡缓存与可见性裁剪。
+  - `LightingRender`: 离屏光照缓冲绘制与主画布合成。
 
 ### 物品与建造系统
 - **Inventory**: `InventorySystem` 管理所有物品（武器+可放置物体+消耗品+服装）。快捷栏（Hotbar）支持键盘选择。服装物品拾取后可在背包界面左侧的装备槽中装备。
@@ -146,7 +160,7 @@
 - **消耗品**: 选中消耗品（如恢复针）后进入“使用模式”，鼠标左键会触发道具效果并扣除数量，不进入建造逻辑。
 - **掉落物**: `DroppedItem` 类负责管理地面掉落（武器/可放置物/消耗品），包含悬浮动画与拾取提示。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取、快捷栏切换以及左键动作分流（射击/放置/使用消耗品）。
-- **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。
+- **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police/Tank/Spider），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。Tank 为坦克载具，进入后鼠标控制炮塔方向、点击发射导弹（rocket 弹丸），炮塔独立于车身旋转。Spider 为6脚机械蜘蛛载具，使用程序化三足步态动画（`SPIDER_LEG_CONFIG` 定义6条腿的关节参数，交替 Group A/B 实现三足步态），炮塔发射 hitscan 激光束（`bulletSystem.fireLaserBeam()`），2.5D 渲染按远/近腿分层绘制实现正确遮挡。
 - **宠物系统**: 宠物存储在独立的 `pets` 数组（不在 `enemies` 中），不参与战斗碰撞。宠物作为消耗品道具注册（`consumable:pet_dog`/`consumable:pet_cat`），从快捷栏左键使用后召唤。`WorldSystem.updatePets()` 复用流场寻路实现跟随。宠物超过 600px 距离时自动传送到玩家身边（带消散/出现粒子特效）。猫（`PetCat`）比狗（`PetDog`）速度更快、体型更小。
 
 ### 建筑生成场景（construction + game）
@@ -170,9 +184,22 @@
 - `WorldSystem.initGameMap()` 复用同一套生成与地板流程，然后叠加房间随机枪支、敌人与击杀掉落生成。
 - 地图全局尺寸已扩展为 `100x100`，并将建筑目标数量提升到 `6~12`，`game` 场景会基于生成器输出的 `meta.indoorSpawnTiles` 与 `meta.indoorRooms` 管理室内刷怪与房间掉落。
 
+### 地牢模式（dungeon / dungeon_f2）
+- 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 2 层楼层。
+- 生成流水线（`DungeonLayoutGenerator.js`）：BSP 空间分割（minRegion 20）→ 矩形房间放置（普通房 14~22 tiles，Boss 房 20~24 tiles，起始房 10~14 tiles）→ Prim MST 走廊连接（使用 `closestEdgePoints()` 边缘最近点，走廊更短）+ 1~2 条额外环路 → 房间内部布局模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间内掩体生成（box/barrel/explosive_barrel，数量按面积缩放）→ BFS 计算房间深度 → 按深度和楼层分配敌人配置。
+- 房间内部布局模板（`RoomInteriorTemplates.js`）：为每个非起始房间选择一种布局模板，生成永久墙体结构作为掩体。6 种模板：`pillars`（四柱阵列）、`center_divide`（中央隔墙+开口）、`l_alcoves`（L 型凹室墙段）、`cross`（十字分割四象限）、`arena`（Boss 房环形矮墙桩）、`corridors`（平行墙 S 形通道）。模板选择采用加权随机，已使用模板权重减半以促进多样性。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。
+- 房间类型：`start`（起始安全区+返回传送门）、`normal`（战斗房+内部墙体结构+掩体物品）、`boss`（距起始房最远的房间，Boss + 小怪+竞技场布局+掩体）。
+- 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 30% 概率掉武器 + 50% 概率掉消耗品。
+- 能量屏障门系统：不使用 BreakableObject，而是在 `DungeonManager.gates[]` 中管理。激活时动态往 `worldSystem.walls[]` 添加墙体 rect 阻挡通行，清除时移除。`Renderer._drawEnergyBarrier()` 绘制蓝紫色半透明屏障（竖条纹脉冲+水平能量带+角落光点）。
+- 楼层系统：F1 Boss 清除后在房间中心生成绿色"FLOOR 2"传送门 → 进入 `dungeon_f2` 地图 → F2 Boss 清除后生成金色"VICTORY"传送门回 Hub。
+- F1 敌人：depth 1-2 僵尸系、depth 3-4 混合（+brute/hunter）、depth 5+ 精英（brute/hunter/soldier），Boss = mutant_beast。
+- F2 敌人（更强）：depth 1-2 zombie_female/brute/hunter、depth 3-4 brute/hunter/soldier、depth 5+ hunter/soldier 多数，Boss = mecha_golem + 3 soldier + 1 hunter。
+- 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制 140×140 区域，标题显示 "DUNGEON F1" 或 "DUNGEON F2"，已清除=绿色、active=黄色、未探索=深灰、Boss=红色、当前=白色边框，脉冲白色玩家点。
+- 地板使用 STONE(5) 石砖瓦片，石砖纹理通过 `FloorSprites.js` 的 `createStoneVariant()` 程序化生成。
+
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
-- 4 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)，NONE(0) 使用棋盘格 fallback。
+- 5 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5，地牢石砖)，NONE(0) 使用棋盘格 fallback。
 - 数据存储：`WorldSystem.floorMap`（Uint8Array 100×100）+ `WorldSystem.floorCanvas`（预渲染离屏 Canvas）。
 - 渲染：Renderer 对有 `floorCanvas` 的地图做单次 `drawImage` 裁剪，无 `floorCanvas` 时保留棋盘格。
 - 类型边界目前无过渡效果，直接拼接。
@@ -197,6 +224,7 @@
   - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。
   - `hurtboxes` (`getHurtboxes()`): 用于子弹/激光命中检测。
   - `occlusion hitboxes` (`getOcclusionHitboxes()`): 用于渲染遮挡排序，不直接复用碰撞底边。
+- 可破坏物 `hurtboxes` 已改为自动生成：除 `door_h/door_v` 外，优先使用物体素材 alpha 的当前帧最小包围盒（缺失时回退并集包围盒），不再依赖每个 object 文件手工维护。
 
 ### PixelOS 交互式电脑系统
 - **入口**：玩家靠近 `computer_desk` 物体按 E 键触发，通过 `PlayerSystem.onInteract` 回调打开。
