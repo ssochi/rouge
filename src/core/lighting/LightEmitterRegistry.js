@@ -44,6 +44,17 @@ const OBJECT_LIGHTS = {
         castsShadows: true,
         priority: 40,
         ignoreSelfShadow: true
+    },
+    tv_stand: {
+        offsetX: 20,
+        offsetY: 8,
+        radius: 80,
+        color: '#4a5568',
+        intensity: 0.65,
+        flicker: 0.03,
+        castsShadows: true,
+        priority: 65,
+        ignoreSelfShadow: true
     }
 };
 
@@ -122,14 +133,17 @@ export class LightEmitterRegistry {
         const def = OBJECT_LIGHTS[obj.type];
         if (!def) return [];
 
+        // Skip light for objects with explicit off state (e.g. TV turned off)
+        if (obj.lightColor === null && obj.lightIntensity === null) return [];
+
         const emitter = createEmitter({
             x: obj.x + def.offsetX,
             y: obj.y + def.offsetY,
             radius: def.radius,
-            color: def.color,
-            intensity: def.intensity,
+            color: obj.lightColor || def.color,
+            intensity: obj.lightIntensity != null ? obj.lightIntensity : def.intensity,
             castsShadows: def.castsShadows,
-            flicker: def.flicker,
+            flicker: obj.lightFlicker != null ? obj.lightFlicker : (def.flicker || 0),
             owner: obj,
             ignoreSelfShadow: def.ignoreSelfShadow,
             priority: def.priority,
