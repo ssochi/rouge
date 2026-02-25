@@ -90,7 +90,7 @@ export class Game {
         };
         
         this.player.takeDamage = (amount, knockback) => {
-            if (this.player.state === 'roll') return;
+            if (this.player.state === 'roll' || this.player.state === 'driving') return;
             this.player.hp -= amount;
             if (knockback) {
                 this.player.knockbackX = knockback.x;
@@ -415,6 +415,10 @@ export class Game {
         this.profiler.begin('Portals');
         this.worldSystem.updatePortals();
         this.profiler.end('Portals');
+
+        this.profiler.begin('Dungeon');
+        this.worldSystem.updateDungeon();
+        this.profiler.end('Dungeon');
 
         this.profiler.begin('DroppedItems');
         this.playerSystem.updateDroppedItems();

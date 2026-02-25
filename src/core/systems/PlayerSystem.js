@@ -545,6 +545,7 @@ export class PlayerSystem {
         this.handleHotbarInput();
 
         if (this.player.state === 'roll') return;
+        if (this.player.state === 'driving') return;
 
         const mouse = this.input.mouse;
         const keys = this.input.keys;

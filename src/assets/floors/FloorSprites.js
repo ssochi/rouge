@@ -164,9 +164,63 @@ function createDirtVariant(seed) {
     return d.getCanvas();
 }
 
+function createStoneVariant(seed) {
+    const d = new PixelDraw(16, 16);
+
+    // Base fill
+    d.rect(0, 0, 16, 16, P.stoneBase);
+
+    // Brick pattern: 2 rows of bricks
+    // Row 1 (top half): bricks at y=0..6, gap at y=7
+    // Row 2 (bottom half): bricks at y=8..14, gap at y=15
+    d.hLine(0, 7, 16, P.stoneGap);
+    d.hLine(0, 15, 16, P.stoneGap);
+
+    // Vertical joints - staggered between rows
+    let ps = seed;
+    ps = (ps * 1664525 + 1013904223) >>> 0;
+    const joint1 = 6 + (ps % 5); // Row 1 joint at x=6..10
+    ps = (ps * 1664525 + 1013904223) >>> 0;
+    const joint2 = (joint1 + 5 + (ps % 4)) % 16; // Row 2 offset by ~half brick
+
+    for (let y = 0; y <= 6; y++) {
+        d.pixel(joint1, y, P.stoneGap);
+        if (joint1 < 15) d.pixel(joint1 + 1, y, P.stoneDark);
+    }
+    for (let y = 8; y <= 14; y++) {
+        d.pixel(joint2, y, P.stoneGap);
+        if (joint2 < 15) d.pixel(joint2 + 1, y, P.stoneDark);
+    }
+
+    // Top-edge highlight per brick row
+    d.hLine(0, 0, 16, P.stoneHighlight);
+    d.hLine(0, 8, 16, P.stoneHighlight);
+
+    // Bottom-edge shadow per brick row
+    d.hLine(0, 6, 16, P.stoneDark);
+    d.hLine(0, 14, 16, P.stoneDark);
+
+    // Scatter noise
+    const lights = scatter(seed + 50, 3, 16, 16);
+    lights.forEach(p => d.pixel(p.x, p.y, P.stoneLight));
+
+    const darks = scatter(seed + 100, 2, 16, 16);
+    darks.forEach(p => d.pixel(p.x, p.y, P.stoneDark));
+
+    // Optional crack
+    if (seed % 3 === 0) {
+        const cx = 3 + (seed % 10);
+        const cy = 2 + ((seed >> 2) % 10);
+        d.pixel(cx, cy, P.stoneCrack);
+        if (cx < 15) d.pixel(cx + 1, cy + 1, P.stoneCrack);
+    }
+
+    return d.getCanvas();
+}
+
 /**
  * Generate all floor tile sprites.
- * @returns {{ grass: HTMLCanvasElement[], wood: HTMLCanvasElement[], concrete: HTMLCanvasElement[], dirt: HTMLCanvasElement[] }}
+ * @returns {{ grass: HTMLCanvasElement[], wood: HTMLCanvasElement[], concrete: HTMLCanvasElement[], dirt: HTMLCanvasElement[], stone: HTMLCanvasElement[] }}
  */
 export function createFloorSprites() {
     const seeds = [7, 31, 53, 89]; // 4 deterministic seeds per variant
@@ -175,6 +229,7 @@ export function createFloorSprites() {
         grass: seeds.map(s => createGrassVariant(s)),
         wood: seeds.map(s => createWoodVariant(s)),
         concrete: seeds.map(s => createConcreteVariant(s)),
-        dirt: seeds.map(s => createDirtVariant(s))
+        dirt: seeds.map(s => createDirtVariant(s)),
+        stone: seeds.map(s => createStoneVariant(s))
     };
 }

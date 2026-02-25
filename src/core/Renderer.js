@@ -152,6 +152,20 @@ export class Renderer {
             });
         });
 
+        // Draw dungeon energy barrier gates
+        if (this.worldSystem && this.worldSystem.dungeonManager) {
+            const dm = this.worldSystem.dungeonManager;
+            for (const gate of dm.gates) {
+                if (gate.alpha <= 0) continue;
+                // Use the first tile's y for sort order
+                const sortY = gate.tiles[0].y * TILE_SIZE + TILE_SIZE;
+                renderList.push({
+                    y: sortY,
+                    draw: () => this._drawEnergyBarrier(gate)
+                });
+            }
+        }
+
         this.breakableObjects.forEach(obj => {
             if (!obj.isBroken) {
                 let sortY = obj.y + obj.height;
@@ -952,6 +966,38 @@ export class Renderer {
                 this.ctx.arc(0, 0, b.size * 1.5 + intensity * 3, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
+            } else if (b.type === 'laser_bolt') {
+                // Star Wars style laser bolt — elongated glowing projectile
+                this.ctx.save();
+                this.ctx.translate(b.x, b.y);
+                const bAngle = Math.atan2(b.vy, b.vx);
+                this.ctx.rotate(bAngle);
+                const boltLen = 10;
+                const boltW = 2;
+                // Outer glow
+                this.ctx.globalAlpha = 0.25;
+                this.ctx.fillStyle = b.color || '#00e5ff';
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 0, boltLen + 4, boltW + 3, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                // Main body
+                this.ctx.globalAlpha = 0.7;
+                this.ctx.fillStyle = b.color || '#00e5ff';
+                this.ctx.fillRect(-boltLen, -boltW, boltLen * 2, boltW * 2);
+                // Bright core
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillRect(-boltLen + 1, -1, boltLen * 2 - 2, 2);
+                // Leading tip glow
+                this.ctx.beginPath();
+                this.ctx.arc(boltLen - 1, 0, boltW, 0, Math.PI * 2);
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fill();
+                // Trailing fade
+                this.ctx.globalAlpha = 0.4;
+                this.ctx.fillStyle = b.color || '#00e5ff';
+                this.ctx.fillRect(-boltLen - 4, -1, 5, 2);
+                this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();
@@ -1068,6 +1114,9 @@ export class Renderer {
         // Boss HP Bar
         this.drawBossHpBar(this.ctx);
 
+        // Dungeon Minimap
+        this.drawDungeonMinimap(this.ctx);
+
         // Profiler Overlay
         if (this.profiler && this.profiler.visible) {
             this.drawProfiler(this.ctx);
@@ -1128,6 +1177,209 @@ export class Renderer {
         ctx.strokeStyle = '#aaa';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, BAR_W, BAR_H);
+
+        ctx.restore();
+    }
+
+    drawDungeonMinimap(ctx) {
+        const dm = this.worldSystem && this.worldSystem.dungeonManager;
+        if (!dm) return;
+
+        const data = dm.getMinimapData(this.player);
+        if (!data.rooms.length) return;
+
+        const MINIMAP_SIZE = 140;
+        const PADDING = 10;
+        const canvasW = this.canvas.width;
+        const mx = canvasW - MINIMAP_SIZE - PADDING;
+        const my = PADDING;
+
+        ctx.save();
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(mx - 4, my - 4, MINIMAP_SIZE + 8, MINIMAP_SIZE + 8);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mx - 4, my - 4, MINIMAP_SIZE + 8, MINIMAP_SIZE + 8);
+
+        // Calculate bounds of all rooms for fitting
+        let minRX = Infinity, minRY = Infinity, maxRX = -Infinity, maxRY = -Infinity;
+        for (const room of dm.layout.rooms) {
+            minRX = Math.min(minRX, room.x);
+            minRY = Math.min(minRY, room.y);
+            maxRX = Math.max(maxRX, room.x + room.w);
+            maxRY = Math.max(maxRY, room.y + room.h);
+        }
+
+        const worldW = maxRX - minRX;
+        const worldH = maxRY - minRY;
+        const scale = Math.min(
+            (MINIMAP_SIZE - 16) / worldW,
+            (MINIMAP_SIZE - 16) / worldH
+        );
+        const offsetX = mx + (MINIMAP_SIZE - worldW * scale) / 2;
+        const offsetY = my + (MINIMAP_SIZE - worldH * scale) / 2;
+
+        const toMiniX = (tx) => offsetX + (tx - minRX) * scale;
+        const toMiniY = (ty) => offsetY + (ty - minRY) * scale;
+
+        // Draw corridors (only between visited rooms)
+        ctx.strokeStyle = 'rgba(100, 100, 120, 0.5)';
+        ctx.lineWidth = Math.max(1, scale * 2);
+        for (const corridor of data.corridors) {
+            const [rid1, rid2] = corridor.connectsRooms;
+            const r1 = dm.rooms.get(rid1);
+            const r2 = dm.rooms.get(rid2);
+            if (!r1 || !r2) continue;
+            if (!r1.visited && !r2.visited) continue;
+
+            const cx1 = toMiniX(r1.x + r1.w / 2);
+            const cy1 = toMiniY(r1.y + r1.h / 2);
+            const cx2 = toMiniX(r2.x + r2.w / 2);
+            const cy2 = toMiniY(r2.y + r2.h / 2);
+            ctx.beginPath();
+            ctx.moveTo(cx1, cy1);
+            ctx.lineTo(cx2, cy2);
+            ctx.stroke();
+        }
+
+        // Draw rooms
+        for (const room of data.rooms) {
+            const rx = toMiniX(room.x);
+            const ry = toMiniY(room.y);
+            const rw = room.w * scale;
+            const rh = room.h * scale;
+
+            // Room fill color based on state
+            if (room.state === 'unknown') {
+                ctx.fillStyle = 'rgba(60, 60, 70, 0.6)';
+            } else if (room.id === data.currentRoomId) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            } else if (room.state === 'cleared') {
+                ctx.fillStyle = room.type === 'start' ? 'rgba(80, 140, 200, 0.7)' : 'rgba(80, 180, 80, 0.7)';
+            } else if (room.state === 'active') {
+                ctx.fillStyle = 'rgba(220, 180, 50, 0.7)';
+            } else if (room.type === 'boss') {
+                ctx.fillStyle = 'rgba(180, 50, 50, 0.7)';
+            } else {
+                ctx.fillStyle = 'rgba(100, 100, 110, 0.7)';
+            }
+
+            ctx.fillRect(rx, ry, rw, rh);
+
+            // Room border
+            ctx.strokeStyle = room.id === data.currentRoomId ? '#fff' : 'rgba(150, 150, 160, 0.6)';
+            ctx.lineWidth = room.id === data.currentRoomId ? 2 : 1;
+            ctx.strokeRect(rx, ry, rw, rh);
+
+            // Boss room skull indicator
+            if (room.type === 'boss' && room.state !== 'unknown') {
+                ctx.fillStyle = '#fff';
+                ctx.font = `${Math.max(8, Math.floor(rw * 0.4))}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('B', rx + rw / 2, ry + rh / 2);
+            }
+        }
+
+        // Draw player dot
+        const px = toMiniX(data.playerTileX);
+        const py = toMiniY(data.playerTileY);
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.6 + pulse * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Title with floor label
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const floorLabel = data.floor ? `DUNGEON F${data.floor}` : 'DUNGEON';
+        ctx.fillText(floorLabel, mx + MINIMAP_SIZE / 2, my - 2);
+
+        ctx.restore();
+    }
+
+    _drawEnergyBarrier(gate) {
+        const ctx = this.ctx;
+        const alpha = gate.alpha;
+        const t = gate.animTimer;
+        const tiles = gate.tiles;
+
+        // Compute bounding box of all tiles
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const tile of tiles) {
+            const px = tile.x * TILE_SIZE;
+            const py = tile.y * TILE_SIZE;
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px + TILE_SIZE > maxX) maxX = px + TILE_SIZE;
+            if (py + TILE_SIZE > maxY) maxY = py + TILE_SIZE;
+        }
+
+        const bw = maxX - minX;
+        const bh = maxY - minY;
+
+        ctx.save();
+        ctx.translate(minX, minY);
+
+        // Outer glow
+        ctx.globalAlpha = alpha * 0.12;
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillRect(-6, -6, bw + 12, bh + 12);
+
+        // Main barrier body
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.fillStyle = '#6366f1';
+        ctx.fillRect(0, 0, bw, bh);
+
+        // Pulsing scanlines along the longer axis
+        const isWide = bw >= bh;
+        const stripeCount = Math.max(4, Math.floor((isWide ? bw : bh) / 5));
+        for (let i = 0; i < stripeCount; i++) {
+            const pulse = 0.3 + 0.3 * Math.sin(t * 0.1 + i * 1.0);
+            ctx.globalAlpha = alpha * pulse;
+            ctx.fillStyle = '#a78bfa';
+            if (isWide) {
+                const sw = bw / stripeCount;
+                ctx.fillRect(i * sw + 1, 0, sw - 2, bh);
+            } else {
+                const sh = bh / stripeCount;
+                ctx.fillRect(0, i * sh + 1, bw, sh - 2);
+            }
+        }
+
+        // Scrolling energy bands perpendicular to stripes
+        const bandCount = 4;
+        for (let i = 0; i < bandCount; i++) {
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.fillStyle = '#c4b5fd';
+            if (isWide) {
+                const bandY = ((t * 0.5 + i * (bh / bandCount)) % bh);
+                ctx.fillRect(0, bandY, bw, 2);
+            } else {
+                const bandX = ((t * 0.5 + i * (bw / bandCount)) % bw);
+                ctx.fillRect(bandX, 0, 2, bh);
+            }
+        }
+
+        // Bright edge glow
+        ctx.globalAlpha = alpha * 0.7;
+        ctx.strokeStyle = '#818cf8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, bw, bh);
+
+        // Corner sparkles
+        const sparkle = alpha * (0.4 + 0.4 * Math.sin(t * 0.15));
+        ctx.globalAlpha = sparkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-1, -1, 3, 3);
+        ctx.fillRect(bw - 2, -1, 3, 3);
+        ctx.fillRect(-1, bh - 2, 3, 3);
+        ctx.fillRect(bw - 2, bh - 2, 3, 3);
 
         ctx.restore();
     }

@@ -9,6 +9,7 @@ export const DoorVObject = {
         obj.baseType = 'door_v';
         obj.isOpen = false;
         obj.openFactor = 0;
+        obj.isLocked = false;
     },
     update(obj, player) {
         if (player) {
@@ -67,6 +68,7 @@ export const DoorVObject = {
         return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
     },
     interact(obj) {
+        if (obj.isLocked) return false;
         obj.isOpen = !obj.isOpen;
         if (obj.isOpen) {
             obj.hitbox = { offsetX: 0, offsetY: 0, width: 0, height: 0 };
@@ -76,6 +78,17 @@ export const DoorVObject = {
             obj.shadow = { type: 'rect', x: 10, y: 0, w: 12, h: 32 };
         }
         return true;
+    },
+    lock(obj) {
+        obj.isLocked = true;
+        if (obj.isOpen) {
+            obj.isOpen = false;
+            obj.hitbox = { offsetX: 10, offsetY: 0, width: 12, height: 32 };
+            obj.shadow = { type: 'rect', x: 10, y: 0, w: 12, h: 32 };
+        }
+    },
+    unlock(obj) {
+        obj.isLocked = false;
     },
     draw(obj, ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -108,11 +121,19 @@ export const DoorVObject = {
             ctx.restore();
         }
 
+        if (obj.isLocked) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.25)';
+            ctx.fillRect(dx, dy, 32, 48);
+            ctx.restore();
+        }
+
         if (obj.showHint) {
-            ctx.fillStyle = '#f1c40f';
+            ctx.fillStyle = obj.isLocked ? '#e74c3c' : '#f1c40f';
             ctx.font = 'bold 7px monospace';
             ctx.textAlign = 'center';
-            const label = obj.isOpen ? '[E] CLOSE' : '[E] OPEN';
+            const label = obj.isLocked ? '[LOCKED]' : (obj.isOpen ? '[E] CLOSE' : '[E] OPEN');
             ctx.fillText(label, 16, -10);
         }
     }

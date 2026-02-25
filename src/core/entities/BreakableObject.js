@@ -88,7 +88,8 @@ export class BreakableObject {
 
     takeDamage(amount, knockback) {
         if (this.isBroken) return;
-        
+        if (this.isLocked) return; // Locked doors are invulnerable
+
         this.hp -= amount;
         this.hitFlashTimer = 5;
         

@@ -13,7 +13,7 @@ const TABS = [
     { key: 'costumes', label: 'COSTUMES' }
 ];
 
-const VEHICLE_TYPES = ['suv', 'truck', 'police'];
+const VEHICLE_TYPES = ['suv', 'truck', 'police', 'tank', 'spider'];
 
 const ENEMY_TYPES = [
     { type: 'zombie', name: 'Zombie', hasWeapon: false },

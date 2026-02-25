@@ -146,11 +146,15 @@ import {
 import { createSuvSprite } from '../assets/vehicles/SuvSprite.js';
 import { createTruckSprite } from '../assets/vehicles/TruckSprite.js';
 import { createPoliceCarSprite } from '../assets/vehicles/PoliceCarSprite.js';
+import { createTankSprite } from '../assets/vehicles/TankSprite.js';
+import { createSpiderSprite } from '../assets/vehicles/SpiderSprite.js';
 
 // Pre-generate procedural objects
 const suvSprites = createSuvSprite();
 const truckSprites = createTruckSprite();
 const policeSprites = createPoliceCarSprite();
+const tankSprites = createTankSprite();
+const spiderSprites = createSpiderSprite();
 const boxSprite = createBoxSprite();
 const barrelSprite = createBarrelSprite();
 const vaseSprite = createVaseSprite();
@@ -433,6 +437,7 @@ export const Assets = {
     floor_wood: floorSprites.wood[0],
     floor_concrete: floorSprites.concrete[0],
     floor_dirt: floorSprites.dirt[0],
+    floor_stone: floorSprites.stone[0],
     gun: RIFLE_SPRITE,
     hammer: hammerSprite,
     recovery_needle: recoveryNeedleSprite,
@@ -516,7 +521,9 @@ export const Assets = {
     vehicle: {
         suv: suvSprites,
         truck: truckSprites,
-        police: policeSprites
+        police: policeSprites,
+        tank: tankSprites,
+        spider: spiderSprites
     },
     turret: createTurretSprite()
 };

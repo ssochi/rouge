@@ -122,9 +122,9 @@ export class BulletSystem {
             if (d !== null && d < beamDist) beamDist = d;
         }
 
-        // Vehicles
+        // Vehicles (skip shooter's own vehicle)
         for (const v of this.vehicles) {
-            if (v.isDead) continue;
+            if (v.isDead || v === shooter) continue;
             const vRect = { x: v.x - v.width / 2, y: v.y - v.height / 2, width: v.width, height: v.height };
             const d = CollisionUtils.rayRectIntersect(muzzle, dir, vRect, beamDist);
             if (d !== null && d < beamDist) beamDist = d;
@@ -349,6 +349,20 @@ export class BulletSystem {
                         color: Math.random() > 0.5 ? '#a8d8ea' : '#dfe6e9',
                         size: Math.random() * 2 + 1,
                         friction: 0.95
+                    });
+                }
+            } else if (b.type === 'laser_bolt') {
+                // Cyan energy trail
+                if (Math.random() > 0.4) {
+                    this.particles.push({
+                        x: b.x + (Math.random() - 0.5) * 2,
+                        y: b.y + (Math.random() - 0.5) * 2,
+                        vx: -b.vx * 0.05 + (Math.random() - 0.5) * 0.3,
+                        vy: -b.vy * 0.05 + (Math.random() - 0.5) * 0.3,
+                        life: 8,
+                        color: Math.random() > 0.5 ? '#00e5ff' : '#80f0ff',
+                        size: Math.random() * 2 + 1,
+                        friction: 0.85
                     });
                 }
             } else if (b.type === 'ricochet') {
@@ -946,6 +960,8 @@ export class BulletSystem {
                 // Vehicle Collision
                 for (const v of this.vehicles) {
                     if (v.isDead) continue;
+                    // Skip vehicle the player is driving
+                    if (b.source === 'player' && v.driver) continue;
 
                     const vRect = {
                         x: v.x - v.width/2,
