@@ -15,6 +15,7 @@ import { CostumeSystem } from './systems/CostumeSystem.js';
 import { Vehicle } from './entities/Vehicle.js';
 import { Renderer } from './Renderer.js';
 import { TestPanel } from '../ui/TestPanel.js';
+import { PixelOS } from '../pixelOS/PixelOS.js';
 
 export class Game {
     constructor(canvas) {
@@ -169,6 +170,12 @@ export class Game {
         });
         this.handSystem.setMeleeSystem(this.meleeSystem);
 
+        // PixelOS (persistent across sessions)
+        this.isComputerOpen = false;
+        this.pixelOS = new PixelOS({
+            onClose: () => { this.isComputerOpen = false; }
+        });
+
         this.playerSystem = new PlayerSystem({
             player: this.player,
             input: this.input,
@@ -181,7 +188,13 @@ export class Game {
             buildSystem: this.buildSystem,
             meleeSystem: this.meleeSystem,
             particles: this.particles,
-            pets: this.pets
+            pets: this.pets,
+            onInteract: (obj) => {
+                if (obj.type === 'computer_desk') {
+                    this.isComputerOpen = true;
+                    this.pixelOS.open();
+                }
+            }
         });
 
         this.profiler = new ProfilerSystem();
@@ -310,7 +323,7 @@ export class Game {
             this.iPressed = false;
         }
 
-        if (this.isInventoryOpen || this.testPanel.isOpen) {
+        if (this.isComputerOpen || this.isInventoryOpen || this.testPanel.isOpen) {
             return;
         }
 

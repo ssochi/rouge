@@ -62,6 +62,7 @@
     - `TestPanel.css`: 测试面板样式，复用项目 CSS 变量。
     - `HUD.css`: 游戏化拟物风格 HUD 样式。
   - `utils/`: **工具库**。常量 (`Constants.js`)，`PixelDraw.js` (程序化像素绘制)，`FloorTypes.js` (地板类型/子格常量) 和通用辅助函数。
+  - `pixelOS/`: **PixelOS 电脑交互系统**。独立的像素 macOS 模拟（384×256 Canvas），含桌面/窗口管理/Dock/菜单栏、4 个内置应用（Finder/Terminal/Calculator/Notes）、虚拟文件系统、补间动画引擎。
   - `main.js`: **入口文件**。负责初始化游戏实例并挂载到 DOM。
 
 ## 基础架构
@@ -196,3 +197,22 @@
   - `collision hitboxes`: 用于玩家/敌人/载具移动阻挡。
   - `hurtboxes` (`getHurtboxes()`): 用于子弹/激光命中检测。
   - `occlusion hitboxes` (`getOcclusionHitboxes()`): 用于渲染遮挡排序，不直接复用碰撞底边。
+
+### PixelOS 交互式电脑系统
+- **入口**：玩家靠近 `computer_desk` 物体按 E 键触发，通过 `PlayerSystem.onInteract` 回调打开。
+- **架构**：`src/pixelOS/` 独立目录，包含完整的像素 macOS 模拟系统。
+  - `PixelOS.js`: 主控制器，状态机 (off→booting→desktop)，独立 `requestAnimationFrame` 渲染循环。
+  - `PixelOSOverlay.js`: DOM 遮罩层 + Canvas 创建（384×256 分辨率，CSS `image-rendering: pixelated`）。
+  - `PixelOSRenderer.js`: 渲染工具（内置 4×5 像素位图字体、圆角矩形、渐变、Apple Logo 等）。
+  - `AnimationSystem.js`: 通用补间动画引擎（easeOutCubic/easeInCubic/linear）。
+  - `InputManager.js`: 鼠标/键盘事件捕获，坐标映射到 OS 画布，键盘事件 `stopPropagation()` 隔离游戏输入。
+  - `Desktop.js` / `MenuBar.js` / `Dock.js`: 桌面壁纸、顶部菜单栏（Apple Logo + 时钟）、底部 Dock（悬停放大效果）。
+  - `WindowManager.js` / `Window.js`: 窗口 Z 序管理、拖拽、关闭/最小化/最大化、交通灯按钮、开关动画。
+  - `VirtualFS.js`: 虚拟文件系统（目录树 + 文件内容）。
+- **内置应用** (`src/pixelOS/apps/`):
+  - `CalculatorApp.js`: 4×5 按钮网格计算器，支持鼠标和键盘输入。
+  - `TerminalApp.js`: 黑底终端，支持 `help/ls/cd/cat/pwd/clear/echo/date/whoami/uname` 命令。
+  - `FinderApp.js`: 文件浏览器，左侧边栏 + 右侧图标网格。
+  - `NotesApp.js`: 黄色便签，文本输入 + 闪烁光标。
+- **持久化**：PixelOS 实例在 `Game` 构造函数中创建一次，窗口位置、便签内容、终端历史在关闭/重开间保持。
+- **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键关闭 PixelOS。

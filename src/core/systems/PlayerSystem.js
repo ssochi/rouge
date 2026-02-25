@@ -5,7 +5,7 @@ import { PetCat } from '../entities/PetCat.js';
 import { Pet2B } from '../entities/Pet2B.js';
 
 export class PlayerSystem {
-    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles, pets }) {
+    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles, pets, onInteract }) {
         this.player = player;
         this.input = input;
         this.handSystem = handSystem;
@@ -19,6 +19,7 @@ export class PlayerSystem {
         this.particles = particles || [];
         this.pets = pets || [];
         this.mousePressed = false;
+        this.onInteract = onInteract || null;
 
         if (this.handSystem && this.handSystem.bindInstanceSync) {
             this.handSystem.bindInstanceSync((payload) => this.syncEquippedWeaponInstance(payload));
@@ -115,12 +116,15 @@ export class PlayerSystem {
                             this.worldSystem.markWorldStaticDirty();
                         }
                         // Interaction successful
-                        
+
+                        // Notify callback (e.g. PixelOS)
+                        if (this.onInteract) this.onInteract(obj);
+
                         // Check if we just closed a door (Open -> Closed)
                         if (wasOpen && !obj.isOpen) {
                             this.resolveDoorStuck(obj);
                         }
-                        
+
                         return true;
                     }
                 }

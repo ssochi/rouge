@@ -12,5 +12,8 @@ export const ComputerDeskObject = {
             width: 40,
             height: 40
         };
+    },
+    interact() {
+        return true;
     }
 };
