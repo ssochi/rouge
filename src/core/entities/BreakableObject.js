@@ -217,6 +217,16 @@ export class BreakableObject {
             }
         }
 
+        if (this.showHint) {
+            const label = this.hintText || '[E] INTERACT';
+            const tx = Number.isFinite(this.hintOffsetX) ? this.hintOffsetX : 16;
+            const ty = Number.isFinite(this.hintOffsetY) ? this.hintOffsetY : -10;
+            ctx.fillStyle = this.hintColor || '#f1c40f';
+            ctx.font = this.hintFont || 'bold 7px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, tx, ty);
+        }
+
         ctx.restore();
     }
 }

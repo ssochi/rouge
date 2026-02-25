@@ -55,6 +55,17 @@ const OBJECT_LIGHTS = {
         castsShadows: true,
         priority: 65,
         ignoreSelfShadow: true
+    },
+    computer_desk: {
+        offsetX: 16,
+        offsetY: 2,
+        radius: 88,
+        color: '#7ec8ff',
+        intensity: 0.58,
+        flicker: 0.025,
+        castsShadows: true,
+        priority: 68,
+        ignoreSelfShadow: true
     }
 };
 

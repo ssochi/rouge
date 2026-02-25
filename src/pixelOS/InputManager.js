@@ -5,7 +5,7 @@ export class InputManager {
     constructor(overlay) {
         this.overlay = overlay;
         this.mouse = { x: 0, y: 0, down: false, clicked: false, justPressed: false };
-        this.keys = { buffer: [], shift: false, ctrl: false, meta: false };
+        this.keys = { buffer: [], upBuffer: [], shift: false, ctrl: false, meta: false };
         this._active = false;
         this._mouseDownThisFrame = false;
 
@@ -49,6 +49,7 @@ export class InputManager {
     /** Call at end of frame to reset per-frame state */
     endFrame() {
         this.keys.buffer.length = 0;
+        this.keys.upBuffer.length = 0;
         this.mouse.clicked = false;
     }
 
@@ -100,6 +101,7 @@ export class InputManager {
         this.keys.shift = e.shiftKey;
         this.keys.ctrl = e.ctrlKey || e.metaKey;
         this.keys.meta = e.metaKey;
+        this.keys.upBuffer.push(e.key);
     }
 
     /** Check if a point is within a rect */

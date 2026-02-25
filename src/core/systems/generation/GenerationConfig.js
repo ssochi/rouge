@@ -59,6 +59,9 @@ export const FURNITURE_CATALOG = Object.freeze({
     desk: {
         variants: [{ type: 'desk', w: 1, h: 1 }]
     },
+    computer_desk: {
+        variants: [{ type: 'computer_desk', w: 1, h: 1 }]
+    },
     chair: {
         variants: [{ type: 'chair', w: 1, h: 1 }]
     },
@@ -130,7 +133,7 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
     },
     study: {
         required: [
-            { item: 'desk', requireWall: true, tag: 'desk' },
+            { item: 'computer_desk', requireWall: true, tag: 'desk' },
             { item: 'bookshelf', requireWall: true, preferFarFromTag: 'desk' }
         ],
         optional: [

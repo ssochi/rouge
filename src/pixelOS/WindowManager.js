@@ -236,4 +236,11 @@ export class WindowManager {
             active.app.onKeyDown(key, shift, ctrl);
         }
     }
+
+    handleKeyUp(key, shift, ctrl) {
+        const active = this.getActiveWindow();
+        if (active && active.app && active.app.onKeyUp) {
+            active.app.onKeyUp(key, shift, ctrl);
+        }
+    }
 }

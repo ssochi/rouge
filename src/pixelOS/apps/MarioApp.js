@@ -15,11 +15,12 @@ const JUMP_VEL = -4.2;
 const MAX_FALL = 4.0;
 const RUN_ACCEL = 0.3;
 const RUN_DECEL = 0.4;
+const AIR_ACCEL = 0.22;
+const AIR_DECEL = 0.08;
 const MAX_SPEED = 1.5;
 const STOMP_BOUNCE = -3.0;
-
-// Key hold timeout (frames)
-const KEY_TIMEOUT = 10;
+const COYOTE_FRAMES = 6;
+const JUMP_BUFFER_FRAMES = 6;
 
 // Palette
 const C = {
@@ -155,11 +156,11 @@ const LEVEL_DATA = [
     '                      B?B                   f     ', // 6
     '                                            f     ', // 7
     '          Pp                        Pp      f     ', // 8
-    '   G      []   ?          G         []      f     ', // 9
-    '          []                         []    Sf     ', // 10
-    ' G        []  G     Pp   G    G      []   SSf     ', // 11
-    '          []        []               []  SSSf     ', // 12
-    '          []        []               [] SSSSf     ', // 13
+    '          []   ?          G         []      f     ', // 9
+    '         S[]                         []    Sf     ', // 10
+    '        S []  G     Pp   G    G      []   SSf     ', // 11
+    '       S  []        []               []  SSSf     ', // 12
+    '      S   []        []               [] SSSSf     ', // 13
     '####  #########  #####  ########  ####SSSSSF     ', // 14
 ];
 
@@ -169,8 +170,10 @@ const SOLID_CHARS = '#BSPp[]?XF';
 export class MarioApp extends App {
     constructor() {
         super('mario', 'Mario');
-        this._keyState = { left: 0, right: 0, jump: 0 };
-        this._jumpPressed = false;
+        this._keyState = { left: false, right: false, jump: false };
+        this._lastHorizontal = 1;
+        this._jumpBufferTimer = 0;
+        this._coyoteTimer = 0;
         this._initLevel();
     }
 
@@ -236,8 +239,10 @@ export class MarioApp extends App {
         this.hitBlocks = new Set();
 
         // Reset key state
-        this._keyState = { left: 0, right: 0, jump: 0 };
-        this._jumpPressed = false;
+        this._keyState = { left: false, right: false, jump: false };
+        this._lastHorizontal = 1;
+        this._jumpBufferTimer = 0;
+        this._coyoteTimer = 0;
     }
 
     open(windowManager) {
@@ -252,8 +257,10 @@ export class MarioApp extends App {
 
     // ── Input ──
     onKeyDown(key) {
+        const k = typeof key === 'string' ? key.toLowerCase() : key;
+
         if (this.state === 'title') {
-            if (key === ' ' || key === 'Enter') {
+            if (k === ' ' || k === 'enter') {
                 this._initLevel();
                 this.state = 'playing';
             }
@@ -261,21 +268,44 @@ export class MarioApp extends App {
         }
 
         if (this.state === 'playing') {
-            switch (key) {
-                case 'ArrowLeft':
-                    this._keyState.left = KEY_TIMEOUT;
+            switch (k) {
+                case 'arrowleft':
+                case 'a':
+                    this._keyState.left = true;
+                    this._lastHorizontal = -1;
                     break;
-                case 'ArrowRight':
-                    this._keyState.right = KEY_TIMEOUT;
+                case 'arrowright':
+                case 'd':
+                    this._keyState.right = true;
+                    this._lastHorizontal = 1;
                     break;
-                case 'ArrowUp':
+                case 'arrowup':
+                case 'w':
                 case ' ':
-                    if (this._keyState.jump <= 0) {
-                        this._jumpPressed = true;
-                    }
-                    this._keyState.jump = KEY_TIMEOUT;
+                    if (!this._keyState.jump) this._jumpBufferTimer = JUMP_BUFFER_FRAMES;
+                    this._keyState.jump = true;
                     break;
             }
+        }
+    }
+
+    onKeyUp(key) {
+        const k = typeof key === 'string' ? key.toLowerCase() : key;
+
+        switch (k) {
+            case 'arrowleft':
+            case 'a':
+                this._keyState.left = false;
+                break;
+            case 'arrowright':
+            case 'd':
+                this._keyState.right = false;
+                break;
+            case 'arrowup':
+            case 'w':
+            case ' ':
+                this._keyState.jump = false;
+                break;
         }
     }
 
@@ -312,12 +342,6 @@ export class MarioApp extends App {
 
     // ── Update ──
     update() {
-        // Decrement key hold timers
-        const ks = this._keyState;
-        for (const k in ks) {
-            if (ks[k] > 0) ks[k]--;
-        }
-
         switch (this.state) {
             case 'playing': this._updatePlaying(); break;
             case 'dying':   this._updateDying(); break;
@@ -329,27 +353,37 @@ export class MarioApp extends App {
         const m = this.mario;
         const ks = this._keyState;
 
+        if (this._jumpBufferTimer > 0) this._jumpBufferTimer--;
+        if (m.grounded) this._coyoteTimer = COYOTE_FRAMES;
+        else if (this._coyoteTimer > 0) this._coyoteTimer--;
+
+        let moveDir = 0;
+        if (ks.left && ks.right) moveDir = this._lastHorizontal;
+        else if (ks.left) moveDir = -1;
+        else if (ks.right) moveDir = 1;
+
+        const accel = m.grounded ? RUN_ACCEL : AIR_ACCEL;
+        const decel = m.grounded ? RUN_DECEL : AIR_DECEL;
+
         // Horizontal
-        if (ks.left > 0 && ks.right <= 0) {
-            m.vx = Math.max(m.vx - RUN_ACCEL, -MAX_SPEED);
-            m.facing = -1;
-        } else if (ks.right > 0 && ks.left <= 0) {
-            m.vx = Math.min(m.vx + RUN_ACCEL, MAX_SPEED);
-            m.facing = 1;
+        if (moveDir !== 0) {
+            m.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, m.vx + moveDir * accel));
+            m.facing = moveDir;
         } else {
-            if (m.vx > 0) m.vx = Math.max(0, m.vx - RUN_DECEL);
-            else if (m.vx < 0) m.vx = Math.min(0, m.vx + RUN_DECEL);
+            if (m.vx > 0) m.vx = Math.max(0, m.vx - decel);
+            else if (m.vx < 0) m.vx = Math.min(0, m.vx + decel);
         }
 
-        // Jump (edge triggered)
-        if (this._jumpPressed && m.grounded) {
+        // Jump with buffer + coyote time
+        if (this._jumpBufferTimer > 0 && (m.grounded || this._coyoteTimer > 0)) {
             m.vy = JUMP_VEL;
             m.grounded = false;
+            this._jumpBufferTimer = 0;
+            this._coyoteTimer = 0;
         }
-        this._jumpPressed = false;
 
         // Gravity
-        if (m.vy < 0 && ks.jump > 0) {
+        if (m.vy < 0 && ks.jump) {
             m.vy += JUMP_HOLD_GRAVITY;
         } else {
             m.vy += GRAVITY;

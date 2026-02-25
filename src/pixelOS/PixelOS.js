@@ -175,6 +175,9 @@ export class PixelOS {
         for (const key of input.keys.buffer) {
             this.windowManager.handleKeyDown(key, input.keys.shift, input.keys.ctrl);
         }
+        for (const key of input.keys.upBuffer) {
+            this.windowManager.handleKeyUp(key, input.keys.shift, input.keys.ctrl);
+        }
 
         // Handle mouse click
         if (input.mouse.clicked) {

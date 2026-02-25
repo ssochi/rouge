@@ -52,7 +52,7 @@
       - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
     - `lighting/`: 像素光影子系统。
       - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。
-      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置。
       - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
       - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
       - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。
@@ -171,7 +171,7 @@
   - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
   - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。支持的房间语义：`living_room`、`bedroom`、`study`、`bathroom`、`storage`、`corridor`、`foyer`。
   - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。`bathroom` 作为 medium/large 建筑的 preferredRole，不设全局配额。
-  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙) + 钢琴(20%,靠墙) + 鱼缸(25%)。卧室可选：落地灯(25%,偏墙) + 梳妆台(50%,靠墙)。书房必需：书桌(靠墙)+书架；可选：椅子(60%,近桌) + 扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%) + 衣帽架(40%,靠墙) + 落地钟(30%,靠墙)。走廊可选：矮柜(20%,靠墙) + 落地钟(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙) + 洗衣机(35%,靠墙)。厨房可选：酒架(25%,靠墙) + 椅子(30%)。储藏室可选：工作台(40%,靠墙) + 洗衣机(30%,靠墙)。
+  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙) + 钢琴(20%,靠墙) + 鱼缸(25%)。卧室可选：落地灯(25%,偏墙) + 梳妆台(50%,靠墙)。书房必需：电脑桌(靠墙)+书架；可选：椅子(60%,近桌) + 扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%) + 衣帽架(40%,靠墙) + 落地钟(30%,靠墙)。走廊可选：矮柜(20%,靠墙) + 落地钟(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙) + 洗衣机(35%,靠墙)。厨房可选：酒架(25%,靠墙) + 椅子(30%)。储藏室可选：工作台(40%,靠墙) + 洗衣机(30%,靠墙)。
   - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
@@ -228,6 +228,8 @@
 
 ### PixelOS 交互式电脑系统
 - **入口**：玩家靠近 `computer_desk` 物体按 E 键触发，通过 `PlayerSystem.onInteract` 回调打开。
+- **交互提示**：靠近电脑时显示英文提示“[E] USE COMPUTER”，采用与现有门/传送门一致的提示风格（`bold 7px monospace`，黄色），提示半径与实际交互半径保持一致（50px）。
+- **生成接入**：`computer_desk` 已接入建筑 `study` 语义房间模板，可在 `construction/game` 流程化地图中刷出。
 - **架构**：`src/pixelOS/` 独立目录，包含完整的像素 macOS 模拟系统。
   - `PixelOS.js`: 主控制器，状态机 (off→booting→desktop)，独立 `requestAnimationFrame` 渲染循环。
   - `PixelOSOverlay.js`: DOM 遮罩层 + Canvas 创建（384×256 分辨率，CSS `image-rendering: pixelated`），支持点击遮罩外区域关闭 OS。
@@ -247,6 +249,6 @@
   - `MailApp.js`: 邮件客户端，三文件夹（收件箱/已发送/草稿），预置趣味邮件，支持列表+详情视图。
   - `Game2048App.js`: 2048 数字滑动游戏，4×4 网格，方向键操作，数字颜色区分，Game Over/Win 检测。
   - `TetrisApp.js`: 俄罗斯方块，10×20 格游戏区，7 种标准方块（I/O/T/S/Z/J/L），行消除计分，下一块预览。
-  - `MarioApp.js`: 超级马里奥平台跳跃游戏，完整一关（50 列关卡）。8×8 瓦片、水平滚动摄像机、物理引擎（重力/可变跳高/摩擦）、Goomba 敌人（踩杀）、?块出币/砖块破碎、水管/阶梯/旗杆终点、分数/金币/倒计时 HUD。帧计数器模拟按键持续（无 keyUp 事件）。
+  - `MarioApp.js`: 超级马里奥平台跳跃游戏，完整一关（50 列关卡）。8×8 瓦片、水平滚动摄像机、物理引擎（重力/可变跳高/摩擦）、Goomba 敌人（踩杀）、?块出币/砖块破碎、水管/阶梯/旗杆终点、分数/金币/倒计时 HUD。支持 Arrow + WASD 双键位与移动/跳跃并行输入，含跳跃缓冲与离台容错（coyote time）。
 - **持久化**：PixelOS 实例在 `Game` 构造函数中创建一次，窗口位置、便签内容、终端历史在关闭/重开间保持。
 - **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键或点击遮罩外区域关闭 PixelOS。

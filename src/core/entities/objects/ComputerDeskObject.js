@@ -4,6 +4,21 @@ export const ComputerDeskObject = {
         obj.hp = 50;
         obj.shadow = { type: 'rect', x: 0, y: 16, w: 32, h: 16 };
         obj.drawOffset = { x: -4, y: -8 };
+        obj.hintText = '[E] USE COMPUTER';
+        obj.hintOffsetX = 16;
+        obj.hintOffsetY = -10;
+    },
+    update(obj, player) {
+        if (!player) {
+            obj.showHint = false;
+            return;
+        }
+
+        const cx = obj.x + (obj.width || 32) / 2;
+        const cy = obj.y + (obj.height || 32) / 2;
+        const dx = player.x - cx;
+        const dy = player.y - cy;
+        obj.showHint = Math.sqrt(dx * dx + dy * dy) < 50;
     },
     getHurtbox(obj) {
         return {
