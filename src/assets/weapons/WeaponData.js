@@ -313,6 +313,68 @@ export const WEAPONS = {
         maxReserve: 40,
         reloadTime: 2500
     },
+    laser_rifle: {
+        name: "Laser Rifle",
+        type: WeaponType.RIFLE,
+        sprite: "laser_rifle",
+        // Pivot @ Grip (10, 6). Canvas 30x12.
+        drawOffset: { x: -10, y: -6 },
+        muzzleOffset: { x: 20, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 7, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        // Continuous beam (M8) — hold fire to sustain red laser
+        continuous: true,
+        bulletType: 'laser_beam',
+        bulletColor: '#ff1744',      // Red beam
+        laserMaxRange: 500,
+        beamDuration: 2,
+        beamDPS: 3,                  // Starting DPS
+        beamMaxDPS: 15,              // Max DPS after ramp
+        beamRampTime: 3,             // Seconds to reach max
+        beamAmmoRate: 8,             // Frames per ammo consumed
+        fireRate: 50,
+        damage: 3,
+        bulletSpeed: 0,
+        bulletLife: 0,
+        bulletSize: 0,
+        magazineSize: 60,
+        maxReserve: 180,
+        reloadTime: 3000
+    },
+    laser_shotgun: {
+        name: "Laser Shotgun",
+        type: WeaponType.RIFLE,
+        sprite: "laser_shotgun",
+        // Pivot @ Grip (10, 7). Canvas 28x14.
+        drawOffset: { x: -10, y: -7 },
+        muzzleOffset: { x: 18, y: -1 },
+        scale: 1.5,
+        hands: {
+            right: { x: 0, y: 3 },
+            left: { x: 6, y: 3 }
+        },
+        orbitRadius: 10,
+        shellEject: false,
+        fireRate: 900,
+        damage: 10,                  // Damage per beam
+        bulletSpeed: 0,
+        bulletLife: 0,
+        bulletType: 'laser_beam',
+        bulletColor: '#7c4dff',      // Purple beams
+        bulletSize: 0,
+        laserMaxRange: 350,          // Shorter range than single laser
+        beamDuration: 8,
+        pelletCount: 5,              // 5 beams in spread
+        spread: 30,                  // 30-degree cone
+        magazineSize: 10,
+        maxReserve: 50,
+        reloadTime: 2500
+    },
     flamethrower: {
         name: "Flamethrower",
         type: WeaponType.RIFLE,
