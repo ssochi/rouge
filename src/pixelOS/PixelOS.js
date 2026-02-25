@@ -15,6 +15,10 @@ import { CalculatorApp } from './apps/CalculatorApp.js';
 import { TerminalApp } from './apps/TerminalApp.js';
 import { FinderApp } from './apps/FinderApp.js';
 import { NotesApp } from './apps/NotesApp.js';
+import { SettingsApp } from './apps/SettingsApp.js';
+import { MailApp } from './apps/MailApp.js';
+import { Game2048App } from './apps/Game2048App.js';
+import { TetrisApp } from './apps/TetrisApp.js';
 import './PixelOS.css';
 
 export class PixelOS {
@@ -45,7 +49,11 @@ export class PixelOS {
             calculator: new CalculatorApp(),
             terminal: new TerminalApp(this.virtualFS),
             finder: new FinderApp(this.virtualFS),
-            notes: new NotesApp()
+            notes: new NotesApp(),
+            settings: new SettingsApp(this),
+            mail: new MailApp(),
+            game2048: new Game2048App(),
+            tetris: new TetrisApp()
         };
 
         // State machine
@@ -57,6 +65,9 @@ export class PixelOS {
         // Boot animation state
         this._bootAlpha = 0;
         this._bootBarProgress = 0;
+
+        // Click outside monitor to close
+        this.overlay.onClickOutside = () => this.close();
 
         this._bindEscapeHandler();
     }

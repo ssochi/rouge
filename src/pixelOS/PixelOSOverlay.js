@@ -24,6 +24,14 @@ export class PixelOSOverlay {
 
         this.ctx = this.canvas.getContext('2d');
         this.ctx.imageSmoothingEnabled = false;
+
+        // Click outside monitor to close
+        this.onClickOutside = null;
+        this.overlay.addEventListener('mousedown', (e) => {
+            if (e.target === this.overlay && this.onClickOutside) {
+                this.onClickOutside();
+            }
+        });
     }
 
     show() {

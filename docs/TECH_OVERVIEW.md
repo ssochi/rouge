@@ -202,11 +202,12 @@
 - **入口**：玩家靠近 `computer_desk` 物体按 E 键触发，通过 `PlayerSystem.onInteract` 回调打开。
 - **架构**：`src/pixelOS/` 独立目录，包含完整的像素 macOS 模拟系统。
   - `PixelOS.js`: 主控制器，状态机 (off→booting→desktop)，独立 `requestAnimationFrame` 渲染循环。
-  - `PixelOSOverlay.js`: DOM 遮罩层 + Canvas 创建（384×256 分辨率，CSS `image-rendering: pixelated`）。
+  - `PixelOSOverlay.js`: DOM 遮罩层 + Canvas 创建（384×256 分辨率，CSS `image-rendering: pixelated`），支持点击遮罩外区域关闭 OS。
   - `PixelOSRenderer.js`: 渲染工具（内置 4×5 像素位图字体、圆角矩形、渐变、Apple Logo 等）。
   - `AnimationSystem.js`: 通用补间动画引擎（easeOutCubic/easeInCubic/linear）。
   - `InputManager.js`: 鼠标/键盘事件捕获，坐标映射到 OS 画布，键盘事件 `stopPropagation()` 隔离游戏输入。
-  - `Desktop.js` / `MenuBar.js` / `Dock.js`: 桌面壁纸、顶部菜单栏（Apple Logo + 时钟）、底部 Dock（悬停放大效果）。
+  - `Desktop.js` / `MenuBar.js` / `Dock.js`: 桌面壁纸（支持多壁纸切换：蓝色渐变 + 像素画山脉日落）、顶部菜单栏（Apple Logo + 时钟）、底部 Dock（8 个应用图标，悬停放大效果）。
+  - `Wallpaper.js`: 像素风山脉日落壁纸（程序化绘制：渐变天空、太阳、星星、三层山脉剪影、水面倒影、树木剪影）。
   - `WindowManager.js` / `Window.js`: 窗口 Z 序管理、拖拽、关闭/最小化/最大化、交通灯按钮、开关动画。
   - `VirtualFS.js`: 虚拟文件系统（目录树 + 文件内容）。
 - **内置应用** (`src/pixelOS/apps/`):
@@ -214,5 +215,9 @@
   - `TerminalApp.js`: 黑底终端，支持 `help/ls/cd/cat/pwd/clear/echo/date/whoami/uname` 命令。
   - `FinderApp.js`: 文件浏览器，左侧边栏 + 右侧图标网格。
   - `NotesApp.js`: 黄色便签，文本输入 + 闪烁光标。
+  - `SettingsApp.js`: 系统设置，三栏分类（通用/显示/关于），支持壁纸切换。
+  - `MailApp.js`: 邮件客户端，三文件夹（收件箱/已发送/草稿），预置趣味邮件，支持列表+详情视图。
+  - `Game2048App.js`: 2048 数字滑动游戏，4×4 网格，方向键操作，数字颜色区分，Game Over/Win 检测。
+  - `TetrisApp.js`: 俄罗斯方块，10×20 格游戏区，7 种标准方块（I/O/T/S/Z/J/L），行消除计分，下一块预览。
 - **持久化**：PixelOS 实例在 `Game` 构造函数中创建一次，窗口位置、便签内容、终端历史在关闭/重开间保持。
-- **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键关闭 PixelOS。
+- **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键或点击遮罩外区域关闭 PixelOS。

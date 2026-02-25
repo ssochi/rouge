@@ -1,9 +1,13 @@
 /**
  * Desktop - Wallpaper and desktop icons
  */
+import { drawPixelWallpaper } from './Wallpaper.js';
+
 export class Desktop {
     constructor(renderer) {
         this.renderer = renderer;
+        this.wallpaperIndex = 0;
+        this._wallpaperCanvas = null; // cached pixel wallpaper
         this.icons = [
             { id: 'finder', label: 'Finder', x: 0, y: 0 },
             { id: 'terminal', label: 'Terminal', x: 0, y: 0 },
@@ -22,9 +26,21 @@ export class Desktop {
         }
     }
 
+    setWallpaper(index) {
+        this.wallpaperIndex = index;
+    }
+
     draw(r) {
-        // Wallpaper gradient
-        r.fillGradientV(0, 12, 384, 244, '#1a6baa', '#2d9ee0');
+        if (this.wallpaperIndex === 1) {
+            // Pixel art wallpaper
+            if (!this._wallpaperCanvas) {
+                this._wallpaperCanvas = drawPixelWallpaper(384, 244);
+            }
+            r.ctx.drawImage(this._wallpaperCanvas, 0, 12);
+        } else {
+            // Default gradient wallpaper
+            r.fillGradientV(0, 12, 384, 244, '#1a6baa', '#2d9ee0');
+        }
 
         // Desktop icons
         for (const icon of this.icons) {

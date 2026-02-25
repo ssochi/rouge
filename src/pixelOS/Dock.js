@@ -16,6 +16,10 @@ export class Dock {
             { id: 'terminal', label: 'Terminal' },
             { id: 'calculator', label: 'Calculator' },
             { id: 'notes', label: 'Notes' },
+            { id: 'settings', label: 'Settings' },
+            { id: 'mail', label: 'Mail' },
+            { id: 'game2048', label: '2048' },
+            { id: 'tetris', label: 'Tetris' },
         ];
 
         this.hoveredIndex = -1;
@@ -125,6 +129,62 @@ export class Dock {
                 // Lines on the note
                 for (let line = 0; line < 3; line++) {
                     r.fillRect(x + 3, y + 4 + line * 3, size - 6, 1, '#c8b87a');
+                }
+                break;
+            case 'settings':
+                r.fillRoundRect(x, y, size, size, 2, '#8e8e93');
+                // Gear: center circle + teeth
+                {
+                    const cx = x + Math.floor(size / 2);
+                    const cy = y + Math.floor(size / 2);
+                    const gr = Math.max(2, Math.floor(size * 0.2));
+                    r.fillCircle(cx, cy, gr, '#d1d1d6');
+                    // Gear teeth (4 directions)
+                    r.fillRect(cx - 1, cy - gr - 2, 2, 2, '#d1d1d6');
+                    r.fillRect(cx - 1, cy + gr, 2, 2, '#d1d1d6');
+                    r.fillRect(cx - gr - 2, cy - 1, 2, 2, '#d1d1d6');
+                    r.fillRect(cx + gr, cy - 1, 2, 2, '#d1d1d6');
+                }
+                break;
+            case 'mail':
+                r.fillRoundRect(x, y, size, size, 2, '#007aff');
+                // Envelope
+                {
+                    const ex = x + Math.floor(size * 0.15);
+                    const ey = y + Math.floor(size * 0.25);
+                    const ew = Math.floor(size * 0.7);
+                    const eh = Math.floor(size * 0.5);
+                    r.fillRect(ex, ey, ew, eh, '#ffffff');
+                    // V flap
+                    r.fillRect(ex + Math.floor(ew * 0.1), ey, 1, Math.floor(eh * 0.4), '#ddd');
+                    r.fillRect(ex + Math.floor(ew * 0.9), ey, 1, Math.floor(eh * 0.4), '#ddd');
+                    r.fillRect(ex + Math.floor(ew / 2), ey + Math.floor(eh * 0.4), 1, 1, '#ddd');
+                }
+                break;
+            case 'game2048':
+                r.fillRoundRect(x, y, size, size, 2, '#edc22e');
+                // 2x2 grid hint
+                {
+                    const gs = Math.floor(size * 0.3);
+                    const gx = x + Math.floor((size - gs * 2 - 1) / 2);
+                    const gy = y + Math.floor((size - gs * 2 - 1) / 2);
+                    r.fillRect(gx, gy, gs, gs, '#f2b179');
+                    r.fillRect(gx + gs + 1, gy, gs, gs, '#eee4da');
+                    r.fillRect(gx, gy + gs + 1, gs, gs, '#eee4da');
+                    r.fillRect(gx + gs + 1, gy + gs + 1, gs, gs, '#f59563');
+                }
+                break;
+            case 'tetris':
+                r.fillRoundRect(x, y, size, size, 2, '#1a1a2e');
+                // T-piece
+                {
+                    const bs = Math.max(2, Math.floor(size * 0.2));
+                    const tx = x + Math.floor((size - bs * 3) / 2);
+                    const ty = y + Math.floor((size - bs * 2) / 2);
+                    r.fillRect(tx, ty, bs, bs, '#a000f0');
+                    r.fillRect(tx + bs, ty, bs, bs, '#a000f0');
+                    r.fillRect(tx + bs * 2, ty, bs, bs, '#a000f0');
+                    r.fillRect(tx + bs, ty + bs, bs, bs, '#a000f0');
                 }
                 break;
         }
