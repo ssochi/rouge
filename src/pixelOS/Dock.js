@@ -20,6 +20,7 @@ export class Dock {
             { id: 'mail', label: 'Mail' },
             { id: 'game2048', label: '2048' },
             { id: 'tetris', label: 'Tetris' },
+            { id: 'mario', label: 'Mario' },
         ];
 
         this.hoveredIndex = -1;
@@ -185,6 +186,24 @@ export class Dock {
                     r.fillRect(tx + bs, ty, bs, bs, '#a000f0');
                     r.fillRect(tx + bs * 2, ty, bs, bs, '#a000f0');
                     r.fillRect(tx + bs, ty + bs, bs, bs, '#a000f0');
+                }
+                break;
+            case 'mario':
+                r.fillRoundRect(x, y, size, size, 2, '#6b8cff');
+                // Mini Mario: red hat + blue body
+                {
+                    const mx = x + Math.floor(size * 0.3);
+                    const my = y + Math.floor(size * 0.15);
+                    const s = Math.max(1, Math.floor(size * 0.12));
+                    // Red hat
+                    r.fillRect(mx, my, s * 3, s, '#e52521');
+                    r.fillRect(mx - s, my + s, s * 4, s, '#e52521');
+                    // Face
+                    r.fillRect(mx, my + s * 2, s * 2, s, '#fbb040');
+                    // Blue body
+                    r.fillRect(mx - s, my + s * 3, s * 4, s * 2, '#3032d6');
+                    // Ground
+                    r.fillRect(x + 2, y + size - 3, size - 4, 3, '#c84c0c');
                 }
                 break;
         }

@@ -206,7 +206,7 @@
   - `PixelOSRenderer.js`: 渲染工具（内置 4×5 像素位图字体、圆角矩形、渐变、Apple Logo 等）。
   - `AnimationSystem.js`: 通用补间动画引擎（easeOutCubic/easeInCubic/linear）。
   - `InputManager.js`: 鼠标/键盘事件捕获，坐标映射到 OS 画布，键盘事件 `stopPropagation()` 隔离游戏输入。
-  - `Desktop.js` / `MenuBar.js` / `Dock.js`: 桌面壁纸（支持多壁纸切换：蓝色渐变 + 像素画山脉日落）、顶部菜单栏（Apple Logo + 时钟）、底部 Dock（8 个应用图标，悬停放大效果）。
+  - `Desktop.js` / `MenuBar.js` / `Dock.js`: 桌面壁纸（支持多壁纸切换：蓝色渐变 + 像素画山脉日落）、顶部菜单栏（Apple Logo + 时钟）、底部 Dock（9 个应用图标，悬停放大效果）。
   - `Wallpaper.js`: 像素风山脉日落壁纸（程序化绘制：渐变天空、太阳、星星、三层山脉剪影、水面倒影、树木剪影）。
   - `WindowManager.js` / `Window.js`: 窗口 Z 序管理、拖拽、关闭/最小化/最大化、交通灯按钮、开关动画。
   - `VirtualFS.js`: 虚拟文件系统（目录树 + 文件内容）。
@@ -219,5 +219,6 @@
   - `MailApp.js`: 邮件客户端，三文件夹（收件箱/已发送/草稿），预置趣味邮件，支持列表+详情视图。
   - `Game2048App.js`: 2048 数字滑动游戏，4×4 网格，方向键操作，数字颜色区分，Game Over/Win 检测。
   - `TetrisApp.js`: 俄罗斯方块，10×20 格游戏区，7 种标准方块（I/O/T/S/Z/J/L），行消除计分，下一块预览。
+  - `MarioApp.js`: 超级马里奥平台跳跃游戏，完整一关（50 列关卡）。8×8 瓦片、水平滚动摄像机、物理引擎（重力/可变跳高/摩擦）、Goomba 敌人（踩杀）、?块出币/砖块破碎、水管/阶梯/旗杆终点、分数/金币/倒计时 HUD。帧计数器模拟按键持续（无 keyUp 事件）。
 - **持久化**：PixelOS 实例在 `Game` 构造函数中创建一次，窗口位置、便签内容、终端历史在关闭/重开间保持。
 - **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键或点击遮罩外区域关闭 PixelOS。
