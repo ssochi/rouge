@@ -1,18 +1,18 @@
 export const TreeSmallObject = {
     configure(obj) {
-        // Sprite 32×36, drawOffset y=-4 → occupies world y-4 to y+32
-        // Trunk base at sprite row 35 → world y+31
-        obj.hitbox = { offsetX: 13, offsetY: 28, width: 6, height: 4 };
+        // Sprite 40×56, drawOffset y=-24 → occupies world y-24 to y+32
+        // Trunk base/roots at sprite rows 46-55 → world y+22 to y+31
+        obj.hitbox = { offsetX: 13, offsetY: 26, width: 8, height: 4 };
         obj.hp = 40;
-        obj.shadow = { rx: 6, ry: 3, y: 30 };
-        obj.drawOffset = { x: 0, y: -4 };
+        obj.shadow = { rx: 10, ry: 3, y: 29 };
+        obj.drawOffset = { x: -4, y: -24 };
     },
     getHurtbox(obj) {
         return {
-            x: obj.x + 6,
+            x: obj.x + obj.drawOffset.x + 3,
             y: obj.y + obj.drawOffset.y + 1,
-            width: 21,
-            height: 35
+            width: 34,
+            height: 54
         };
     }
 };
