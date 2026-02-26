@@ -1,6 +1,5 @@
 import { Enemy } from './Enemy.js';
 import { SnakeSegment } from './SnakeSegment.js';
-import { Assets } from '../../graphics/Assets.js';
 
 /**
  * SnakeBoss — Mechanical Serpent Boss
@@ -12,9 +11,10 @@ import { Assets } from '../../graphics/Assets.js';
 const SEGMENT_COUNT = 9;       // 8 body + 1 tail
 const SEGMENT_SPACING = 8;     // Frames between each segment in position history
 const MAX_HISTORY = (SEGMENT_COUNT + 1) * SEGMENT_SPACING + 10;
-const WAVE_AMPLITUDE = 24;
-const WAVE_PHASE_SHIFT = 0.7;
-const WAVE_SPEED = 0.04;
+const SWAY_AMPLITUDE = 12;     // Lateral sway amplitude (pixels)
+const SWAY_PHASE_SHIFT = 0.7;
+const SWAY_SPEED = 0.04;
+const BURROW_DEPTH = 24;       // heightZ depth for burrowing
 const UNDERGROUND_THRESHOLD = 8;
 
 export class SnakeBoss extends Enemy {
@@ -28,9 +28,9 @@ export class SnakeBoss extends Enemy {
         this.name = '机械巨蛇';
 
         // Boss HP bar config (used by Renderer.drawBossHpBar)
-        this.phaseColors = ['#4a7c8a', '#c0392b'];
-        this.phaseNames = ['I', 'II'];
-        this.phaseMarkers = [0.4]; // 40% transition marker
+        this.phaseColors = ['#4a7c8a', '#d4a017', '#c0392b'];
+        this.phaseNames = ['I', 'II', 'III'];
+        this.phaseMarkers = [0.65, 0.3]; // 65% and 30% transition markers
 
         // Phase system
         this.phase = 1;
@@ -53,6 +53,9 @@ export class SnakeBoss extends Enemy {
             burrow_strike:  { duration: 150, cooldown: 180 },
             segment_volley: { duration: 60, cooldown: 100 }
         };
+
+        // Head facing angle (radians)
+        this.angle = 0;
 
         // Movement AI
         this.moveMode = 'orbit'; // 'orbit' | 'charge' | 'burrow'
@@ -88,12 +91,6 @@ export class SnakeBoss extends Enemy {
         // External references
         this.worldSystem = null;
         this.combatSystem = null;
-
-        // Overlay canvas (48×48)
-        this._overlayCanvas = document.createElement('canvas');
-        this._overlayCanvas.width = 48;
-        this._overlayCanvas.height = 48;
-        this._overlayCtx = this._overlayCanvas.getContext('2d');
     }
 
     // ========== DAMAGE & PHASES ==========
@@ -112,18 +109,31 @@ export class SnakeBoss extends Enemy {
 
     checkPhaseTransition() {
         const hpRatio = this.hp / this.maxHp;
-        if (this.phase === 1 && hpRatio <= 0.4) {
+        if (this.phase === 1 && hpRatio <= 0.65) {
             this.phase = 2;
-            this.speed = 2.0;
-            this.preferredDistance = 120;
+            this.speed = 1.7;
+            this.preferredDistance = 140;
             this.isTransitioning = true;
             this.transitionTimer = 0;
             this.currentAttack = null;
             this.attackTimer = 0;
-            this.attackCooldown = 30;
-            // Sync segments
+            this.attackCooldown = 40;
             for (const seg of this.segments) {
                 seg.phase = 2;
+            }
+            return true;
+        }
+        if (this.phase === 2 && hpRatio <= 0.3) {
+            this.phase = 3;
+            this.speed = 2.2;
+            this.preferredDistance = 110;
+            this.isTransitioning = true;
+            this.transitionTimer = 0;
+            this.currentAttack = null;
+            this.attackTimer = 0;
+            this.attackCooldown = 25;
+            for (const seg of this.segments) {
+                seg.phase = 3;
             }
             return true;
         }
@@ -187,28 +197,36 @@ export class SnakeBoss extends Enemy {
             if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
                 seg.angle = Math.atan2(dy, dx);
             }
+
+            // Apply lateral sway perpendicular to facing direction
+            if (seg.lateralOffset) {
+                const perpAngle = seg.angle + Math.PI / 2;
+                seg.x += Math.cos(perpAngle) * seg.lateralOffset;
+                seg.y += Math.sin(perpAngle) * seg.lateralOffset;
+            }
         }
     }
 
     updateWave() {
-        const waveTime = this.animationTimer * WAVE_SPEED;
+        const waveTime = this.animationTimer * SWAY_SPEED;
 
-        // Head has smaller wave
-        if (!this.isBurrowingAll) {
-            this.heightZ = Math.sin(waveTime - WAVE_PHASE_SHIFT) * (WAVE_AMPLITUDE * 0.5);
-            this.isUnderground = this.heightZ < -UNDERGROUND_THRESHOLD;
+        // Head: no Z wave in normal mode, burrow handles its own heightZ
+        if (!this.isBurrowingAll && this.currentAttack !== 'burrow_strike') {
+            this.heightZ = 0;
+            this.isUnderground = false;
         }
 
-        // Body segments
+        // Body segments: lateral sway (applied in updateSegmentPositions)
         for (let i = 0; i < this.segments.length; i++) {
             const seg = this.segments[i];
             if (this.isBurrowingAll) {
-                // During full burrow, force all underground
-                seg.heightZ = -WAVE_AMPLITUDE;
+                seg.heightZ = -BURROW_DEPTH;
                 seg.isUnderground = true;
+                seg.lateralOffset = 0;
             } else {
-                seg.heightZ = Math.sin(waveTime + (i + 1) * WAVE_PHASE_SHIFT) * WAVE_AMPLITUDE;
-                seg.isUnderground = seg.heightZ < -UNDERGROUND_THRESHOLD;
+                seg.heightZ = 0;
+                seg.isUnderground = false;
+                seg.lateralOffset = Math.sin(waveTime + (i + 1) * SWAY_PHASE_SHIFT) * SWAY_AMPLITUDE;
             }
         }
     }
@@ -220,7 +238,7 @@ export class SnakeBoss extends Enemy {
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        this.facingRight = dx > 0;
+        this.angle = Math.atan2(dy, dx);
 
         if (this.moveMode === 'charge') {
             return; // Charge handles its own movement
@@ -248,6 +266,11 @@ export class SnakeBoss extends Enemy {
             moveY = Math.sin(perpAngle);
         }
 
+        // Update angle from movement direction
+        if (Math.abs(moveX) > 0.01 || Math.abs(moveY) > 0.01) {
+            this.angle = Math.atan2(moveY, moveX);
+        }
+
         const spd = this.getEffectiveSpeed();
         const nextX = this.x + moveX * spd;
         const nextY = this.y + moveY * spd;
@@ -266,22 +289,21 @@ export class SnakeBoss extends Enemy {
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Weighted random selection
+        // Weighted random selection — attack pool grows with phase
         const pool = [];
 
-        // Always available
+        // Phase 1: basic attacks only
         pool.push({ type: 'venom_spit', weight: 3 });
         pool.push({ type: 'charge', weight: 2 });
-        pool.push({ type: 'constrict', weight: 1 });
 
-        if (dist < 120) {
-            pool.push({ type: 'tail_whip', weight: 3 });
-        } else {
-            pool.push({ type: 'tail_whip', weight: 1 });
+        // Phase 2+: add constrict and tail_whip
+        if (this.phase >= 2) {
+            pool.push({ type: 'constrict', weight: 1 });
+            pool.push({ type: 'tail_whip', weight: dist < 120 ? 3 : 1 });
         }
 
-        // Phase 2 attacks
-        if (this.phase >= 2) {
+        // Phase 3: add burrow_strike and segment_volley
+        if (this.phase >= 3) {
             pool.push({ type: 'burrow_strike', weight: 3 });
             pool.push({ type: 'segment_volley', weight: 2 });
         }
@@ -299,6 +321,7 @@ export class SnakeBoss extends Enemy {
         this.currentAttack = type;
         this.attackTimer = 0;
         this.attackTargetAngle = Math.atan2(player.y - this.y, player.x - this.x);
+        this.angle = this.attackTargetAngle;
 
         if (type === 'charge') {
             this.moveMode = 'charge';
@@ -321,7 +344,8 @@ export class SnakeBoss extends Enemy {
     endAttack() {
         const cfg = this.attacks[this.currentAttack];
         this.attackCooldown = (cfg && cfg.cooldown) || 60;
-        if (this.phase === 2) this.attackCooldown = Math.floor(this.attackCooldown * 0.7);
+        if (this.phase === 2) this.attackCooldown = Math.floor(this.attackCooldown * 0.85);
+        else if (this.phase === 3) this.attackCooldown = Math.floor(this.attackCooldown * 0.65);
         this.currentAttack = null;
         this.attackTimer = 0;
         this.moveMode = 'orbit';
@@ -334,9 +358,15 @@ export class SnakeBoss extends Enemy {
         const fireFrame = 20;
         if (timer !== fireFrame) return;
 
-        const count = this.phase === 2 ? 7 : 5;
-        const spreadAngle = this.phase === 2 ? 0.8 : 0.6;
-        const bulletDmg = this.phase === 2 ? 12 : 10;
+        // 3-tier venom spit: Phase 1 weakest, Phase 3 strongest
+        let count, spreadAngle, bulletDmg, bulletColor;
+        if (this.phase === 1) {
+            count = 4; spreadAngle = 0.5; bulletDmg = 8; bulletColor = '#3498db';
+        } else if (this.phase === 2) {
+            count = 5; spreadAngle = 0.6; bulletDmg = 10; bulletColor = '#d4a017';
+        } else {
+            count = 7; spreadAngle = 0.8; bulletDmg = 12; bulletColor = '#e74c3c';
+        }
         const bulletSpeed = 5;
 
         for (let i = 0; i < count; i++) {
@@ -348,7 +378,7 @@ export class SnakeBoss extends Enemy {
                 angle: angle,
                 damage: bulletDmg,
                 speed: bulletSpeed,
-                color: this.phase === 1 ? '#3498db' : '#e74c3c',
+                color: bulletColor,
                 size: 4,
                 life: 120
             });
@@ -377,7 +407,7 @@ export class SnakeBoss extends Enemy {
             this.resolveWallCollision(nextX, nextY, walls, wallQuery);
         }
 
-        this.facingRight = this.chargeVx > 0;
+        this.angle = Math.atan2(this.chargeVy, this.chargeVx);
 
         // Contact damage
         const chargeDist = Math.sqrt((player.x - this.x) ** 2 + (player.y - this.y) ** 2);
@@ -417,7 +447,7 @@ export class SnakeBoss extends Enemy {
 
         this.x = player.x + Math.cos(this.constrictAngle) * this.constrictRadius;
         this.y = player.y + Math.sin(this.constrictAngle) * this.constrictRadius;
-        this.facingRight = Math.cos(this.constrictAngle + Math.PI / 2) > 0;
+        this.angle = this.constrictAngle + Math.PI / 2;
 
         // Contact damage when close
         if (this.constrictRadius < 60) {
@@ -437,7 +467,7 @@ export class SnakeBoss extends Enemy {
         if (timer < 40) {
             this.isBurrowingAll = timer > 15;
             if (timer === 15) {
-                this.heightZ = -WAVE_AMPLITUDE;
+                this.heightZ = -BURROW_DEPTH;
                 this.isUnderground = true;
             }
             return;
@@ -461,7 +491,7 @@ export class SnakeBoss extends Enemy {
         if (timer >= 100) {
             this.isBurrowingAll = false;
             const surfaceProgress = (timer - 100) / 50;
-            this.heightZ = -WAVE_AMPLITUDE + WAVE_AMPLITUDE * 2 * surfaceProgress;
+            this.heightZ = -BURROW_DEPTH + BURROW_DEPTH * 2 * surfaceProgress;
             this.isUnderground = this.heightZ < -UNDERGROUND_THRESHOLD;
 
             // Surface damage at frame 110
@@ -500,7 +530,7 @@ export class SnakeBoss extends Enemy {
                 angle: seg.angle + i * angleStep,
                 damage: 8,
                 speed: 3.5,
-                color: this.phase === 1 ? '#5dade2' : '#ff6b6b',
+                color: this.phase === 3 ? '#ff6b6b' : this.phase === 2 ? '#f0c040' : '#5dade2',
                 size: 3,
                 life: 90
             });
@@ -590,7 +620,7 @@ export class SnakeBoss extends Enemy {
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        this.facingRight = dx > 0;
+        this.angle = Math.atan2(dy, dx);
 
         if (dist < this.aggroRange && this.attackCooldown <= 0) {
             const nextAttack = this.selectNextAttack(player);
@@ -618,15 +648,14 @@ export class SnakeBoss extends Enemy {
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
 
         // Ground shadow
-        const shadowScale = this.isUnderground ? 0.6 : Math.max(0.4, 1 - this.heightZ / 60);
-        const shadowAlpha = this.isUnderground ? 0.35 : Math.max(0.1, 0.25 * shadowScale);
-        ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
-        ctx.beginPath();
-        ctx.ellipse(0, 10, 14 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (!this.isUnderground) {
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.beginPath();
+            ctx.ellipse(2, 8, 16, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         if (this.isUnderground) {
-            // Draw burrow hole at ground level
             this._drawBurrowHole(ctx);
             ctx.restore();
             return;
@@ -641,121 +670,284 @@ export class SnakeBoss extends Enemy {
             }
         }
 
-        // Dynamic 3D: draw neck/belly extension when elevated
         const drawY = -this.heightZ;
-        if (this.heightZ > 4) {
-            this._drawNeckExtension(ctx, drawY);
-        }
 
-        if (this.facingRight) {
-            ctx.scale(-1, 1);
-        }
-        const phaseKey = 'phase' + this.phase;
-        const assets = Assets.snakeBoss ? Assets.snakeBoss[phaseKey] : null;
-        const headAssets = assets ? assets.head : null;
+        // Multi-layer programmatic 3D rendering
+        const colors = this._getColors();
+        const pulsePhase = (this.animationTimer % 64) / 64;
+        const pulseT = 0.5 + 0.5 * Math.sin(pulsePhase * Math.PI * 2);
 
-        if (headAssets) {
-            let frames, frameIndex;
+        // Calculate jaw open amount
+        const jawOpen = this._getJawOpen();
 
-            if (this.isTransitioning && headAssets.transition) {
-                frames = headAssets.transition;
-                frameIndex = Math.min(
-                    Math.floor((this.transitionTimer / this.transitionDuration) * frames.length),
-                    frames.length - 1
-                );
-            } else if (this.currentAttack && headAssets.attack) {
-                frames = headAssets.attack;
-                const dur = this.attacks[this.currentAttack]?.duration || 60;
-                frameIndex = Math.min(
-                    Math.floor((this.attackTimer / dur) * frames.length),
-                    frames.length - 1
-                );
-            } else if (this.state === 'run' && headAssets.run) {
-                frames = headAssets.run;
-                frameIndex = Math.floor(this.animationTimer / 6) % frames.length;
-            } else {
-                frames = headAssets.idle;
-                frameIndex = Math.floor(this.animationTimer / 8) % frames.length;
-            }
+        this._drawHeadLayers(ctx, drawY, colors, pulseT, jawOpen);
 
-            if (frames && frames[frameIndex]) {
-                const sprite = frames[frameIndex];
-                const spriteDrawY = drawY - 24;
-                ctx.drawImage(sprite, -24, spriteDrawY);
-
-                // Hit flash
-                if (this.hitFlashTimer > 0) {
-                    ctx.save();
-                    ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
-                    ctx.drawImage(sprite, -24, spriteDrawY);
-                    ctx.restore();
-                }
-
-                // Phase transition overlay
-                if (this.isTransitioning) {
-                    const alpha = 0.3 + Math.sin(this.transitionTimer * 0.3) * 0.2;
-                    this._drawSpriteOverlay(ctx, sprite, spriteDrawY, '#e74c3c', alpha);
-                }
-
-                // Status effect overlays
-                if (this.frozenTimer > 0) {
-                    this._drawSpriteOverlay(ctx, sprite, spriteDrawY, '#a8d8ea', 0.45);
-                } else if (this.slowTimer > 0) {
-                    const slowAlpha = 0.1 + (this.slowAmount || 0) * 0.3;
-                    this._drawSpriteOverlay(ctx, sprite, spriteDrawY, '#a8d8ea', slowAlpha);
-                }
-                if (this.bleedTimer > 0) {
-                    const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
-                    this._drawSpriteOverlay(ctx, sprite, spriteDrawY, '#c0392b', pulse);
-                }
-            }
-        } else {
-            // Placeholder
-            this._drawPlaceholder(ctx, drawY);
-        }
+        // Status effect overlays
+        this._drawStatusOverlays(ctx, drawY);
 
         ctx.restore();
     }
 
-    _drawNeckExtension(ctx, drawY) {
-        const baseW = 12;
-        // Head sprite's neck bottom is roughly at drawY + 2 (from sprite coordinates)
-        const extTop = drawY + 2;
-        const groundY = 10; // head shadow Y level
+    // ========== MULTI-LAYER HELPERS ==========
 
-        if (extTop >= groundY) return;
-        const extH = groundY - extTop;
+    _drawLayer(ctx, baseDrawY, layerOffset, drawFn) {
+        ctx.save();
+        ctx.translate(0, baseDrawY + layerOffset);
+        ctx.rotate(this.angle + Math.PI / 2);
+        drawFn(ctx);
+        ctx.restore();
+    }
 
-        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
-        const mid = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
-        const light = this.phase === 1 ? '#5a6a7a' : '#7a5a4a';
-        const edge = this.phase === 1 ? '#1a2534' : '#1a0a00';
+    _getColors() {
+        if (this.phase === 1) {
+            return {
+                armor: '#4a5a6a', armorDark: '#2a3544', armorLight: '#6a8a9a',
+                core: '#3498db', coreGlow: '#5dade2',
+                belly: '#3a4a5a', bellyDark: '#2a3544',
+                rivet: '#556a7a'
+            };
+        }
+        if (this.phase === 2) {
+            return {
+                armor: '#6a5a2a', armorDark: '#3a3010', armorLight: '#8a7a4a',
+                core: '#d4a017', coreGlow: '#f0c040',
+                belly: '#5a4a20', bellyDark: '#3a3010',
+                rivet: '#7a6a3a'
+            };
+        }
+        return {
+            armor: '#6a4a3a', armorDark: '#3a2a1a', armorLight: '#8a6a5a',
+            core: '#e74c3c', coreGlow: '#ff6b6b',
+            belly: '#5a3a2a', bellyDark: '#3a2a1a',
+            rivet: '#7a5a4a'
+        };
+    }
 
-        // Main neck column
-        ctx.fillStyle = mid;
-        ctx.fillRect(-baseW + 2, extTop, (baseW - 2) * 2, extH);
-        // Dark side edges
-        ctx.fillStyle = edge;
-        ctx.fillRect(-baseW, extTop, 2, extH);
-        ctx.fillRect(baseW - 2, extTop, 2, extH);
-        // Lighter inner edges
-        ctx.fillStyle = dark;
-        ctx.fillRect(-baseW + 2, extTop, 2, extH);
-        ctx.fillRect(baseW - 4, extTop, 2, extH);
-        // Center highlight
-        ctx.fillStyle = light;
-        ctx.fillRect(-3, extTop, 6, extH);
-        // Bottom ellipse
-        ctx.fillStyle = dark;
-        ctx.beginPath();
-        ctx.ellipse(0, groundY, baseW, baseW * 0.35, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Armor seam lines
-        ctx.fillStyle = edge;
-        for (let y = extTop + 3; y < groundY - 1; y += 4) {
-            ctx.fillRect(-(baseW - 1), y, (baseW - 1) * 2, 1);
+    _getJawOpen() {
+        if (this.currentAttack) {
+            const dur = this.attacks[this.currentAttack]?.duration || 60;
+            const t = this.attackTimer / dur;
+            // Bell curve: 0→1→0
+            return Math.sin(t * Math.PI);
+        }
+        if (this.state === 'run') return 0.1;
+        return 0;
+    }
+
+    _lerpColor(hex1, hex2, t) {
+        const r1 = parseInt(hex1.slice(1, 3), 16);
+        const g1 = parseInt(hex1.slice(3, 5), 16);
+        const b1 = parseInt(hex1.slice(5, 7), 16);
+        const r2 = parseInt(hex2.slice(1, 3), 16);
+        const g2 = parseInt(hex2.slice(3, 5), 16);
+        const b2 = parseInt(hex2.slice(5, 7), 16);
+        const r = Math.round(r1 + (r2 - r1) * t);
+        const g = Math.round(g1 + (g2 - g1) * t);
+        const b = Math.round(b1 + (b2 - b1) * t);
+        return `rgb(${r},${g},${b})`;
+    }
+
+    // ========== HEAD: 4 LAYERS ==========
+
+    _drawHeadLayers(ctx, drawY, c, pulseT, jawOpen) {
+        const jawDrop = jawOpen * 4;
+
+        // L0: Neck base — widest ellipse, drops with jaw
+        this._drawLayer(ctx, drawY, 5 + jawDrop, (ctx) => {
+            // Neck base ellipse
+            ctx.fillStyle = c.bellyDark;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 14, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Neck energy ring
+            const ringColor = this._lerpColor(c.core, c.coreGlow, pulseT);
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 15, 11, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        // Mouth interior (visible when jaw open)
+        if (jawOpen > 0.05) {
+            this._drawLayer(ctx, drawY, 3 + jawDrop * 0.5, (ctx) => {
+                // Dark mouth cavity
+                ctx.fillStyle = '#0a0505';
+                ctx.fillRect(-8, -6, 16, 6);
+                // Lower jaw teeth (pointing forward = -Y in rotated space)
+                ctx.fillStyle = '#ddd';
+                for (let i = -6; i <= 6; i += 4) {
+                    ctx.fillRect(i, -7, 2, 3);
+                }
+            });
+        }
+
+        // L1: Lower skull — jaw
+        this._drawLayer(ctx, drawY, 1 + jawDrop * 0.3, (ctx) => {
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 13, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Jaw line
+            ctx.fillStyle = c.armorDark;
+            ctx.fillRect(-10, 2, 20, 1);
+            // Upper jaw teeth (3 small white rects pointing forward)
+            ctx.fillStyle = '#ddd';
+            ctx.fillRect(-5, -12, 2, 3);
+            ctx.fillRect(-1, -13, 2, 4);
+            ctx.fillRect(3, -12, 2, 3);
+            // Side armor bands
+            ctx.fillStyle = c.armorDark;
+            ctx.fillRect(-13, -3, 3, 6);
+            ctx.fillRect(10, -3, 3, 6);
+        });
+
+        // L2: Upper skull — eyes + armor plates
+        this._drawLayer(ctx, drawY, -4, (ctx) => {
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Armor plate (lighter center polygon)
+            ctx.fillStyle = c.armorLight;
+            ctx.beginPath();
+            ctx.moveTo(0, -8);
+            ctx.lineTo(7, -3);
+            ctx.lineTo(5, 4);
+            ctx.lineTo(-5, 4);
+            ctx.lineTo(-7, -3);
+            ctx.closePath();
+            ctx.fill();
+            // Eyes (core color, square)
+            ctx.fillStyle = c.core;
+            ctx.fillRect(-8, -2, 4, 4);
+            ctx.fillRect(4, -2, 4, 4);
+            // Eye highlights
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-7, -1, 2, 2);
+            ctx.fillRect(5, -1, 2, 2);
+            // Seam lines
+            ctx.fillStyle = c.armorDark;
+            ctx.fillRect(-10, 0, 20, 1);
+        });
+
+        // L3: Crown ridge — smallest, highest
+        this._drawLayer(ctx, drawY, -8, (ctx) => {
+            ctx.fillStyle = c.armorLight;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Energy core (center)
+            const coreColor = this._lerpColor(c.core, c.coreGlow, pulseT);
+            ctx.fillStyle = coreColor;
+            ctx.fillRect(-2, -2, 4, 4);
+            // Nose ridge (small triangle pointing forward)
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.moveTo(0, -7);
+            ctx.lineTo(-3, -3);
+            ctx.lineTo(3, -3);
+            ctx.closePath();
+            ctx.fill();
+            // Top highlight
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.12;
+            ctx.beginPath();
+            ctx.ellipse(0, -1, 4, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+
+        // Phase 3 crack effects (cracks + sparks only in final phase)
+        if (this.phase === 3) {
+            this._drawPhase2Effects(ctx, drawY, c);
+        }
+
+        // Phase transition overlay
+        if (this.isTransitioning) {
+            const alpha = 0.3 + Math.sin(this.transitionTimer * 0.3) * 0.2;
+            // Phase 2 transition = amber pulse, Phase 3 transition = red pulse
+            const pulseColor = this.phase === 2
+                ? `rgba(212, 160, 23, ${alpha})`
+                : `rgba(231, 76, 60, ${alpha})`;
+            this._drawLayer(ctx, drawY, -2, (ctx) => {
+                ctx.fillStyle = pulseColor;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
         }
     }
+
+    _drawPhase2Effects(ctx, drawY, c) {
+        // Crack lines on upper skull layer
+        this._drawLayer(ctx, drawY, -4, (ctx) => {
+            ctx.strokeStyle = c.armorDark;
+            ctx.lineWidth = 1;
+            // Diagonal cracks
+            ctx.beginPath();
+            ctx.moveTo(-6, -6);
+            ctx.lineTo(-2, 2);
+            ctx.moveTo(5, -5);
+            ctx.lineTo(3, 3);
+            ctx.moveTo(-3, -7);
+            ctx.lineTo(2, -2);
+            ctx.stroke();
+        });
+        // Occasional sparks (based on animation timer)
+        if (this.animationTimer % 16 < 4) {
+            const sparkT = (this.animationTimer % 16) / 4;
+            this._drawLayer(ctx, drawY, -6, (ctx) => {
+                ctx.fillStyle = this._lerpColor(c.core, c.coreGlow, sparkT);
+                const sx = Math.sin(this.animationTimer * 0.7) * 6;
+                const sy = Math.cos(this.animationTimer * 1.1) * 4;
+                ctx.fillRect(sx - 1, sy - 1, 2, 2);
+            });
+        }
+    }
+
+    // ========== STATUS OVERLAYS ==========
+
+    _drawStatusOverlays(ctx, drawY) {
+        // Hit flash
+        if (this.hitFlashTimer > 0) {
+            this._drawLayer(ctx, drawY, -2, (ctx) => {
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 15, 13, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        // Frozen
+        if (this.frozenTimer > 0) {
+            this._drawLayer(ctx, drawY, -2, (ctx) => {
+                ctx.fillStyle = 'rgba(168,216,234,0.45)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        } else if (this.slowTimer > 0) {
+            const slowAlpha = 0.1 + (this.slowAmount || 0) * 0.3;
+            this._drawLayer(ctx, drawY, -2, (ctx) => {
+                ctx.fillStyle = `rgba(168,216,234,${slowAlpha})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        // Bleed
+        if (this.bleedTimer > 0) {
+            const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
+            this._drawLayer(ctx, drawY, -2, (ctx) => {
+                ctx.fillStyle = `rgba(192,57,43,${pulse})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+    }
+
+    // ========== SUPPORT METHODS ==========
 
     _drawBurrowHole(ctx) {
         ctx.fillStyle = 'rgba(20,15,10,0.6)';
@@ -766,7 +958,6 @@ export class SnakeBoss extends Enemy {
         ctx.beginPath();
         ctx.ellipse(0, 4, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Cracks
         ctx.strokeStyle = 'rgba(80,60,40,0.4)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -775,122 +966,5 @@ export class SnakeBoss extends Enemy {
         ctx.moveTo(11, 3);
         ctx.lineTo(15, 1);
         ctx.stroke();
-    }
-
-    _drawSpriteOverlay(ctx, sprite, drawY, color, alpha) {
-        const oc = this._overlayCtx;
-        oc.clearRect(0, 0, 48, 48);
-        oc.globalCompositeOperation = 'source-over';
-        oc.globalAlpha = 1;
-        oc.drawImage(sprite, 0, 0);
-        oc.globalCompositeOperation = 'source-atop';
-        oc.fillStyle = color;
-        oc.fillRect(0, 0, 48, 48);
-        oc.globalCompositeOperation = 'source-over';
-
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(this._overlayCanvas, -24, drawY);
-        ctx.restore();
-    }
-
-    _drawPlaceholder(ctx, drawY) {
-        const color = this.phase === 1 ? '#4a5a6a' : '#6a4a3a';
-        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
-        const light = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
-        const eyeColor = this.phase === 1 ? '#3498db' : '#e74c3c';
-
-        ctx.save();
-        ctx.translate(0, drawY);
-
-        // Side walls (3D depth visible below top plate)
-        ctx.fillStyle = dark;
-        ctx.fillRect(-14, -4, 2, 12);
-        ctx.fillRect(12, -4, 2, 12);
-        // Front face (belly)
-        ctx.fillStyle = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
-        ctx.fillRect(-6, -4, 12, 10);
-        // Side armor panels
-        ctx.fillStyle = color;
-        ctx.fillRect(-12, -4, 6, 10);
-        ctx.fillRect(6, -4, 6, 10);
-
-        // Top armor plate (angular, from 35° view)
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(14, -6);
-        ctx.lineTo(12, 4);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(-12, 4);
-        ctx.lineTo(-14, -6);
-        ctx.closePath();
-        ctx.fill();
-
-        // Top plate highlight
-        ctx.fillStyle = light;
-        ctx.beginPath();
-        ctx.moveTo(0, -10);
-        ctx.lineTo(8, -4);
-        ctx.lineTo(4, 0);
-        ctx.lineTo(-4, 0);
-        ctx.lineTo(-8, -4);
-        ctx.closePath();
-        ctx.fill();
-
-        // Eyes
-        ctx.fillStyle = eyeColor;
-        ctx.fillRect(-8, -4, 3, 3);
-        ctx.fillRect(5, -4, 3, 3);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-7, -3, 1, 1);
-        ctx.fillRect(6, -3, 1, 1);
-
-        // Jaw seam
-        ctx.fillStyle = dark;
-        ctx.fillRect(-10, 0, 20, 1);
-
-        // Energy core
-        ctx.fillStyle = eyeColor;
-        ctx.fillRect(-2, -8, 4, 3);
-
-        // Bottom ellipse (neck)
-        ctx.fillStyle = dark;
-        ctx.beginPath();
-        ctx.ellipse(0, 8, 10, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Neck energy ring
-        ctx.strokeStyle = eyeColor;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.ellipse(0, 8, 11, 3, 0, 0, Math.PI * 2);
-        ctx.stroke();
-
-        if (this.hitFlashTimer > 0) {
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.beginPath();
-            ctx.moveTo(0, -14);
-            ctx.lineTo(14, -6);
-            ctx.lineTo(14, 6);
-            ctx.lineTo(-14, 6);
-            ctx.lineTo(-14, -6);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-        if (this.isTransitioning) {
-            const alpha = 0.3 + Math.sin(this.transitionTimer * 0.3) * 0.2;
-            ctx.fillStyle = `rgba(231, 76, 60, ${alpha})`;
-            ctx.beginPath();
-            ctx.moveTo(0, -14);
-            ctx.lineTo(14, -6);
-            ctx.lineTo(14, 6);
-            ctx.lineTo(-14, 6);
-            ctx.lineTo(-14, -6);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-        ctx.restore();
     }
 }

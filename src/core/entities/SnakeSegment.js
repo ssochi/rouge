@@ -1,10 +1,10 @@
 import { Enemy } from './Enemy.js';
-import { Assets } from '../../graphics/Assets.js';
 
 /**
  * SnakeSegment — body or tail segment of the SnakeBoss.
  * Each segment is an independent entity in enemies[] for automatic Y-sort and bullet collision.
  * Damage is routed to the parent SnakeBoss head.
+ * Uses multi-layer programmatic 3D rendering (belly→armor→cap) for depth.
  */
 export class SnakeSegment extends Enemy {
     constructor(x, y, segmentIndex, parentBoss, segmentType = 'body') {
@@ -32,11 +32,8 @@ export class SnakeSegment extends Enemy {
         // Phase (mirrors head)
         this.phase = 1;
 
-        // Overlay canvas for effects
-        this._overlayCanvas = document.createElement('canvas');
-        this._overlayCanvas.width = 36;
-        this._overlayCanvas.height = 36;
-        this._overlayCtx = this._overlayCanvas.getContext('2d');
+        // Lateral sway offset (set by SnakeBoss.updateWave)
+        this.lateralOffset = 0;
     }
 
     // Route damage to head with reduction
@@ -81,18 +78,19 @@ export class SnakeSegment extends Enemy {
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
 
-        // --- Ground shadow (always at ground level) ---
-        const shadowScale = this.isUnderground ? 0.6 : Math.max(0.4, 1 - this.heightZ / 60);
-        const shadowAlpha = this.isUnderground ? 0.35 : Math.max(0.1, 0.25 * shadowScale);
-        const shadowRx = (this.segmentType === 'tail' ? 6 : 8) * shadowScale;
-        const shadowRy = (this.segmentType === 'tail' ? 3 : 4) * shadowScale;
-        ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
-        ctx.beginPath();
-        ctx.ellipse(0, 4, shadowRx, shadowRy, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // --- Ground shadow ---
+        const isTail = this.segmentType === 'tail';
+        if (!this.isUnderground) {
+            const sRx = isTail ? 9 : 13;
+            const sRy = isTail ? 5 : 7;
+            // Offset shadow slightly down-right for directional light
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(2, 5, sRx, sRy, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         if (this.isUnderground) {
-            // Draw burrow hole
             this._drawBurrowHole(ctx);
             ctx.restore();
             return;
@@ -103,206 +101,240 @@ export class SnakeSegment extends Enemy {
         if (this.heightZ < undergroundThreshold && this.heightZ > -undergroundThreshold) {
             const alpha = (this.heightZ + undergroundThreshold) / (2 * undergroundThreshold);
             ctx.globalAlpha = Math.max(0.15, alpha);
-            // Draw partial burrow
             if (this.heightZ < 0) {
                 this._drawBurrowHole(ctx);
             }
         }
 
-        // Draw segment sprite at height-offset Y
         const drawY = -this.heightZ;
 
-        // Dynamic 3D: draw belly/column extension when elevated
-        if (this.heightZ > 4) {
-            this._drawBellyExtension(ctx, drawY);
-        }
+        // Multi-layer programmatic 3D rendering
+        const colors = this._getColors();
+        const pulsePhase = (this.animationTimer % 64) / 64;
+        const pulseT = 0.5 + 0.5 * Math.sin(pulsePhase * Math.PI * 2);
 
-        const phaseKey = 'phase' + this.phase;
-        const assets = Assets.snakeBoss ? Assets.snakeBoss[phaseKey] : null;
-        const frameKey = this.segmentType === 'tail' ? 'tail' : 'body';
-        const frames = assets ? assets[frameKey] : null;
-
-        if (frames && frames.length > 0) {
-            const frameIndex = Math.floor(this.animationTimer / 8) % frames.length;
-            const sprite = frames[frameIndex];
-            const sw = sprite.width;
-            const sh = sprite.height;
-
-            ctx.save();
-            ctx.translate(0, drawY);
-            // No rotation — 2.5D cylindrical sprites are orientation-independent
-            ctx.drawImage(sprite, -sw / 2, -sh / 2);
-
-            // Hit flash
-            if (this.hitFlashTimer > 0) {
-                ctx.save();
-                ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
-                ctx.drawImage(sprite, -sw / 2, -sh / 2);
-                ctx.restore();
-            }
-
-            // Frozen overlay
-            if (this.frozenTimer > 0) {
-                this._drawSpriteOverlay(ctx, sprite, '#a8d8ea', 0.45);
-            } else if (this.slowTimer > 0) {
-                const slowAlpha = 0.1 + (this.slowAmount || 0) * 0.3;
-                this._drawSpriteOverlay(ctx, sprite, '#a8d8ea', slowAlpha);
-            }
-            // Bleed overlay
-            if (this.bleedTimer > 0) {
-                const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
-                this._drawSpriteOverlay(ctx, sprite, '#c0392b', pulse);
-            }
-
-            ctx.restore();
+        if (this.segmentType === 'tail') {
+            this._drawTailLayers(ctx, drawY, colors, pulseT);
         } else {
-            // Placeholder rendering
-            this._drawPlaceholder(ctx, drawY);
+            this._drawBodyLayers(ctx, drawY, colors, pulseT);
         }
+
+        // Status effect overlays (drawn at armor layer position)
+        this._drawStatusOverlays(ctx, drawY, colors);
 
         ctx.restore();
     }
 
+    // ========== MULTI-LAYER HELPERS ==========
+
+    _drawLayer(ctx, baseDrawY, layerOffset, drawFn) {
+        ctx.save();
+        ctx.translate(0, baseDrawY + layerOffset);
+        ctx.rotate(this.angle + Math.PI / 2);
+        drawFn(ctx);
+        ctx.restore();
+    }
+
+    _getColors() {
+        if (this.phase === 1) {
+            return {
+                armor: '#4a5a6a', armorDark: '#2a3544', armorLight: '#6a8a9a',
+                core: '#3498db', coreGlow: '#5dade2',
+                belly: '#3a4a5a', bellyDark: '#2a3544',
+                rivet: '#556a7a'
+            };
+        }
+        if (this.phase === 2) {
+            return {
+                armor: '#6a5a2a', armorDark: '#3a3010', armorLight: '#8a7a4a',
+                core: '#d4a017', coreGlow: '#f0c040',
+                belly: '#5a4a20', bellyDark: '#3a3010',
+                rivet: '#7a6a3a'
+            };
+        }
+        return {
+            armor: '#6a4a3a', armorDark: '#3a2a1a', armorLight: '#8a6a5a',
+            core: '#e74c3c', coreGlow: '#ff6b6b',
+            belly: '#5a3a2a', bellyDark: '#3a2a1a',
+            rivet: '#7a5a4a'
+        };
+    }
+
+    // ========== BODY SEGMENT: 3 LAYERS ==========
+
+    _drawBodyLayers(ctx, drawY, c, pulseT) {
+        // Layer 0 (bottom): Belly — larger ellipse, visible beneath armor
+        this._drawLayer(ctx, drawY, 3, (ctx) => {
+            // Belly fill
+            ctx.fillStyle = c.bellyDark;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 12, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Energy ring
+            const ringColor = this._lerpColor(c.core, c.coreGlow, pulseT);
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 13, 10, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        // Layer 1 (middle): Armor plate
+        this._drawLayer(ctx, drawY, 0, (ctx) => {
+            // Main armor
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 11, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Dark side bands
+            ctx.fillStyle = c.armorDark;
+            ctx.fillRect(-11, -2, 3, 4);
+            ctx.fillRect(8, -2, 3, 4);
+            // Armor seam line (horizontal across center)
+            ctx.fillStyle = c.armorDark;
+            ctx.fillRect(-8, -1, 16, 1);
+            // Rivets (4 along seam)
+            ctx.fillStyle = c.rivet;
+            ctx.fillRect(-6, -2, 2, 2);
+            ctx.fillRect(-1, -2, 2, 2);
+            ctx.fillRect(4, -2, 2, 2);
+        });
+
+        // Layer 2 (top): Armor cap — smaller, lighter
+        this._drawLayer(ctx, drawY, -3, (ctx) => {
+            ctx.fillStyle = c.armorLight;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 9, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Center spine ridge
+            ctx.fillStyle = c.armor;
+            ctx.fillRect(-7, -1, 14, 2);
+            // Highlight
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.15;
+            ctx.beginPath();
+            ctx.ellipse(0, -1, 5, 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+    }
+
+    // ========== TAIL SEGMENT: 3 LAYERS ==========
+
+    _drawTailLayers(ctx, drawY, c, pulseT) {
+        // Layer 0 (bottom): Belly
+        this._drawLayer(ctx, drawY, 2, (ctx) => {
+            ctx.fillStyle = c.bellyDark;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Layer 1 (middle): Armor
+        this._drawLayer(ctx, drawY, 0, (ctx) => {
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Energy ring
+            const ringColor = this._lerpColor(c.core, c.coreGlow, pulseT);
+            ctx.strokeStyle = ringColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        // Layer 2 (top): Cap with drill tip
+        this._drawLayer(ctx, drawY, -2, (ctx) => {
+            ctx.fillStyle = c.armorLight;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Drill tip (small triangle pointing forward = negative Y in rotated space)
+            ctx.fillStyle = c.armor;
+            ctx.beginPath();
+            ctx.moveTo(0, -6);
+            ctx.lineTo(-3, -2);
+            ctx.lineTo(3, -2);
+            ctx.closePath();
+            ctx.fill();
+        });
+    }
+
+    // ========== STATUS OVERLAYS ==========
+
+    _drawStatusOverlays(ctx, drawY, c) {
+        const isTail = this.segmentType === 'tail';
+        const rx = isTail ? 8 : 12;
+        const ry = isTail ? 6 : 9;
+
+        // Hit flash
+        if (this.hitFlashTimer > 0) {
+            this._drawLayer(ctx, drawY, 0, (ctx) => {
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx + 2, ry + 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        // Frozen overlay
+        if (this.frozenTimer > 0) {
+            this._drawLayer(ctx, drawY, 0, (ctx) => {
+                ctx.fillStyle = 'rgba(168,216,234,0.45)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx + 1, ry + 1, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        } else if (this.slowTimer > 0) {
+            const slowAlpha = 0.1 + (this.slowAmount || 0) * 0.3;
+            this._drawLayer(ctx, drawY, 0, (ctx) => {
+                ctx.fillStyle = `rgba(168,216,234,${slowAlpha})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx + 1, ry + 1, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        // Bleed overlay
+        if (this.bleedTimer > 0) {
+            const pulse = 0.15 + Math.sin(Date.now() / 150) * 0.1;
+            this._drawLayer(ctx, drawY, 0, (ctx) => {
+                ctx.fillStyle = `rgba(192,57,43,${pulse})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx + 1, ry + 1, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+    }
+
+    // ========== UTILITY ==========
+
+    _lerpColor(hex1, hex2, t) {
+        const r1 = parseInt(hex1.slice(1, 3), 16);
+        const g1 = parseInt(hex1.slice(3, 5), 16);
+        const b1 = parseInt(hex1.slice(5, 7), 16);
+        const r2 = parseInt(hex2.slice(1, 3), 16);
+        const g2 = parseInt(hex2.slice(3, 5), 16);
+        const b2 = parseInt(hex2.slice(5, 7), 16);
+        const r = Math.round(r1 + (r2 - r1) * t);
+        const g = Math.round(g1 + (g2 - g1) * t);
+        const b = Math.round(b1 + (b2 - b1) * t);
+        return `rgb(${r},${g},${b})`;
+    }
+
     _drawBurrowHole(ctx) {
         const size = this.segmentType === 'tail' ? 6 : 9;
-        // Outer hole
         ctx.fillStyle = 'rgba(20,15,10,0.6)';
         ctx.beginPath();
         ctx.ellipse(0, 2, size + 2, size * 0.5 + 1, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Inner darker
         ctx.fillStyle = 'rgba(10,5,0,0.7)';
         ctx.beginPath();
         ctx.ellipse(0, 2, size, size * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Dust/crack edges
         ctx.fillStyle = 'rgba(80,60,40,0.3)';
         ctx.fillRect(-size - 1, 0, 2, 2);
         ctx.fillRect(size - 1, 1, 2, 2);
     }
 
-    _drawSpriteOverlay(ctx, sprite, color, alpha) {
-        const oc = this._overlayCtx;
-        oc.clearRect(0, 0, 36, 36);
-        oc.globalCompositeOperation = 'source-over';
-        oc.globalAlpha = 1;
-        oc.drawImage(sprite, (36 - sprite.width) / 2, (36 - sprite.height) / 2);
-        oc.globalCompositeOperation = 'source-atop';
-        oc.fillStyle = color;
-        oc.fillRect(0, 0, 36, 36);
-        oc.globalCompositeOperation = 'source-over';
-
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(this._overlayCanvas, -18, -18);
-        ctx.restore();
-    }
-
-    _drawPlaceholder(ctx, drawY) {
-        const isTail = this.segmentType === 'tail';
-        const rx = isTail ? 6 : 9;
-        const wallH = isTail ? 6 : 8;
-        const ry = isTail ? 3 : 4;
-        const color = this.phase === 1 ? '#4a5a6a' : '#6a4a3a';
-        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
-        const light = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
-        const coreColor = this.phase === 1 ? '#3498db' : '#e74c3c';
-
-        ctx.save();
-        ctx.translate(0, drawY);
-
-        // Bottom ellipse (belly)
-        ctx.fillStyle = dark;
-        ctx.beginPath();
-        ctx.ellipse(0, wallH, rx, ry, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Side walls
-        ctx.fillStyle = color;
-        ctx.fillRect(-rx, 0, rx * 2, wallH);
-        // Dark edges
-        ctx.fillStyle = dark;
-        ctx.fillRect(-rx, 0, 2, wallH);
-        ctx.fillRect(rx - 2, 0, 2, wallH);
-        // Center highlight
-        ctx.fillStyle = light;
-        ctx.fillRect(-2, 1, 4, wallH - 1);
-
-        // Top ellipse (armor cap)
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Top highlight
-        ctx.fillStyle = light;
-        ctx.beginPath();
-        ctx.ellipse(0, -1, rx - 3, ry - 1, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Energy ring
-        ctx.strokeStyle = coreColor;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.ellipse(0, -ry + 1, rx + 1, 2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-
-        if (this.hitFlashTimer > 0) {
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.fillRect(-rx, 0, rx * 2, wallH);
-            ctx.beginPath();
-            ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
-
-    _drawBellyExtension(ctx, drawY) {
-        const isTail = this.segmentType === 'tail';
-        const baseW = isTail ? 7 : 10;
-
-        // Sprite bottom offset (where the built-in cylinder ends, relative to drawY)
-        const spriteBottomOffset = isTail ? 10 : 12;
-        const extTop = drawY + spriteBottomOffset;
-        const groundY = 4; // shadow Y level
-
-        if (extTop >= groundY) return;
-
-        const extH = groundY - extTop;
-
-        // Colors
-        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
-        const mid = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
-        const light = this.phase === 1 ? '#5a6a7a' : '#7a5a4a';
-        const edge = this.phase === 1 ? '#1a2534' : '#1a0a00';
-
-        // Main belly column
-        ctx.fillStyle = mid;
-        ctx.fillRect(-baseW + 2, extTop, (baseW - 2) * 2, extH);
-
-        // Dark side edges
-        ctx.fillStyle = edge;
-        ctx.fillRect(-baseW, extTop, 2, extH);
-        ctx.fillRect(baseW - 2, extTop, 2, extH);
-
-        // Slightly lighter next-to-edge
-        ctx.fillStyle = dark;
-        ctx.fillRect(-baseW + 2, extTop, 2, extH);
-        ctx.fillRect(baseW - 4, extTop, 2, extH);
-
-        // Center highlight strip
-        ctx.fillStyle = light;
-        ctx.fillRect(-2, extTop, 4, extH);
-
-        // Bottom ellipse at ground level
-        ctx.fillStyle = dark;
-        ctx.beginPath();
-        ctx.ellipse(0, groundY, baseW, baseW * 0.35, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Armor band lines across extension
-        ctx.fillStyle = edge;
-        for (let y = extTop + 3; y < groundY - 1; y += 4) {
-            ctx.fillRect(-(baseW - 1), y, (baseW - 1) * 2, 1);
-        }
-    }
 }

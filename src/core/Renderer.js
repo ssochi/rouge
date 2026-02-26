@@ -295,6 +295,8 @@ export class Renderer {
                     if (e.needleStacks > 0 && e.needleTimer > 0) {
                         const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
                             { x: e.x - e.width / 2, y: e.y - e.height, width: e.width, height: e.height };
+                        if (!hb) { /* underground or dead — skip */ }
+                        else {
                         this.ctx.save();
                         const topY = hb.y - 6;
                         const centerX = hb.x + hb.width / 2;
@@ -309,6 +311,7 @@ export class Renderer {
                             this.ctx.fillRect(sx, topY, 1, 1);
                         }
                         this.ctx.restore();
+                        }
                     }
                 }
             });

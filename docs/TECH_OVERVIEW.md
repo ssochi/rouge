@@ -7,7 +7,7 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
-    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。`mutant_beast/` 为 80×80 BOSS 级精灵，含 3 阶段颜色方案（绿→红→紫）× Idle 16帧 + Run 12帧 + 6 种攻击各 8帧。`snake_boss/` 为机械巨蛇 BOSS 精灵，含 SnakeBossGenerator（头48×48/身36×36/尾28×28）、Head Idle 16帧 + Run 12帧 + Attack 8帧、Body 8帧 + Tail 8帧，2 阶段配色（钢蓝灰→过热橙红）。
+    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。`mutant_beast/` 为 80×80 BOSS 级精灵，含 3 阶段颜色方案（绿→红→紫）× Idle 16帧 + Run 12帧 + 6 种攻击各 8帧。`snake_boss/` 为机械巨蛇 BOSS 精灵，含 SnakeBossGenerator（头48×48/身36×36/尾28×28）、Head Idle 16帧 + Run 12帧 + Attack 8帧、Body 8帧 + Tail 8帧，3 阶段配色（钢蓝灰→琥珀金→过热橙红）。
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
     - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
     - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
@@ -25,7 +25,7 @@
       - `Soldier.js`: 军人敌人逻辑 (HP 60, Speed 0.9, SMG 3发点射 + 横移战术)。
       - `MutantBeast.js`: 变异巨兽 BOSS (HP 800, 80×80, 90%击退抗性, 3阶段战斗)。阶段1(100%-60%HP): 重拳砸击/横扫/震地波；阶段2(60%-25%HP): 新增冲锋+跳砸，速度加快；阶段3(25%-0%HP): 新增召唤僵尸，身体变紫。跳砸空中期间无敌（`getBulletHurtbox()` 返回 null）。`isBoss=true` 标记用于 Renderer 绘制屏幕顶部 BOSS 血条。死亡掉落 2-3 把随机武器。
       - `MechaGolem.js`: 机械魔偶 BOSS (HP 600, 64×64, 80%击退抗性, 2阶段弹幕战斗)。参考《挺进地牢》设计的弹幕型BOSS。阶段1(100%-40%HP): 加特林扫射/环形爆发/三连瞄准/火箭齐射 4种弹幕模式；阶段2(40%-0%HP): 新增螺旋风暴/十字交火/绝望弹幕 3种弹幕，速度加快+偶尔冲刺。弹幕使用不同颜色区分（橙/蓝/红/灰/品红/紫）。加权随机攻击选择，环绕式移动AI。`isBoss=true` 标记用于 Renderer BOSS 血条。死亡掉落 2-3 把随机武器。
-      - `SnakeBoss.js` + `SnakeSegment.js`: 机械巨蛇 BOSS (HP 1000, 头部48×48, 90%击退抗性, 2阶段)。多节体伪3D蛇形Boss，由1个蛇头(`SnakeBoss`, `isBoss=true`) + 8节蛇身 + 1节蛇尾(`SnakeSegment`)组成。每节为独立实体加入`enemies[]`实现自动Y-Sort和子弹碰撞。蛇头存储位置历史，各节从历史中读取位置实现跟随效果。通过正弦波计算每节`heightZ`，正值=地上（抬升绘制+地面阴影），负值=地下（画地洞效果，`getBulletHurtbox()`返回null实现无敌）。段伤害按比例路由到蛇头（身体60%/尾部40%）。阶段1(100%-40%HP): 毒液喷射/冲锋/尾鞭/缠绕；阶段2(<40%HP): 新增钻地突袭/节段弹幕，速度加快。机械蛇视觉风格，与MechaGolem同系配色（钢蓝灰→过热橙红）。
+      - `SnakeBoss.js` + `SnakeSegment.js`: 机械巨蛇 BOSS (HP 1000, 头部30×30, 90%击退抗性, 3阶段)。多节体伪3D蛇形Boss，由1个蛇头(`SnakeBoss`, `isBoss=true`) + 8节蛇身 + 1节蛇尾(`SnakeSegment`)组成。每节为独立实体加入`enemies[]`实现自动Y-Sort和子弹碰撞。蛇头存储位置历史，各节从历史中读取位置实现跟随效果。通过正弦波计算每节`heightZ`，正值=地上（抬升绘制+地面阴影），负值=地下（画地洞效果，`getBulletHurtbox()`返回null实现无敌）。段伤害按比例路由到蛇头（身体60%/尾部40%）。阶段1(100%-65%HP): 毒液喷射/冲锋；阶段2(65%-30%HP): 新增缠绕/尾鞭，速度加快，琥珀金配色；阶段3(<30%HP): 新增钻地突袭/节段弹幕，速度再加快，过热红配色+裂纹火花特效。HP条3色（钢蓝→琥珀→红）+2条标记线。**多层程序化伪3D渲染**：借鉴Vehicle `_drawLayer(ctx, baseDrawY, layerOffset, drawFn)` 多层叠加技术，每个节点在旋转上下文内分多层绘制俯视椭圆。蛇身3层（腹部+3px → 装甲0px → 甲盖-3px），蛇尾3层（±2px），蛇头4层（颈基+5 → 下颚+1 → 上颅-4 → 冠脊-8）。底层椭圆略大、顶层略小，层间Y间距产生真实深度错觉。蛇头含下颚张合动画（attackTimer驱动jawOpen钟形曲线）、眼睛/能量核心脉冲、Phase3裂纹+火花特效。地面阴影/地洞效果/延伸柱保持世界坐标不旋转。不再依赖预生成精灵帧，全部在draw()中程序化完成。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。支持坦克类型（`isTank`），具有独立旋转炮塔、导弹发射（复用 rocket bulletType）、履带渲染等坦克专用逻辑。支持蜘蛛类型（`isSpider`），6脚机械蜘蛛使用程序化腿部动画（三足步态 ctx.rotate/translate 实时渲染），配备独立旋转激光炮塔（hitscan laser_beam）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - objects/: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。其中 `FishTankObject.js` 包含复杂的程序化动画逻辑（鱼群游动、水草摇曳、气泡上升）。
@@ -52,7 +52,7 @@
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
     - `lighting/`: 像素光影子系统。
-      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
       - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
       - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
       - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
@@ -162,7 +162,7 @@
 - **掉落物**: `DroppedItem` 类负责管理地面掉落（武器/可放置物/消耗品），包含悬浮动画与拾取提示。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取、快捷栏切换以及左键动作分流（射击/放置/使用消耗品）。
 - **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police/Tank/Spider），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。Tank 为坦克载具，进入后鼠标控制炮塔方向、点击发射导弹（rocket 弹丸），炮塔独立于车身旋转。Spider 为6脚机械蜘蛛载具，使用程序化三足步态动画（`SPIDER_LEG_CONFIG` 定义6条腿的关节参数，交替 Group A/B 实现三足步态），炮塔发射 hitscan 激光束（`bulletSystem.fireLaserBeam()`），2.5D 渲染按远/近腿分层绘制实现正确遮挡。
-- **快捷菜单**: 按 M 键呼出，展示可用功能的快捷入口（背包、换弹、召唤载具、性能面板、调试面板、碰撞显示、按键说明）。点击菜单项执行对应操作并自动关闭菜单。"按键说明"子面板列出所有快捷键绑定。DOM 覆盖层模式与背包一致，打开时暂停游戏逻辑。
+- **快捷菜单**: 按 M 键呼出，展示可用功能的快捷入口（背包、Debug、按键说明）。`Debug` 子菜单包含：参数调试、性能面板、调试面板、碰撞显示。参数调试当前提供“背景亮度”设置（控制未受光照区域亮度，0~255）。点击功能项执行对应操作并自动关闭菜单；子菜单支持返回主菜单。"按键说明"子面板列出所有快捷键绑定。DOM 覆盖层模式与背包一致，打开时暂停游戏逻辑。
 - **宠物系统**: 宠物存储在独立的 `pets` 数组（不在 `enemies` 中），不参与战斗碰撞。宠物作为消耗品道具注册（`consumable:pet_dog`/`consumable:pet_cat`），从快捷栏左键使用后召唤。`WorldSystem.updatePets()` 复用流场寻路实现跟随。宠物超过 600px 距离时自动传送到玩家身边（带消散/出现粒子特效）。猫（`PetCat`）比狗（`PetDog`）速度更快、体型更小。
 
 ### 建筑生成场景（construction + game）
