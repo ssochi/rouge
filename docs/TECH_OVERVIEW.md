@@ -7,7 +7,7 @@
 - `src/`
   - `assets/`: **美术素材数据**。存放字符画模板，严禁包含游戏逻辑。
     - `characters/player/`: 存放玩家的独立动画帧文件（如 `PlayerRun.js`）。
-    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。`mutant_beast/` 为 80×80 BOSS 级精灵，含 3 阶段颜色方案（绿→红→紫）× Idle 16帧 + Run 12帧 + 6 种攻击各 8帧。
+    - `characters/enemies/`: 敌人程序化帧动画（每种敌人一个目录，含 Generator + Idle/Run/Attack 帧）。攻击动画 (8帧) 通过 `drawAttackArms()` 在 Generator 中根据 `attackPhase` 参数动态绘制手臂位置。`mutant_beast/` 为 80×80 BOSS 级精灵，含 3 阶段颜色方案（绿→红→紫）× Idle 16帧 + Run 12帧 + 6 种攻击各 8帧。`snake_boss/` 为机械巨蛇 BOSS 精灵，含 SnakeBossGenerator（头48×48/身36×36/尾28×28）、Head Idle 16帧 + Run 12帧 + Attack 8帧、Body 8帧 + Tail 8帧，2 阶段配色（钢蓝灰→过热橙红）。
     - `characters/pets/dog/`: 宠物狗程序化帧动画（DogGenerator + DogIdle 16帧 + DogRun 8帧，Q版柴犬风格）。
     - `characters/pets/cat/`: 宠物猫程序化帧动画（CatGenerator + CatIdle 16帧 + CatRun 8帧，灰白虎斑风格，尖耳/长尾/胡须）。
     - `characters/pets/nier2b/`: 尼尔机械纪元 2B 程序化帧动画（Nier2bGenerator + Nier2bIdle 16帧 + Nier2bRun 8帧，Q版人形角色：银白短发/黑色眼罩/哥特连衣裙/过膝长靴/背刀，含裙摆飘动和发丝动画）。
@@ -25,6 +25,7 @@
       - `Soldier.js`: 军人敌人逻辑 (HP 60, Speed 0.9, SMG 3发点射 + 横移战术)。
       - `MutantBeast.js`: 变异巨兽 BOSS (HP 800, 80×80, 90%击退抗性, 3阶段战斗)。阶段1(100%-60%HP): 重拳砸击/横扫/震地波；阶段2(60%-25%HP): 新增冲锋+跳砸，速度加快；阶段3(25%-0%HP): 新增召唤僵尸，身体变紫。跳砸空中期间无敌（`getBulletHurtbox()` 返回 null）。`isBoss=true` 标记用于 Renderer 绘制屏幕顶部 BOSS 血条。死亡掉落 2-3 把随机武器。
       - `MechaGolem.js`: 机械魔偶 BOSS (HP 600, 64×64, 80%击退抗性, 2阶段弹幕战斗)。参考《挺进地牢》设计的弹幕型BOSS。阶段1(100%-40%HP): 加特林扫射/环形爆发/三连瞄准/火箭齐射 4种弹幕模式；阶段2(40%-0%HP): 新增螺旋风暴/十字交火/绝望弹幕 3种弹幕，速度加快+偶尔冲刺。弹幕使用不同颜色区分（橙/蓝/红/灰/品红/紫）。加权随机攻击选择，环绕式移动AI。`isBoss=true` 标记用于 Renderer BOSS 血条。死亡掉落 2-3 把随机武器。
+      - `SnakeBoss.js` + `SnakeSegment.js`: 机械巨蛇 BOSS (HP 1000, 头部48×48, 90%击退抗性, 2阶段)。多节体伪3D蛇形Boss，由1个蛇头(`SnakeBoss`, `isBoss=true`) + 8节蛇身 + 1节蛇尾(`SnakeSegment`)组成。每节为独立实体加入`enemies[]`实现自动Y-Sort和子弹碰撞。蛇头存储位置历史，各节从历史中读取位置实现跟随效果。通过正弦波计算每节`heightZ`，正值=地上（抬升绘制+地面阴影），负值=地下（画地洞效果，`getBulletHurtbox()`返回null实现无敌）。段伤害按比例路由到蛇头（身体60%/尾部40%）。阶段1(100%-40%HP): 毒液喷射/冲锋/尾鞭/缠绕；阶段2(<40%HP): 新增钻地突袭/节段弹幕，速度加快。机械蛇视觉风格，与MechaGolem同系配色（钢蓝灰→过热橙红）。
       - `Vehicle.js`: 载具逻辑（驾驶、碰撞、物理）。支持坦克类型（`isTank`），具有独立旋转炮塔、导弹发射（复用 rocket bulletType）、履带渲染等坦克专用逻辑。支持蜘蛛类型（`isSpider`），6脚机械蜘蛛使用程序化腿部动画（三足步态 ctx.rotate/translate 实时渲染），配备独立旋转激光炮塔（hitscan laser_beam）。
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - objects/: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。其中 `FishTankObject.js` 包含复杂的程序化动画逻辑（鱼群游动、水草摇曳、气泡上升）。

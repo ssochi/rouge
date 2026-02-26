@@ -22,7 +22,8 @@ const ENEMY_TYPES = [
     { type: 'hunter', name: 'Hunter', hasWeapon: true, defaultWeapon: 'default_pistol' },
     { type: 'soldier', name: 'Soldier', hasWeapon: true, defaultWeapon: 'smg' },
     { type: 'mutant_beast', name: 'Mutant Beast (BOSS)', hasWeapon: false },
-    { type: 'mecha_golem', name: 'Mecha Golem (BOSS)', hasWeapon: false }
+    { type: 'mecha_golem', name: 'Mecha Golem (BOSS)', hasWeapon: false },
+    { type: 'snake_boss', name: 'Snake Boss (BOSS)', hasWeapon: false }
 ];
 
 export class TestPanel {

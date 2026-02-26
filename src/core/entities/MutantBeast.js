@@ -8,6 +8,7 @@ export class MutantBeast extends Enemy {
         this.hitboxHeight = 16;
         this.hitboxOffsetY = 20;
         this.isBoss = true;
+        this.name = '变异巨兽';
 
         // Phase system
         this.phase = 1;

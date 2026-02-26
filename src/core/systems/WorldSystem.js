@@ -6,6 +6,7 @@ import { Hunter } from '../entities/Hunter.js';
 import { Soldier } from '../entities/Soldier.js';
 import { MutantBeast } from '../entities/MutantBeast.js';
 import { MechaGolem } from '../entities/MechaGolem.js';
+import { SnakeBoss } from '../entities/SnakeBoss.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
@@ -678,6 +679,7 @@ export class WorldSystem {
         if (type === 'zombie_brute') return new ZombieBrute(x, y);
         if (type === 'mutant_beast') return new MutantBeast(x, y);
         if (type === 'mecha_golem') return new MechaGolem(x, y);
+        if (type === 'snake_boss') return new SnakeBoss(x, y);
         return new Zombie(x, y);
     }
 
@@ -954,6 +956,12 @@ export class WorldSystem {
             }
 
             this.enemies.push(enemy);
+
+            // Set worldSystem reference for bosses that need it
+            if (enemy.isBoss && !enemy.worldSystem) {
+                enemy.worldSystem = this;
+            }
+
             return enemy;
         }
 
@@ -1456,6 +1464,7 @@ export class WorldSystem {
     _getEnemyDropMultiplier(enemy) {
         if (enemy instanceof MutantBeast) return 5;
         if (enemy instanceof MechaGolem) return 5;
+        if (enemy instanceof SnakeBoss) return 5;
         if (enemy instanceof ZombieBrute) return 2;
         if (enemy instanceof Hunter) return 2;
         if (enemy instanceof Soldier) return 3;
@@ -1711,15 +1720,18 @@ export class WorldSystem {
         // Filter dead enemies and remove them from the array
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             if (this.enemies[i].hp <= 0) {
-                if (this.enemies[i].isBoss) {
-                    this._dropBossLoot(this.enemies[i]);
-                } else {
-                    this._dropEnemyWeapon(this.enemies[i]);
+                // Skip loot drops for boss segments (SnakeSegment etc.)
+                if (!this.enemies[i].isSegment) {
+                    if (this.enemies[i].isBoss) {
+                        this._dropBossLoot(this.enemies[i]);
+                    } else {
+                        this._dropEnemyWeapon(this.enemies[i]);
+                    }
+                    this._dropEnemyRecoveryNeedle(this.enemies[i]);
+                    this._dropEnemyMedkit(this.enemies[i]);
+                    this._dropEnemyHamburger(this.enemies[i]);
+                    this._dropEnemyCostume(this.enemies[i]);
                 }
-                this._dropEnemyRecoveryNeedle(this.enemies[i]);
-                this._dropEnemyMedkit(this.enemies[i]);
-                this._dropEnemyHamburger(this.enemies[i]);
-                this._dropEnemyCostume(this.enemies[i]);
                 this.enemies.splice(i, 1);
             }
         }

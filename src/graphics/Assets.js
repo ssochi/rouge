@@ -134,6 +134,10 @@ import {
     MECHA_GOLEM_SPIRAL_PHASE2, MECHA_GOLEM_CROSS_PHASE2, MECHA_GOLEM_DESPERATION_PHASE2,
     MECHA_GOLEM_TRANSITION_PHASE2
 } from '../assets/characters/enemies/mecha_golem/MechaGolemAttack.js';
+import { SNAKE_BOSS_HEAD_IDLE_PHASE1, SNAKE_BOSS_HEAD_IDLE_PHASE2 } from '../assets/characters/enemies/snake_boss/SnakeBossHeadIdle.js';
+import { SNAKE_BOSS_HEAD_RUN_PHASE1, SNAKE_BOSS_HEAD_RUN_PHASE2 } from '../assets/characters/enemies/snake_boss/SnakeBossHeadRun.js';
+import { SNAKE_BOSS_HEAD_ATTACK_PHASE1, SNAKE_BOSS_HEAD_ATTACK_PHASE2 } from '../assets/characters/enemies/snake_boss/SnakeBossHeadAttack.js';
+import { SNAKE_BOSS_BODY_PHASE1, SNAKE_BOSS_BODY_PHASE2, SNAKE_BOSS_TAIL_PHASE1, SNAKE_BOSS_TAIL_PHASE2 } from '../assets/characters/enemies/snake_boss/SnakeSegmentSprite.js';
 import { MUTANT_BEAST_IDLE_PHASE1, MUTANT_BEAST_IDLE_PHASE2, MUTANT_BEAST_IDLE_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastIdle.js';
 import { MUTANT_BEAST_RUN_PHASE1, MUTANT_BEAST_RUN_PHASE2, MUTANT_BEAST_RUN_PHASE3 } from '../assets/characters/enemies/mutant_beast/MutantBeastRun.js';
 import {
@@ -306,6 +310,26 @@ export const Assets = {
             cross_fire: MECHA_GOLEM_CROSS_PHASE2,
             desperation: MECHA_GOLEM_DESPERATION_PHASE2,
             transition: MECHA_GOLEM_TRANSITION_PHASE2
+        }
+    },
+    snakeBoss: {
+        phase1: {
+            head: {
+                idle: SNAKE_BOSS_HEAD_IDLE_PHASE1,
+                run: SNAKE_BOSS_HEAD_RUN_PHASE1,
+                attack: SNAKE_BOSS_HEAD_ATTACK_PHASE1
+            },
+            body: SNAKE_BOSS_BODY_PHASE1,
+            tail: SNAKE_BOSS_TAIL_PHASE1
+        },
+        phase2: {
+            head: {
+                idle: SNAKE_BOSS_HEAD_IDLE_PHASE2,
+                run: SNAKE_BOSS_HEAD_RUN_PHASE2,
+                attack: SNAKE_BOSS_HEAD_ATTACK_PHASE2
+            },
+            body: SNAKE_BOSS_BODY_PHASE2,
+            tail: SNAKE_BOSS_TAIL_PHASE2
         }
     },
     dog: {
