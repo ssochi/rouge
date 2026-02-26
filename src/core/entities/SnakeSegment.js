@@ -111,6 +111,12 @@ export class SnakeSegment extends Enemy {
 
         // Draw segment sprite at height-offset Y
         const drawY = -this.heightZ;
+
+        // Dynamic 3D: draw belly/column extension when elevated
+        if (this.heightZ > 4) {
+            this._drawBellyExtension(ctx, drawY);
+        }
+
         const phaseKey = 'phase' + this.phase;
         const assets = Assets.snakeBoss ? Assets.snakeBoss[phaseKey] : null;
         const frameKey = this.segmentType === 'tail' ? 'tail' : 'body';
@@ -124,7 +130,7 @@ export class SnakeSegment extends Enemy {
 
             ctx.save();
             ctx.translate(0, drawY);
-            ctx.rotate(this.angle);
+            // No rotation — 2.5D cylindrical sprites are orientation-independent
             ctx.drawImage(sprite, -sw / 2, -sh / 2);
 
             // Hit flash
@@ -193,34 +199,110 @@ export class SnakeSegment extends Enemy {
     }
 
     _drawPlaceholder(ctx, drawY) {
-        const size = this.segmentType === 'tail' ? 6 : 9;
+        const isTail = this.segmentType === 'tail';
+        const rx = isTail ? 6 : 9;
+        const wallH = isTail ? 6 : 8;
+        const ry = isTail ? 3 : 4;
         const color = this.phase === 1 ? '#4a5a6a' : '#6a4a3a';
+        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
+        const light = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
+        const coreColor = this.phase === 1 ? '#3498db' : '#e74c3c';
+
         ctx.save();
         ctx.translate(0, drawY);
-        ctx.rotate(this.angle);
-        // Body oval
+
+        // Bottom ellipse (belly)
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.ellipse(0, wallH, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Side walls
+        ctx.fillStyle = color;
+        ctx.fillRect(-rx, 0, rx * 2, wallH);
+        // Dark edges
+        ctx.fillStyle = dark;
+        ctx.fillRect(-rx, 0, 2, wallH);
+        ctx.fillRect(rx - 2, 0, 2, wallH);
+        // Center highlight
+        ctx.fillStyle = light;
+        ctx.fillRect(-2, 1, 4, wallH - 1);
+
+        // Top ellipse (armor cap)
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.ellipse(0, 0, size, size * 0.7, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Highlight
-        ctx.fillStyle = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
+        // Top highlight
+        ctx.fillStyle = light;
         ctx.beginPath();
-        ctx.ellipse(0, -1, size * 0.6, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -1, rx - 3, ry - 1, 0, 0, Math.PI * 2);
         ctx.fill();
+
         // Energy ring
-        ctx.strokeStyle = this.phase === 1 ? '#3498db' : '#e74c3c';
+        ctx.strokeStyle = coreColor;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.ellipse(0, 0, size + 1, (size + 1) * 0.7, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -ry + 1, rx + 1, 2, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         if (this.hitFlashTimer > 0) {
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillRect(-rx, 0, rx * 2, wallH);
             ctx.beginPath();
-            ctx.ellipse(0, 0, size, size * 0.7, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.restore();
+    }
+
+    _drawBellyExtension(ctx, drawY) {
+        const isTail = this.segmentType === 'tail';
+        const baseW = isTail ? 7 : 10;
+
+        // Sprite bottom offset (where the built-in cylinder ends, relative to drawY)
+        const spriteBottomOffset = isTail ? 10 : 12;
+        const extTop = drawY + spriteBottomOffset;
+        const groundY = 4; // shadow Y level
+
+        if (extTop >= groundY) return;
+
+        const extH = groundY - extTop;
+
+        // Colors
+        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
+        const mid = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
+        const light = this.phase === 1 ? '#5a6a7a' : '#7a5a4a';
+        const edge = this.phase === 1 ? '#1a2534' : '#1a0a00';
+
+        // Main belly column
+        ctx.fillStyle = mid;
+        ctx.fillRect(-baseW + 2, extTop, (baseW - 2) * 2, extH);
+
+        // Dark side edges
+        ctx.fillStyle = edge;
+        ctx.fillRect(-baseW, extTop, 2, extH);
+        ctx.fillRect(baseW - 2, extTop, 2, extH);
+
+        // Slightly lighter next-to-edge
+        ctx.fillStyle = dark;
+        ctx.fillRect(-baseW + 2, extTop, 2, extH);
+        ctx.fillRect(baseW - 4, extTop, 2, extH);
+
+        // Center highlight strip
+        ctx.fillStyle = light;
+        ctx.fillRect(-2, extTop, 4, extH);
+
+        // Bottom ellipse at ground level
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.ellipse(0, groundY, baseW, baseW * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Armor band lines across extension
+        ctx.fillStyle = edge;
+        for (let y = extTop + 3; y < groundY - 1; y += 4) {
+            ctx.fillRect(-(baseW - 1), y, (baseW - 1) * 2, 1);
+        }
     }
 }

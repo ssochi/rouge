@@ -641,12 +641,15 @@ export class SnakeBoss extends Enemy {
             }
         }
 
+        // Dynamic 3D: draw neck/belly extension when elevated
+        const drawY = -this.heightZ;
+        if (this.heightZ > 4) {
+            this._drawNeckExtension(ctx, drawY);
+        }
+
         if (this.facingRight) {
             ctx.scale(-1, 1);
         }
-
-        // Draw head sprite at height offset
-        const drawY = -this.heightZ;
         const phaseKey = 'phase' + this.phase;
         const assets = Assets.snakeBoss ? Assets.snakeBoss[phaseKey] : null;
         const headAssets = assets ? assets.head : null;
@@ -714,6 +717,46 @@ export class SnakeBoss extends Enemy {
         ctx.restore();
     }
 
+    _drawNeckExtension(ctx, drawY) {
+        const baseW = 12;
+        // Head sprite's neck bottom is roughly at drawY + 2 (from sprite coordinates)
+        const extTop = drawY + 2;
+        const groundY = 10; // head shadow Y level
+
+        if (extTop >= groundY) return;
+        const extH = groundY - extTop;
+
+        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
+        const mid = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
+        const light = this.phase === 1 ? '#5a6a7a' : '#7a5a4a';
+        const edge = this.phase === 1 ? '#1a2534' : '#1a0a00';
+
+        // Main neck column
+        ctx.fillStyle = mid;
+        ctx.fillRect(-baseW + 2, extTop, (baseW - 2) * 2, extH);
+        // Dark side edges
+        ctx.fillStyle = edge;
+        ctx.fillRect(-baseW, extTop, 2, extH);
+        ctx.fillRect(baseW - 2, extTop, 2, extH);
+        // Lighter inner edges
+        ctx.fillStyle = dark;
+        ctx.fillRect(-baseW + 2, extTop, 2, extH);
+        ctx.fillRect(baseW - 4, extTop, 2, extH);
+        // Center highlight
+        ctx.fillStyle = light;
+        ctx.fillRect(-3, extTop, 6, extH);
+        // Bottom ellipse
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.ellipse(0, groundY, baseW, baseW * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Armor seam lines
+        ctx.fillStyle = edge;
+        for (let y = extTop + 3; y < groundY - 1; y += 4) {
+            ctx.fillRect(-(baseW - 1), y, (baseW - 1) * 2, 1);
+        }
+    }
+
     _drawBurrowHole(ctx) {
         ctx.fillStyle = 'rgba(20,15,10,0.6)';
         ctx.beginPath();
@@ -753,32 +796,45 @@ export class SnakeBoss extends Enemy {
 
     _drawPlaceholder(ctx, drawY) {
         const color = this.phase === 1 ? '#4a5a6a' : '#6a4a3a';
+        const dark = this.phase === 1 ? '#2a3544' : '#3a2a1a';
+        const light = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
         const eyeColor = this.phase === 1 ? '#3498db' : '#e74c3c';
 
         ctx.save();
         ctx.translate(0, drawY);
 
-        // Head shape — angular triangle
+        // Side walls (3D depth visible below top plate)
+        ctx.fillStyle = dark;
+        ctx.fillRect(-14, -4, 2, 12);
+        ctx.fillRect(12, -4, 2, 12);
+        // Front face (belly)
+        ctx.fillStyle = this.phase === 1 ? '#3a4a5a' : '#4a3a2a';
+        ctx.fillRect(-6, -4, 12, 10);
+        // Side armor panels
+        ctx.fillStyle = color;
+        ctx.fillRect(-12, -4, 6, 10);
+        ctx.fillRect(6, -4, 6, 10);
+
+        // Top armor plate (angular, from 35° view)
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(-14, 6);
-        ctx.lineTo(-14, -10);
-        ctx.lineTo(0, -14);
-        ctx.lineTo(14, -10);
-        ctx.lineTo(14, 6);
-        ctx.lineTo(8, 10);
-        ctx.lineTo(-8, 10);
+        ctx.moveTo(0, -14);
+        ctx.lineTo(14, -6);
+        ctx.lineTo(12, 4);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(-12, 4);
+        ctx.lineTo(-14, -6);
         ctx.closePath();
         ctx.fill();
 
-        // Armor highlight
-        ctx.fillStyle = this.phase === 1 ? '#6a8a9a' : '#8a6a5a';
+        // Top plate highlight
+        ctx.fillStyle = light;
         ctx.beginPath();
-        ctx.moveTo(-10, -6);
-        ctx.lineTo(0, -10);
-        ctx.lineTo(10, -6);
-        ctx.lineTo(6, -2);
-        ctx.lineTo(-6, -2);
+        ctx.moveTo(0, -10);
+        ctx.lineTo(8, -4);
+        ctx.lineTo(4, 0);
+        ctx.lineTo(-4, 0);
+        ctx.lineTo(-8, -4);
         ctx.closePath();
         ctx.fill();
 
@@ -786,29 +842,38 @@ export class SnakeBoss extends Enemy {
         ctx.fillStyle = eyeColor;
         ctx.fillRect(-8, -4, 3, 3);
         ctx.fillRect(5, -4, 3, 3);
-        // Eye glow
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(-7, -3, 1, 1);
         ctx.fillRect(6, -3, 1, 1);
 
-        // Jaw line
-        ctx.fillStyle = this.phase === 1 ? '#2a3544' : '#3a2a1a';
-        ctx.fillRect(-10, 2, 20, 2);
+        // Jaw seam
+        ctx.fillStyle = dark;
+        ctx.fillRect(-10, 0, 20, 1);
 
-        // Energy core (forehead)
+        // Energy core
         ctx.fillStyle = eyeColor;
         ctx.fillRect(-2, -8, 4, 3);
+
+        // Bottom ellipse (neck)
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.ellipse(0, 8, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Neck energy ring
+        ctx.strokeStyle = eyeColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(0, 8, 11, 3, 0, 0, Math.PI * 2);
+        ctx.stroke();
 
         if (this.hitFlashTimer > 0) {
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
             ctx.beginPath();
-            ctx.moveTo(-14, 6);
-            ctx.lineTo(-14, -10);
-            ctx.lineTo(0, -14);
-            ctx.lineTo(14, -10);
+            ctx.moveTo(0, -14);
+            ctx.lineTo(14, -6);
             ctx.lineTo(14, 6);
-            ctx.lineTo(8, 10);
-            ctx.lineTo(-8, 10);
+            ctx.lineTo(-14, 6);
+            ctx.lineTo(-14, -6);
             ctx.closePath();
             ctx.fill();
         }
@@ -817,11 +882,11 @@ export class SnakeBoss extends Enemy {
             const alpha = 0.3 + Math.sin(this.transitionTimer * 0.3) * 0.2;
             ctx.fillStyle = `rgba(231, 76, 60, ${alpha})`;
             ctx.beginPath();
-            ctx.moveTo(-14, 6);
-            ctx.lineTo(-14, -10);
-            ctx.lineTo(0, -14);
-            ctx.lineTo(14, -10);
+            ctx.moveTo(0, -14);
+            ctx.lineTo(14, -6);
             ctx.lineTo(14, 6);
+            ctx.lineTo(-14, 6);
+            ctx.lineTo(-14, -6);
             ctx.closePath();
             ctx.fill();
         }
