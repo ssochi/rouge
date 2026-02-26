@@ -281,11 +281,15 @@ export class LightBufferRenderer {
             }
 
             const isCone = light.coneAngle > 0;
-            const needsShadows = light.castsShadows && shadowBuilder;
+            const shadowMask = light.shadowMask === 'walls' ? 'walls' : 'all';
+            const disableAmbientPointSplit = light.disableAmbientPointSplit === true;
+            const blockWalls = light.blockWalls !== false;
+            const needsObjectShadows = light.castsShadows === true && shadowMask === 'all';
+            const needsShadowQuery = !!shadowBuilder && (blockWalls || needsObjectShadows);
 
             // Query all blockers once.
             let allBlockers = [];
-            if (needsShadows) {
+            if (needsShadowQuery) {
                 allBlockers = shadowBuilder.query(
                     light.x,
                     light.y,
@@ -303,18 +307,29 @@ export class LightBufferRenderer {
                 const t = b.owner?.type || '';
                 return t.startsWith('wall') || t.startsWith('door');
             });
-            const hasObjectBlockers = allBlockers.length > wallBlockers.length;
+            if (!blockWalls) {
+                wallBlockers.length = 0;
+            }
+            if (shadowMask === 'walls' || !needsObjectShadows) {
+                // Wall-only occlusion, or lights that do not require object shadowing.
+                allBlockers = wallBlockers;
+            }
+            const hasObjectBlockers =
+                !disableAmbientPointSplit &&
+                needsObjectShadows &&
+                (allBlockers.length > wallBlockers.length);
+            const singlePassBlockers = (needsObjectShadows && shadowMask === 'all') ? allBlockers : wallBlockers;
 
             if (!hasObjectBlockers) {
                 // No object blockers nearby — ambient and point polygons are identical.
                 // Render once at full intensity (70% + 30% = 100%).
                 let polygon = null;
                 let contourPoints = null;
-                const hasWalls = wallBlockers.length > 0;
+                const hasBlockers = singlePassBlockers.length > 0;
 
-                if (hasWalls || isCone) {
-                    if (hasWalls) {
-                        this._buildOcclusionField(wallBlockers, viewX, viewY, bufferScale);
+                if (hasBlockers || isCone) {
+                    if (hasBlockers) {
+                        this._buildOcclusionField(singlePassBlockers, viewX, viewY, bufferScale);
                     } else {
                         this.occlusionField.clear();
                     }

@@ -52,11 +52,11 @@
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
       - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
     - `lighting/`: 像素光影子系统。
-      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。
-      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
       - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
       - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
-      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。全局规则：所有光源至少受墙/门遮挡，不允许穿墙。
       - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
     - `shared/`: 跨系统共享缓存。
       - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。
@@ -129,7 +129,7 @@
 - `CombatSystem._chainLightning()`：处理闪电链式跳跃（查找最近未命中敌人、衰减伤害、生成 `lightning_arc` 粒子）。
 - **冻结易伤**：所有伤害源（子弹、爆炸、燃烧 DOT、闪电链）对冻结中敌人造成 1.5x 伤害。
 - **敌人速度系统**：`Enemy.getEffectiveSpeed()` 统一处理减速/冻结对移动速度的影响，所有敌人子类使用此方法。
-- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang`、`plasma`、`homing`、`acid`、`cluster`、`force`、`vampyre`、`needle`、`railgun` 与默认圆形子弹分支。
+- `Renderer` 子弹渲染支持 `rocket`、`bolt`、`laser_bolt`、`grenade`、`flame`、`black_hole_projectile`、`teleport`、`lightning`、`ice_shard`、`ricochet`、`boomerang`、`plasma`、`homing`、`acid`、`cluster`、`force`、`vampyre`、`needle`、`railgun` 与默认圆形子弹分支。
 - **激光瞄准**：`Renderer.drawLaserSight()` 为狙击枪绘制激光线，使用 `HandSystem.angle` 确保方向与枪管一致，通过 `laserOffset` 定位发射器起点，射线检测墙壁遮挡。
 - **武器发射动画**：`HandSystem` 支持 `fireSprite` 配置，当弹药为空时自动切换精灵（如弩发射后弓臂前弹、弦松弛、无箭矢）。
 - 敌人子弹受击框统一由 `Enemy.getBulletHurtbox()` 提供，`CombatSystem` 与 Debug 受击框模式使用同一数据源。

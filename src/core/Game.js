@@ -205,6 +205,7 @@ export class Game {
             player: this.player,
             handSystem: this.handSystem,
             enemies: this.enemies,
+            vehicles: this.vehicles,
             bullets: this.bullets,
             particles: this.particles,
             breakableObjects: this.breakableObjects,

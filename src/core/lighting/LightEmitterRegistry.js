@@ -87,8 +87,49 @@ const BULLET_LIGHTS = {
     vampyre: { radius: 58, color: '#ff6e6e', intensity: 0.7, castsShadows: false, priority: 84 },
     needle: { radius: 34, color: '#dde6ee', intensity: 0.26, castsShadows: false, priority: 12 },
     railgun: { radius: 70, color: '#67f0ff', intensity: 0.88, castsShadows: false, priority: 96 },
+    laser_bolt: { radius: 60, color: '#00e5ff', intensity: 0.72, castsShadows: false, priority: 92 },
     standard: { radius: 36, color: '#ffe082', intensity: 0.22, castsShadows: false, priority: 10 },
     bolt: { radius: 40, color: '#cfd8dc', intensity: 0.28, castsShadows: false, priority: 14 }
+};
+
+const VEHICLE_HEADLIGHT_CONFIG = {
+    suv: {
+        radius: 210,
+        color: '#f2f6ff',
+        intensity: 0.72,
+        coneAngle: 0.62,
+        frontFactor: 0.52,
+        lateralFactor: 0.34,
+        priority: 88
+    },
+    police: {
+        radius: 212,
+        color: '#f2f6ff',
+        intensity: 0.74,
+        coneAngle: 0.62,
+        frontFactor: 0.52,
+        lateralFactor: 0.34,
+        priority: 90
+    },
+    truck: {
+        radius: 228,
+        color: '#f2f6ff',
+        intensity: 0.78,
+        coneAngle: 0.58,
+        frontFactor: 0.54,
+        lateralFactor: 0.36,
+        priority: 90
+    },
+    spider: {
+        radius: 192,
+        color: '#9deeff',
+        intensity: 0.68,
+        coneAngle: 0.68,
+        frontFactor: 0.45,
+        lateralFactor: 0.28,
+        priority: 90,
+        visualYOffset: -8
+    }
 };
 
 function withFlicker(baseIntensity, flicker = 0, timeMs = 0, seed = 0) {
@@ -111,6 +152,8 @@ function createEmitter({
     priority = 0,
     kind = 'generic',
     seed = 0,
+    shadowMask = 'all',
+    disableAmbientPointSplit = false,
     coneAngle = 0,
     coneDirection = 0
 }, timeMs = 0) {
@@ -128,6 +171,13 @@ function createEmitter({
         priority,
         kind
     };
+
+    if (shadowMask === 'walls') {
+        emitter.shadowMask = 'walls';
+    }
+    if (disableAmbientPointSplit === true) {
+        emitter.disableAmbientPointSplit = true;
+    }
 
     if (coneAngle > 0) {
         emitter.coneAngle = coneAngle;
@@ -196,6 +246,227 @@ export class LightEmitterRegistry {
         }, timeMs);
 
         return [core, rim].filter(Boolean);
+    }
+
+    getVehicleEmitters(vehicle, timeMs = 0) {
+        if (!vehicle || vehicle.isDead || !vehicle.controlled) return [];
+
+        const profile = VEHICLE_HEADLIGHT_CONFIG[vehicle.type];
+        if (!profile) return [];
+
+        const angle = Number.isFinite(vehicle.angle) ? vehicle.angle : 0;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const hitboxWidth = vehicle.hitbox?.width || vehicle.width || 36;
+        const hitboxHeight = vehicle.hitbox?.height || vehicle.height || 20;
+
+        const frontOffset = hitboxWidth * profile.frontFactor;
+        const lateralOffset = hitboxHeight * profile.lateralFactor;
+        const forwardX = cos;
+        const forwardY = sin;
+        const rightX = -sin;
+        const rightY = cos;
+
+        const emitters = [];
+
+        if (vehicle.type === 'spider') {
+            const centerX = vehicle.x + forwardX * frontOffset;
+            const visualYOffset = profile.visualYOffset || 0;
+            const centerY = vehicle.y + forwardY * frontOffset + visualYOffset + (vehicle.suspensionOffset || 0);
+            emitters.push(...this._buildHeadlightEmitters({
+                x: centerX,
+                y: centerY,
+                angle,
+                profile,
+                vehicle,
+                sideIntensityScale: 1.0,
+                seedOffset: 1.66
+            }, timeMs));
+        } else {
+            const leftX = vehicle.x + forwardX * frontOffset - rightX * lateralOffset;
+            const leftY = vehicle.y + forwardY * frontOffset - rightY * lateralOffset;
+            const rightXPos = vehicle.x + forwardX * frontOffset + rightX * lateralOffset;
+            const rightYPos = vehicle.y + forwardY * frontOffset + rightY * lateralOffset;
+
+            emitters.push(...this._buildHeadlightEmitters({
+                x: leftX,
+                y: leftY,
+                angle,
+                profile,
+                vehicle,
+                sideIntensityScale: 1.0,
+                seedOffset: 1.11
+            }, timeMs));
+            emitters.push(...this._buildHeadlightEmitters({
+                x: rightXPos,
+                y: rightYPos,
+                angle,
+                profile,
+                vehicle,
+                sideIntensityScale: 0.95,
+                seedOffset: 2.22
+            }, timeMs));
+        }
+
+        if (vehicle.type === 'police') {
+            emitters.push(...this._getPoliceSirenEmitters(vehicle, timeMs, angle, hitboxWidth, hitboxHeight));
+        }
+
+        return emitters;
+    }
+
+    _buildHeadlightEmitters({
+        x,
+        y,
+        angle,
+        profile,
+        vehicle,
+        sideIntensityScale,
+        seedOffset
+    }, timeMs) {
+        const sideIntensity = profile.intensity * sideIntensityScale;
+
+        const core = createEmitter({
+            x,
+            y,
+            radius: profile.radius,
+            color: profile.color,
+            intensity: sideIntensity * 0.7,
+            castsShadows: true,
+            flicker: 0.01,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: profile.priority,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.021 + vehicle.y * 0.013 + seedOffset,
+            coneAngle: profile.coneAngle * 0.82,
+            coneDirection: angle
+        }, timeMs);
+
+        const spill = createEmitter({
+            x,
+            y,
+            radius: profile.radius * 0.76,
+            color: profile.color,
+            intensity: sideIntensity * 0.45,
+            castsShadows: false,
+            flicker: 0.015,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: profile.priority - 4,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.019 + vehicle.y * 0.017 + seedOffset + 0.7,
+            coneAngle: profile.coneAngle * 1.38,
+            coneDirection: angle
+        }, timeMs);
+
+        const nearFill = createEmitter({
+            x,
+            y,
+            radius: Math.max(50, profile.radius * 0.23),
+            color: profile.color,
+            intensity: sideIntensity * 0.24,
+            castsShadows: false,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: profile.priority - 8,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.015 + vehicle.y * 0.011 + seedOffset + 1.3
+        }, timeMs);
+
+        return [core, spill, nearFill].filter(Boolean);
+    }
+
+    _getPoliceSirenEmitters(vehicle, timeMs, angle, hitboxWidth, hitboxHeight) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const forwardX = cos;
+        const forwardY = sin;
+        const rightX = -sin;
+        const rightY = cos;
+
+        const barForwardOffset = -hitboxWidth * 0.08;
+        const barLateralOffset = hitboxHeight * 0.28;
+        const baseX = vehicle.x + forwardX * barForwardOffset;
+        const baseY = vehicle.y + forwardY * barForwardOffset;
+        const redX = baseX - rightX * barLateralOffset;
+        const redY = baseY - rightY * barLateralOffset;
+        const blueX = baseX + rightX * barLateralOffset;
+        const blueY = baseY + rightY * barLateralOffset;
+
+        const phase = (Math.sin(timeMs * 0.022) + 1) * 0.5;
+        const redIntensity = 0.22 + phase * 0.92;
+        const blueIntensity = 0.22 + (1 - phase) * 0.92;
+
+        const redAmbient = createEmitter({
+            x: redX,
+            y: redY,
+            radius: 122,
+            color: '#ff4d59',
+            intensity: redIntensity * 0.7,
+            castsShadows: true,
+            flicker: 0.04,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: 96,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.031 + vehicle.y * 0.023 + 3.33,
+            shadowMask: 'walls',
+            disableAmbientPointSplit: true
+        }, timeMs);
+
+        const redPoint = createEmitter({
+            x: redX,
+            y: redY,
+            radius: 122,
+            color: '#ff4d59',
+            intensity: redIntensity * 0.3,
+            castsShadows: true,
+            flicker: 0.08,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: 96,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.033 + vehicle.y * 0.021 + 3.88,
+            shadowMask: 'all',
+            disableAmbientPointSplit: true
+        }, timeMs);
+
+        const blueAmbient = createEmitter({
+            x: blueX,
+            y: blueY,
+            radius: 122,
+            color: '#4da3ff',
+            intensity: blueIntensity * 0.7,
+            castsShadows: true,
+            flicker: 0.04,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: 96,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.029 + vehicle.y * 0.027 + 4.44,
+            shadowMask: 'walls',
+            disableAmbientPointSplit: true
+        }, timeMs);
+
+        const bluePoint = createEmitter({
+            x: blueX,
+            y: blueY,
+            radius: 122,
+            color: '#4da3ff',
+            intensity: blueIntensity * 0.3,
+            castsShadows: true,
+            flicker: 0.08,
+            owner: vehicle,
+            ignoreSelfShadow: true,
+            priority: 96,
+            kind: 'vehicle',
+            seed: vehicle.x * 0.027 + vehicle.y * 0.029 + 4.99,
+            shadowMask: 'all',
+            disableAmbientPointSplit: true
+        }, timeMs);
+
+        return [redAmbient, redPoint, blueAmbient, bluePoint].filter(Boolean);
     }
 
     getBlackHoleEmitter(blackHole, timeMs = 0) {

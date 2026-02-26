@@ -14,6 +14,7 @@ export class LightSystem {
         player,
         handSystem,
         enemies,
+        vehicles,
         bullets,
         particles,
         breakableObjects,
@@ -25,6 +26,7 @@ export class LightSystem {
         this.player = player;
         this.handSystem = handSystem;
         this.enemies = enemies || [];
+        this.vehicles = vehicles || [];
         this.bullets = bullets || [];
         this.particles = particles || [];
         this.breakableObjects = breakableObjects || [];
@@ -119,13 +121,16 @@ export class LightSystem {
     _collectDynamicLights(timeMs) {
         this.dynamicLights.length = 0;
 
-
         this._pushEmitter(this.dynamicLights, this.emitterRegistry.getMuzzleFlashEmitter(this.handSystem, timeMs, this.player));
 
         for (const enemy of this.enemies) {
             if (!isAliveEnemy(enemy)) continue;
             if (!enemy.handSystem) continue;
             this._pushEmitter(this.dynamicLights, this.emitterRegistry.getMuzzleFlashEmitter(enemy.handSystem, timeMs, enemy));
+        }
+
+        for (const vehicle of this.vehicles) {
+            this._pushEmitter(this.dynamicLights, this.emitterRegistry.getVehicleEmitters(vehicle, timeMs));
         }
 
         for (const bullet of this.bullets) {
