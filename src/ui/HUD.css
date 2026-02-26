@@ -573,3 +573,181 @@
     border-top: 1px solid #555;
     padding-top: 5px;
 }
+
+/* ===== Shortcut Menu ===== */
+#shortcut-menu-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    pointer-events: auto;
+    transition: opacity 0.2s ease;
+}
+
+#shortcut-menu-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.shortcut-menu-window {
+    background: var(--ui-bg-color);
+    border: 4px solid var(--ui-border-dark);
+    outline: 2px solid #7f8c8d;
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.8),
+        inset 0 0 50px rgba(0,0,0,0.2);
+    min-width: 420px;
+    max-width: 500px;
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.shortcut-menu-header {
+    font-size: 18px;
+    color: #ecf0f1;
+    text-align: center;
+    text-shadow: 2px 2px 0 #000;
+    border-bottom: 2px solid #7f8c8d;
+    padding-bottom: 10px;
+    letter-spacing: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.shortcut-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 5px;
+}
+
+.shortcut-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    background: var(--ui-slot-bg);
+    border: 2px solid #576574;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+}
+
+.shortcut-menu-item:hover {
+    border-color: var(--highlight-color);
+    background: rgba(241, 196, 15, 0.1);
+    box-shadow:
+        inset 0 0 10px rgba(241, 196, 15, 0.2),
+        0 0 5px var(--highlight-color);
+    transform: translateY(-2px);
+}
+
+.shortcut-menu-item:active {
+    transform: translateY(0);
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+}
+
+.shortcut-key-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    padding: 0 6px;
+    background: rgba(0,0,0,0.4);
+    border: 2px solid var(--highlight-color);
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--highlight-color);
+    text-shadow: 1px 1px 0 #000;
+    font-family: 'Press Start 2P', monospace;
+}
+
+.shortcut-label {
+    font-size: 11px;
+    color: #ecf0f1;
+    text-shadow: 1px 1px 0 #000;
+    text-align: center;
+}
+
+.shortcut-desc {
+    font-size: 8px;
+    color: #7f8c8d;
+    text-align: center;
+    line-height: 1.3;
+}
+
+/* Keybind List (sub-panel) */
+.keybind-list {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 5px;
+    max-height: 350px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #7f8c8d #2c3e50;
+}
+
+.keybind-list.active {
+    display: flex;
+}
+
+.keybind-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 3px;
+}
+
+.keybind-row .shortcut-key-badge {
+    min-width: 70px;
+    font-size: 10px;
+}
+
+.keybind-row-desc {
+    font-size: 11px;
+    color: #ecf0f1;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.shortcut-menu-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    margin-top: 5px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid #576574;
+    border-radius: 4px;
+    color: #bdc3c7;
+    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-shadow: 1px 1px 0 #000;
+    align-self: center;
+}
+
+.shortcut-menu-back-btn:hover {
+    border-color: var(--highlight-color);
+    color: var(--highlight-color);
+}

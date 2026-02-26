@@ -275,6 +275,9 @@ export class Game {
         this.isInventoryOpen = false;
         this.bPressed = false;
 
+        this.isMenuOpen = false;
+        this.mPressed = false;
+
         this.testPanel = new TestPanel({
             inventorySystem: this.inventorySystem,
             worldSystem: this.worldSystem,
@@ -282,6 +285,35 @@ export class Game {
             costumeSystem: this.costumeSystem
         });
         this.lPressed = false;
+
+        // Shortcut Menu Items
+        this.uiManager.setShortcutMenuItems([
+            { key: 'B', label: '背包', desc: '打开/关闭背包', action: () => {
+                this.isInventoryOpen = true;
+                this.uiManager.toggleInventory(true);
+                this.uiManager.updateInventory(this.inventorySystem);
+            }},
+            { key: 'R', label: '换弹', desc: '重新装填弹药', action: () => {
+                this.handSystem.startReload();
+            }},
+            { key: 'O', label: '召唤载具', desc: '在附近生成载具', action: () => {
+                this.worldSystem.spawnVehicleNearPlayer();
+            }},
+            { key: 'I', label: '性能面板', desc: '显示/隐藏性能监控', action: () => {
+                this.profiler.visible = !this.profiler.visible;
+            }},
+            { key: 'L', label: '调试面板', desc: '显示/隐藏测试面板', action: () => {
+                this.testPanel.toggle();
+            }},
+            { key: 'P', label: '碰撞显示', desc: '切换碰撞框显示', action: () => {
+                this.renderer.debugMode = (this.renderer.debugMode + 1) % 4;
+            }},
+            { key: '?', label: '按键说明', desc: '查看所有快捷键', action: 'showKeybinds' },
+        ]);
+        this.uiManager.onCloseShortcutMenu = () => {
+            this.isMenuOpen = false;
+            this.uiManager.toggleShortcutMenu(false);
+        };
 
         this.worldSystem.loadMap('hub'); // Start in Hub
         this.playerSystem.updateEquippedItem();
@@ -337,7 +369,16 @@ export class Game {
             this.iPressed = false;
         }
 
-        if (this.isComputerOpen || this.isInventoryOpen || this.testPanel.isOpen) {
+        // Toggle Shortcut Menu
+        if (this.input.keys.m && !this.mPressed) {
+            this.mPressed = true;
+            this.isMenuOpen = !this.isMenuOpen;
+            this.uiManager.toggleShortcutMenu(this.isMenuOpen);
+        } else if (!this.input.keys.m) {
+            this.mPressed = false;
+        }
+
+        if (this.isComputerOpen || this.isInventoryOpen || this.testPanel.isOpen || this.isMenuOpen) {
             return;
         }
 

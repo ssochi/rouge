@@ -67,7 +67,7 @@
     - `SpriteGenerator.js`: 将字符模板转换为 Canvas/Image 的核心工具。
     - `Assets.js`: 负责调用生成器并缓存生成的游戏资源。
   - `ui/`: **UI 组件**。
-    - `UIManager.js`: HUD 与背包 UI 管理。
+    - `UIManager.js`: HUD、背包 UI 与快捷菜单管理（M 键呼出，含功能快捷入口和按键说明子面板）。
     - `TestPanel.js`: 调试测试面板（按 L 键打开），可快速生成武器、道具、车辆、敌人、物体。自包含 DOM 组件，自动发现数据源。
     - `TestPanel.css`: 测试面板样式，复用项目 CSS 变量。
     - `HUD.css`: 游戏化拟物风格 HUD 样式。
@@ -161,6 +161,7 @@
 - **掉落物**: `DroppedItem` 类负责管理地面掉落（武器/可放置物/消耗品），包含悬浮动画与拾取提示。
 - **交互**: `PlayerSystem.js` 维护 `droppedItems` 列表，处理 E 键拾取、快捷栏切换以及左键动作分流（射击/放置/使用消耗品）。
 - **快捷生成载具**: `PlayerSystem` 监听 `O` 键并调用 `WorldSystem.spawnVehicleNearPlayer()`，在玩家附近搜索可用空位后生成一辆随机类型载具（SUV/Truck/Police/Tank/Spider），避免与墙体、可破坏物、敌人、玩家和已有载具重叠。Tank 为坦克载具，进入后鼠标控制炮塔方向、点击发射导弹（rocket 弹丸），炮塔独立于车身旋转。Spider 为6脚机械蜘蛛载具，使用程序化三足步态动画（`SPIDER_LEG_CONFIG` 定义6条腿的关节参数，交替 Group A/B 实现三足步态），炮塔发射 hitscan 激光束（`bulletSystem.fireLaserBeam()`），2.5D 渲染按远/近腿分层绘制实现正确遮挡。
+- **快捷菜单**: 按 M 键呼出，展示可用功能的快捷入口（背包、换弹、召唤载具、性能面板、调试面板、碰撞显示、按键说明）。点击菜单项执行对应操作并自动关闭菜单。"按键说明"子面板列出所有快捷键绑定。DOM 覆盖层模式与背包一致，打开时暂停游戏逻辑。
 - **宠物系统**: 宠物存储在独立的 `pets` 数组（不在 `enemies` 中），不参与战斗碰撞。宠物作为消耗品道具注册（`consumable:pet_dog`/`consumable:pet_cat`），从快捷栏左键使用后召唤。`WorldSystem.updatePets()` 复用流场寻路实现跟随。宠物超过 600px 距离时自动传送到玩家身边（带消散/出现粒子特效）。猫（`PetCat`）比狗（`PetDog`）速度更快、体型更小。
 
 ### 建筑生成场景（construction + game）
