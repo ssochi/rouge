@@ -410,7 +410,7 @@ export class Game {
                 this.vehicles.splice(i, 1);
                 continue;
             }
-            v.update(this.input, this.walls, this.particles, this.breakableObjects, this.enemies, this.player, this.camera, this.combatSystem, this.vehicles);
+            v.update(this.input, this.walls, this.particles, this.breakableObjects, this.enemies, this.player, this.camera, this.combatSystem, this.vehicles, 1, this.worldSystem);
         }
         this.profiler.end('Vehicles');
 
@@ -421,6 +421,15 @@ export class Game {
         this.flowPlayerCellX = flow.x;
         this.flowPlayerCellY = flow.y;
         this.profiler.end('FlowField');
+
+        // --- Water Animation ---
+        if (this.worldSystem.waterTiles && this.worldSystem.waterTiles.size > 0) {
+            this.worldSystem.waterAnimTimer++;
+            if (this.worldSystem.waterAnimTimer >= 10) { // ~6 FPS water animation
+                this.worldSystem.waterAnimTimer = 0;
+                this.worldSystem.waterAnimFrame = (this.worldSystem.waterAnimFrame + 1) % 4;
+            }
+        }
 
         // --- Camera ---
         this.profiler.begin('Camera');

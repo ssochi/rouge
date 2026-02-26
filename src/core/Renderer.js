@@ -132,6 +132,9 @@ export class Renderer {
             }
         }
 
+        // Draw animated water tiles over the static floor canvas
+        this._drawAnimatedWater(viewportW, viewportH);
+
         // Draw Carpets (Below everything else, on top of floor)
         if (this.worldSystem && this.worldSystem.carpets) {
              this.worldSystem.carpets.forEach(c => c.draw(this.ctx));
@@ -1316,6 +1319,129 @@ export class Renderer {
         ctx.textBaseline = 'top';
         const floorLabel = data.floor ? `DUNGEON F${data.floor}` : 'DUNGEON';
         ctx.fillText(floorLabel, mx + MINIMAP_SIZE / 2, my - 2);
+
+        ctx.restore();
+    }
+
+    _drawAnimatedWater(viewportW, viewportH) {
+        const ws = this.worldSystem;
+        if (!ws || !ws.waterGrid || !ws.waterTiles || ws.waterTiles.size === 0) return;
+
+        const waterVariants = Assets.floors.waterAnimated;
+        if (!waterVariants) return;
+
+        const FT = 16; // FLOOR_TILE_SIZE
+        const S = 2;   // FLOOR_TILES_PER_CELL
+        const frameIdx = ws.waterAnimFrame || 0;
+
+        // Only draw water tiles visible on screen
+        const startCol = Math.floor(this.camera.x / TILE_SIZE) - 1;
+        const endCol = startCol + Math.ceil(viewportW / TILE_SIZE) + 2;
+        const startRow = Math.floor(this.camera.y / TILE_SIZE) - 1;
+        const endRow = startRow + Math.ceil(viewportH / TILE_SIZE) + 2;
+
+        const wg = ws.waterGrid;
+        const ww = ws.waterGridWidth;
+        const wh = ws.waterGridHeight;
+        const depthMap = ws.waterDepthMap;
+
+        for (let ty = startRow; ty <= endRow; ty++) {
+            for (let tx = startCol; tx <= endCol; tx++) {
+                if (tx < 0 || tx >= ww || ty < 0 || ty >= wh) continue;
+                if (wg[ty * ww + tx] !== 1) continue;
+
+                const depth = depthMap ? depthMap[ty * ww + tx] : 2;
+                // Select variant based on tile position (deterministic)
+                const vi = ((tx * 7 + ty * 13) & 0xFFFF) % waterVariants.length;
+                const frames = waterVariants[vi];
+                const frame = frames[frameIdx % frames.length];
+
+                // Draw the animated water tile over each sub-tile in this cell
+                for (let dy = 0; dy < S; dy++) {
+                    for (let dx = 0; dx < S; dx++) {
+                        const px = tx * TILE_SIZE + dx * FT;
+                        const py = ty * TILE_SIZE + dy * FT;
+                        this.ctx.drawImage(frame, px, py);
+                    }
+                }
+
+                // Shore foam overlay for tiles adjacent to land
+                if (depth === 1) {
+                    this._drawShoreFoam(tx, ty, wg, ww, wh, frameIdx);
+                }
+            }
+        }
+    }
+
+    _drawShoreFoam(tx, ty, waterGrid, ww, wh, frameIdx) {
+        const ctx = this.ctx;
+        const time = frameIdx * Math.PI * 0.5; // phase shift per frame
+        const px = tx * TILE_SIZE;
+        const py = ty * TILE_SIZE;
+
+        // Check which sides face land
+        const top = (ty > 0 && waterGrid[(ty - 1) * ww + tx] === 0);
+        const bottom = (ty < wh - 1 && waterGrid[(ty + 1) * ww + tx] === 0);
+        const left = (tx > 0 && waterGrid[ty * ww + (tx - 1)] === 0);
+        const right = (tx < ww - 1 && waterGrid[ty * ww + (tx + 1)] === 0);
+
+        if (!top && !bottom && !left && !right) return;
+
+        ctx.save();
+        const foamAlpha = 0.5 + Math.sin(time) * 0.15;
+        ctx.globalAlpha = foamAlpha;
+
+        const foamColor = '#c8e0f0';
+        const highlightColor = '#8ecae6';
+        ctx.fillStyle = foamColor;
+
+        if (top) {
+            for (let x = 0; x < TILE_SIZE; x += 2) {
+                const oy = Math.round(Math.sin(time + x * 0.4) * 1.5);
+                ctx.fillRect(px + x, py + Math.max(0, oy), 2, 2);
+            }
+            ctx.fillStyle = highlightColor;
+            for (let x = 1; x < TILE_SIZE; x += 4) {
+                const oy = Math.round(Math.sin(time + x * 0.4) * 1.5);
+                ctx.fillRect(px + x, py + Math.max(0, oy) + 2, 2, 1);
+            }
+            ctx.fillStyle = foamColor;
+        }
+        if (bottom) {
+            for (let x = 0; x < TILE_SIZE; x += 2) {
+                const oy = Math.round(Math.sin(time + x * 0.4) * 1.5);
+                ctx.fillRect(px + x, py + TILE_SIZE - 2 - Math.max(0, oy), 2, 2);
+            }
+            ctx.fillStyle = highlightColor;
+            for (let x = 1; x < TILE_SIZE; x += 4) {
+                const oy = Math.round(Math.sin(time + x * 0.4) * 1.5);
+                ctx.fillRect(px + x, py + TILE_SIZE - 4 - Math.max(0, oy), 2, 1);
+            }
+            ctx.fillStyle = foamColor;
+        }
+        if (left) {
+            for (let y = 0; y < TILE_SIZE; y += 2) {
+                const ox = Math.round(Math.sin(time + y * 0.4) * 1.5);
+                ctx.fillRect(px + Math.max(0, ox), py + y, 2, 2);
+            }
+            ctx.fillStyle = highlightColor;
+            for (let y = 1; y < TILE_SIZE; y += 4) {
+                const ox = Math.round(Math.sin(time + y * 0.4) * 1.5);
+                ctx.fillRect(px + Math.max(0, ox) + 2, py + y, 1, 2);
+            }
+            ctx.fillStyle = foamColor;
+        }
+        if (right) {
+            for (let y = 0; y < TILE_SIZE; y += 2) {
+                const ox = Math.round(Math.sin(time + y * 0.4) * 1.5);
+                ctx.fillRect(px + TILE_SIZE - 2 - Math.max(0, ox), py + y, 2, 2);
+            }
+            ctx.fillStyle = highlightColor;
+            for (let y = 1; y < TILE_SIZE; y += 4) {
+                const ox = Math.round(Math.sin(time + y * 0.4) * 1.5);
+                ctx.fillRect(px + TILE_SIZE - 4 - Math.max(0, ox), py + y, 1, 2);
+            }
+        }
 
         ctx.restore();
     }

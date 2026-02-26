@@ -1,5 +1,6 @@
 import { PixelDraw } from '../../utils/PixelDraw.js';
 import { FloorPalette as P } from './FloorPalette.js';
+import { createWaterSprites } from './WaterSprites.js';
 
 /**
  * Deterministic pseudo-random scatter for pixel placement.
@@ -225,11 +226,17 @@ function createStoneVariant(seed) {
 export function createFloorSprites() {
     const seeds = [7, 31, 53, 89]; // 4 deterministic seeds per variant
 
+    // Water: use frame 0 of each variant for the static floorCanvas
+    const waterVariants = createWaterSprites();
+    const waterStatic = waterVariants.map(frames => frames[0]);
+
     return {
         grass: seeds.map(s => createGrassVariant(s)),
         wood: seeds.map(s => createWoodVariant(s)),
         concrete: seeds.map(s => createConcreteVariant(s)),
         dirt: seeds.map(s => createDirtVariant(s)),
-        stone: seeds.map(s => createStoneVariant(s))
+        stone: seeds.map(s => createStoneVariant(s)),
+        water: waterStatic,
+        waterAnimated: waterVariants
     };
 }

@@ -151,7 +151,7 @@ export class Vehicle {
         }
     }
 
-    update(input, walls, particles, breakableObjects, enemies, player, camera, combatSystem, vehicles, dt = 1) {
+    update(input, walls, particles, breakableObjects, enemies, player, camera, combatSystem, vehicles, dt = 1, worldSystem = null) {
         if (this.isDead) return;
 
         if (this.controlled && input) {
@@ -197,6 +197,11 @@ export class Vehicle {
             
             // Check Walls
             let blocked = this._checkCollision(nextX, nextY, walls);
+
+            // Check Water (lakes)
+            if (!blocked && worldSystem && worldSystem.isWaterAt) {
+                blocked = worldSystem.isWaterAt(nextX, nextY);
+            }
 
             // Check Vehicles
             if (!blocked && vehicles) {

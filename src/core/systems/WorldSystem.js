@@ -19,6 +19,7 @@ import { generateConstructionLayout } from './generation/ConstructionLayoutGener
 import { generateDungeonLayout } from './generation/DungeonLayoutGenerator.js';
 import { DungeonManager } from './DungeonManager.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
+import { generateLakes, computeDepthMap, paintLakesOnFloorMap } from './generation/LakeGenerator.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
 import { ObstacleSpatialIndex } from './ObstacleSpatialIndex.js';
 import {
@@ -72,6 +73,14 @@ export class WorldSystem {
         this.floorMapHeight = 0;
         this.floorCanvas = null;
         this.generatedLayoutMeta = null;
+        // Lake / water system
+        this.waterGrid = null;     // Uint8Array tile-resolution (1=water, 0=land)
+        this.waterGridWidth = 0;
+        this.waterGridHeight = 0;
+        this.waterDepthMap = null;  // Uint8Array tile-resolution depth from shore
+        this.waterTiles = null;     // Set<string> of "x,y" tile keys
+        this.waterAnimFrame = 0;    // current animation frame index
+        this.waterAnimTimer = 0;    // frame counter for animation
         this.soldierWeaponPool = null;
         this.roomWeaponPool = null;
         this.obstacleIndex = new ObstacleSpatialIndex({
@@ -101,6 +110,13 @@ export class WorldSystem {
         this.floorMapHeight = 0;
         this.floorCanvas = null;
         this.generatedLayoutMeta = null;
+        this.waterGrid = null;
+        this.waterGridWidth = 0;
+        this.waterGridHeight = 0;
+        this.waterDepthMap = null;
+        this.waterTiles = null;
+        this.waterAnimFrame = 0;
+        this.waterAnimTimer = 0;
         this.markWorldStaticDirty();
         if (this.obstacleIndex) {
             this.obstacleIndex.clear();
@@ -286,13 +302,14 @@ export class WorldSystem {
 
     initConstructionMap() {
         this.applyGeneratedLayout();
+        this.generateLakes();
 
         // Return Portal
         this.portals.push(new Portal(
-            100, 
-            100, 
-            'hub', 
-            'HUB', 
+            100,
+            100,
+            'hub',
+            'HUB',
             '#9b59b6'
         ));
     }
@@ -481,8 +498,139 @@ export class WorldSystem {
         // Game scene now uses the same building pipeline as construction scene.
         // No reserved portal area is needed here.
         this.applyGeneratedLayout({ reservedRects: [] });
+        this.generateLakes();
         this.spawnRoomWeaponDrops();
         this.spawnGameEncounters();
+    }
+
+    /**
+     * Generate procedural lakes and paint them onto the floor map.
+     * Excludes areas around buildings, player spawn, portals, and existing objects.
+     */
+    generateLakes() {
+        if (!this.floorMap) return;
+
+        // Build exclusion zones from buildings and objects
+        const excludeRects = [];
+        const excludeTiles = new Set();
+
+        // Exclude boundary (first/last 3 tiles)
+        excludeRects.push({ x: 0, y: 0, w: MAP_WIDTH, h: 3 });
+        excludeRects.push({ x: 0, y: MAP_HEIGHT - 3, w: MAP_WIDTH, h: 3 });
+        excludeRects.push({ x: 0, y: 0, w: 3, h: MAP_HEIGHT });
+        excludeRects.push({ x: MAP_WIDTH - 3, y: 0, w: 3, h: MAP_HEIGHT });
+
+        // Exclude area around player spawn (5 tile radius)
+        const spawnTX = Math.floor(this.player.x / TILE_SIZE);
+        const spawnTY = Math.floor(this.player.y / TILE_SIZE);
+        excludeRects.push({
+            x: spawnTX - 5, y: spawnTY - 5, w: 11, h: 11
+        });
+
+        // Exclude area around portals
+        for (const p of this.portals) {
+            const ptx = Math.floor(p.x / TILE_SIZE);
+            const pty = Math.floor(p.y / TILE_SIZE);
+            excludeRects.push({ x: ptx - 3, y: pty - 3, w: 7, h: 7 });
+        }
+
+        // Exclude tiles that have non-GRASS floor types (buildings, roads etc.)
+        const S = FLOOR_TILES_PER_CELL;
+        for (let ty = 0; ty < MAP_HEIGHT; ty++) {
+            for (let tx = 0; tx < MAP_WIDTH; tx++) {
+                // Check all sub-tiles in this cell
+                let hasNonGrass = false;
+                for (let dy = 0; dy < S && !hasNonGrass; dy++) {
+                    for (let dx = 0; dx < S && !hasNonGrass; dx++) {
+                        const sx = tx * S + dx;
+                        const sy = ty * S + dy;
+                        if (sx < this.floorMapWidth && sy < this.floorMapHeight) {
+                            const floorType = this.floorMap[sy * this.floorMapWidth + sx];
+                            if (floorType !== FLOOR_TYPES.GRASS && floorType !== FLOOR_TYPES.NONE) {
+                                hasNonGrass = true;
+                            }
+                        }
+                    }
+                }
+                if (hasNonGrass) {
+                    // Exclude this tile and a 2-tile buffer around it
+                    for (let by = -2; by <= 2; by++) {
+                        for (let bx = -2; bx <= 2; bx++) {
+                            excludeTiles.add(`${tx + bx},${ty + by}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Exclude tiles with breakable objects (and buffer)
+        for (const obj of this.breakableObjects) {
+            const otx = Math.floor(obj.x / TILE_SIZE);
+            const oty = Math.floor(obj.y / TILE_SIZE);
+            for (let by = -2; by <= 2; by++) {
+                for (let bx = -2; bx <= 2; bx++) {
+                    excludeTiles.add(`${otx + bx},${oty + by}`);
+                }
+            }
+        }
+
+        const result = generateLakes({
+            mapWidth: MAP_WIDTH,
+            mapHeight: MAP_HEIGHT,
+            seed: Math.floor(Math.random() * 999999),
+            threshold: -0.05,
+            frequency: 0.04,
+            smoothPasses: 4,
+            minLakeSize: 15,
+            excludeTiles,
+            excludeRects
+        });
+
+        this.waterTiles = result.waterTiles;
+        this.waterGrid = result.waterGrid;
+        this.waterGridWidth = result.gridWidth;
+        this.waterGridHeight = result.gridHeight;
+        this.waterDepthMap = computeDepthMap(result.waterGrid, result.gridWidth, result.gridHeight);
+
+        // Paint water onto the floor map
+        paintLakesOnFloorMap(this.floorMap, this.floorMapWidth, this.floorMapHeight, this.waterTiles);
+
+        // Rebuild the floor canvas
+        this.buildFloorCanvas();
+    }
+
+    /**
+     * Check if a world-coordinate position is on a water tile.
+     * @param {number} worldX
+     * @param {number} worldY
+     * @returns {boolean}
+     */
+    isWaterAt(worldX, worldY) {
+        if (!this.waterGrid) return false;
+        const tx = Math.floor(worldX / TILE_SIZE);
+        const ty = Math.floor(worldY / TILE_SIZE);
+        if (tx < 0 || tx >= this.waterGridWidth || ty < 0 || ty >= this.waterGridHeight) return false;
+        return this.waterGrid[ty * this.waterGridWidth + tx] === 1;
+    }
+
+    /**
+     * Check if any part of a rect overlaps water tiles.
+     * @param {{ x: number, y: number, width: number, height: number }} rect
+     * @returns {boolean}
+     */
+    isRectOnWater(rect) {
+        if (!this.waterGrid) return false;
+        const startTX = Math.floor(rect.x / TILE_SIZE);
+        const endTX = Math.floor((rect.x + rect.width - 1) / TILE_SIZE);
+        const startTY = Math.floor(rect.y / TILE_SIZE);
+        const endTY = Math.floor((rect.y + rect.height - 1) / TILE_SIZE);
+        for (let ty = startTY; ty <= endTY; ty++) {
+            for (let tx = startTX; tx <= endTX; tx++) {
+                if (tx < 0 || tx >= this.waterGridWidth || ty < 0 || ty >= this.waterGridHeight) continue;
+                if (this.waterGrid[ty * this.waterGridWidth + tx] === 1) return true;
+            }
+        }
+        return false;
     }
 
     initDungeonMap(floor = 1) {
@@ -999,6 +1147,7 @@ export class WorldSystem {
     isRectBlocked(rect, options = {}) {
         const ignoreObject = options.ignoreObject || null;
         const skipOpenDoors = options.skipOpenDoors || false;
+        const skipWater = options.skipWater || false;
         const canUseIndex = this.obstacleIndex && !this.worldStaticDirty;
         const indexCandidates = canUseIndex ? this.obstacleIndex.queryRect(rect) : null;
 
@@ -1013,6 +1162,10 @@ export class WorldSystem {
                 if (this.checkRectCollision(rect, entry.rect)) {
                     return true;
                 }
+            }
+            // Water check (when using spatial index — walls/objects already checked above)
+            if (!skipWater && this.isRectOnWater(rect)) {
+                return true;
             }
             return false;
         }
@@ -1033,6 +1186,12 @@ export class WorldSystem {
                 }
             }
         }
+
+        // Water collision — blocks movement like walls
+        if (!skipWater && this.isRectOnWater(rect)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1182,6 +1341,29 @@ export class WorldSystem {
                                 this.navGrid.wallGrid.set(key, list);
                             }
                             list.push(hitbox);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Block water tiles for enemy pathfinding
+        if (this.waterGrid) {
+            for (let ty = 0; ty < this.waterGridHeight; ty++) {
+                for (let tx = 0; tx < this.waterGridWidth; tx++) {
+                    if (this.waterGrid[ty * this.waterGridWidth + tx] !== 1) continue;
+                    // Mark all nav grid cells covered by this water tile as blocked
+                    const wxStart = Math.floor((tx * TILE_SIZE) / gs);
+                    const wxEnd = Math.floor(((tx + 1) * TILE_SIZE - 1) / gs);
+                    const wyStart = Math.floor((ty * TILE_SIZE) / gs);
+                    const wyEnd = Math.floor(((ty + 1) * TILE_SIZE - 1) / gs);
+                    for (let gx = wxStart; gx <= wxEnd; gx++) {
+                        for (let gy = wyStart; gy <= wyEnd; gy++) {
+                            if (gx < 0 || gx >= cols || gy < 0 || gy >= this.navGrid.gridRows) continue;
+                            const idx = gy * cols + gx;
+                            if (idx >= 0 && idx < this.navGrid.wallBlocked.length) {
+                                this.navGrid.wallBlocked[idx] = 1;
+                            }
                         }
                     }
                 }

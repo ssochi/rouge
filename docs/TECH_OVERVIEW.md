@@ -14,7 +14,7 @@
     - objects/furniture/: 家具程序化素材（统一使用高品质 5 层绘制标准：有机形状+轮廓线+内部细节+右侧阴影叠加+左上高光，共享 `FurniturePalette.js` 色板；卫浴家具使用独立 `BathroomPalette.js` 瓷器/铬色板）。包含：沙发、电视柜、桌子、书架、床头柜、衣柜、扶手椅、落地灯、盆栽、矮柜、马桶、浴缸、洗手台、书桌、椅子、梳妆台、洗衣机、落地钟、钢琴、酒架、衣帽架、鱼缸(程序化动画)、工作台。
     - `objects/nature/`: 户外植被程序化素材（`NaturePalette.js` 共享色板 + 大树/小树/灌木/草丛精灵，使用 PixelDraw 绘制多层有机形状）。
     - `objects/WallTexture.js`: 墙体/门框共享纹理工具（`addBlockTexture` 砌体灰缝纹理 + `WALL_COLORS` 混凝土色板），被 `AdaptiveWallSprite.js`、`WallSprite.js`、`DoorSprite.js` 共用。
-    - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 4 种地板 × 4 变体 = 16 个 16×16 程序化精灵）。
+    - `floors/`: 地板瓦片素材（`FloorPalette.js` 色板 + `FloorSprites.js` 5 种地板 × 4 变体 + 水面 4 变体 × 4 帧动画 = 程序化 16×16 精灵；`WaterSprites.js` 水面动画帧生成）。
     - `items/`: 消耗品与通用道具素材（如 `RecoveryNeedleSprite.js`、`PetDogItemSprite.js`、`PetCatItemSprite.js`、`Pet2BItemSprite.js`）。
     - `weapons/`: 武器程序化素材与武器配置（如 `WeaponData.js`、`ShotgunGenerator.js`、`SniperGenerator.js`、`CrossbowGenerator.js`、`GrenadeLauncherGenerator.js`、`LaserGunGenerator.js`、`FlamethrowerGenerator.js`、`BlackHoleGunGenerator.js`、`TeleportGunGenerator.js`、`LightningGunGenerator.js`、`FreezeRayGenerator.js`、`RicochetGunGenerator.js`、`BoomerangGenerator.js`、`KatanaGenerator.js`、`DaggerGenerator.js`、`GreatswordGenerator.js`、`SpearGenerator.js`、`BattleAxeGenerator.js`、`PlasmaRifleGenerator.js`、`HomingLauncherGenerator.js`、`AcidGunGenerator.js`、`ClusterGunGenerator.js`、`ForceGunGenerator.js`、`VampyreGunGenerator.js`、`NeedleGunGenerator.js`、`RailgunGenerator.js`、`TurretDeployerGenerator.js`、`LaserRifleGenerator.js`、`LaserShotgunGenerator.js`）。
   - `core/`: **核心游戏逻辑**。
@@ -178,6 +178,7 @@
   - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
   - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
   - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛）与少量户外杂物（箱子/木桶/罐子）。植被遵守建筑缓冲区与最小间距，并基于 `floorMap` 仅在 `GRASS`/`DIRT` 子格对应地块生成；杂物仅在建筑外侧近墙环带的草地上低概率生成，避免出现在水泥路、木地板或建筑内部。
+  - `LakeGenerator`: 在布局完成后生成程序化湖泊，自动排除建筑/路面/出生点/传送门区域，详见"程序化湖泊系统"章节。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。
@@ -201,12 +202,29 @@
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
-- 5 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5，地牢石砖)，NONE(0) 使用棋盘格 fallback。
+- 6 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5，地牢石砖)、WATER(6，湖泊水面)，NONE(0) 使用棋盘格 fallback。
 - 数据存储：`WorldSystem.floorMap`（Uint8Array 100×100）+ `WorldSystem.floorCanvas`（预渲染离屏 Canvas）。
 - 渲染：Renderer 对有 `floorCanvas` 的地图做单次 `drawImage` 裁剪，无 `floorCanvas` 时保留棋盘格。
 - 类型边界目前无过渡效果，直接拼接。
 - 外围墙体子格按内外分裂：内侧 WOOD、外侧 CONCRETE，确保墙两侧地面不同。
 - 详见 `docs/feature/FLOOR_TILE_SYSTEM.md`。
+
+### 程序化湖泊系统
+- **生成模块**：`generation/LakeGenerator.js`，使用 Perlin 噪声（自实现 `SimpleNoise2D`）+ 细胞自动机平滑生成自然形状的湖泊。
+- **生成流程**：
+  1. FBM 分形噪声生成高度图 → 阈值化得到原始水域掩码。
+  2. 4 轮细胞自动机平滑（5/9 邻域规则），消除噪点、平滑岸线。
+  3. 排除区：建筑及周围缓冲区、玩家出生点、传送门、地图边界、非草地地块。
+  4. 连通分量分析（洪水填充），移除面积小于 15 tile 的微型水域。
+  5. 深度图计算（BFS 从岸边扩散），用于渲染深浅水面差异。
+- **水面素材**：`assets/floors/WaterSprites.js` 使用 `PixelDraw` 程序化生成 4 个变体 × 4 帧动画水面瓦片，含正弦波纹、高光点、深水暗影。
+- **动画渲染**：`Renderer._drawAnimatedWater()` 每帧覆盖可见区域的水面瓦片（~6 FPS 帧循环），岸线水面 tile 叠加泡沫效果（`_drawShoreFoam()`：正弦偏移白色像素 + 高光像素）。
+- **碰撞阻挡**：
+  - 玩家/敌人：`WorldSystem.isRectBlocked()` 中增加 `isRectOnWater()` 检测，水面视同墙壁阻挡移动。
+  - 车辆：`Vehicle.update()` 中检测 `worldSystem.isWaterAt()` 阻挡行驶。
+  - 敌人寻路：`WorldSystem.updateFlowField()` 将水面 tile 标记为 `wallBlocked`，敌人不会尝试穿越湖泊。
+  - 敌人/物品不会在水面上生成。
+- **适用地图**：`game`（战斗场景）和 `construction`（建造场景），`hub`/`dungeon` 无湖泊。
 
 ### 规范
 - **素材分离**: 所有美术资源定义必须在 `src/assets` 中。
