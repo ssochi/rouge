@@ -12,6 +12,7 @@ export class InputHandler {
             o: false, // Spawn Nearby Vehicle
             b: false, // Backpack
             l: false, // Test Panel
+            m: false, // Shortcut Menu
             p: false, // Debug Toggle
             escape: false, // Close overlay
             space: false,

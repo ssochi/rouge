@@ -45,12 +45,16 @@ export class UIManager {
         this.costumeSystem = null;
         this.player = null;
 
+        // Shortcut Menu
+        this.initShortcutMenu();
+
         // Callbacks
         this.onInventorySlotClick = null; // (index, isRightClick, isShift)
         this.onDropItem = null; // (itemData) -> void
         this.onHotbarSlotClick = null; // (index) -> void
         this.onCloseInventory = null; // () -> void
         this.onCostumeChanged = null; // () -> void
+        this.onCloseShortcutMenu = null; // () -> void
     }
 
     /**
@@ -1031,17 +1035,158 @@ export class UIManager {
 
     /**
      * 添加日志消息
-     * @param {string} msg 
+     * @param {string} msg
      */
     log(msg) {
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.innerText = msg;
         this.messageContainer.appendChild(entry);
-        
+
         // Remove after animation
         setTimeout(() => {
             entry.remove();
         }, 3000);
+    }
+
+    // ===== Shortcut Menu =====
+
+    initShortcutMenu() {
+        this.shortcutMenuOverlay = document.createElement('div');
+        this.shortcutMenuOverlay.id = 'shortcut-menu-overlay';
+        this.shortcutMenuOverlay.className = 'hidden';
+
+        this.shortcutMenuWindow = document.createElement('div');
+        this.shortcutMenuWindow.className = 'shortcut-menu-window';
+
+        // Header
+        this.shortcutMenuHeaderEl = document.createElement('div');
+        this.shortcutMenuHeaderEl.className = 'shortcut-menu-header';
+        this.shortcutMenuHeaderEl.innerText = 'MENU';
+        this.shortcutMenuWindow.appendChild(this.shortcutMenuHeaderEl);
+
+        // Main grid (action items)
+        this.shortcutMenuGrid = document.createElement('div');
+        this.shortcutMenuGrid.className = 'shortcut-menu-grid';
+        this.shortcutMenuWindow.appendChild(this.shortcutMenuGrid);
+
+        // Keybind list (sub-panel, hidden by default)
+        this.keybindList = document.createElement('div');
+        this.keybindList.className = 'keybind-list';
+        this._buildKeybindList();
+        this.shortcutMenuWindow.appendChild(this.keybindList);
+
+        this.shortcutMenuOverlay.appendChild(this.shortcutMenuWindow);
+        document.body.appendChild(this.shortcutMenuOverlay);
+
+        // Click overlay background to close
+        this.shortcutMenuOverlay.addEventListener('mousedown', (e) => {
+            if (e.target === this.shortcutMenuOverlay) {
+                if (this.onCloseShortcutMenu) this.onCloseShortcutMenu();
+            }
+        });
+
+        this.shortcutMenuItems = [];
+    }
+
+    _buildKeybindList() {
+        const keybinds = [
+            { key: 'W/A/S/D', desc: '移动' },
+            { key: 'Mouse', desc: '射击 / 使用物品' },
+            { key: 'E', desc: '交互 / 拾取' },
+            { key: 'Q', desc: '快速切换武器' },
+            { key: 'R', desc: '换弹' },
+            { key: 'Space', desc: '翻滚闪避' },
+            { key: '1-9', desc: '快捷栏选择' },
+            { key: 'B', desc: '打开背包' },
+            { key: 'M', desc: '快捷菜单' },
+            { key: 'O', desc: '召唤载具' },
+            { key: 'I', desc: '性能面板' },
+            { key: 'L', desc: '调试面板' },
+            { key: 'P', desc: '碰撞显示' },
+        ];
+
+        for (const kb of keybinds) {
+            const row = document.createElement('div');
+            row.className = 'keybind-row';
+
+            const badge = document.createElement('span');
+            badge.className = 'shortcut-key-badge';
+            badge.innerText = kb.key;
+            row.appendChild(badge);
+
+            const desc = document.createElement('span');
+            desc.className = 'keybind-row-desc';
+            desc.innerText = kb.desc;
+            row.appendChild(desc);
+
+            this.keybindList.appendChild(row);
+        }
+
+        // Back button
+        const backBtn = document.createElement('div');
+        backBtn.className = 'shortcut-menu-back-btn';
+        backBtn.innerText = '< BACK';
+        backBtn.addEventListener('click', () => {
+            this._showMenuGrid();
+        });
+        this.keybindList.appendChild(backBtn);
+    }
+
+    setShortcutMenuItems(items) {
+        this.shortcutMenuItems = items;
+        this.shortcutMenuGrid.innerHTML = '';
+
+        for (const item of items) {
+            const el = document.createElement('div');
+            el.className = 'shortcut-menu-item';
+
+            const badge = document.createElement('span');
+            badge.className = 'shortcut-key-badge';
+            badge.innerText = item.key;
+            el.appendChild(badge);
+
+            const label = document.createElement('span');
+            label.className = 'shortcut-label';
+            label.innerText = item.label;
+            el.appendChild(label);
+
+            const desc = document.createElement('span');
+            desc.className = 'shortcut-desc';
+            desc.innerText = item.desc;
+            el.appendChild(desc);
+
+            el.addEventListener('click', () => {
+                if (item.action === 'showKeybinds') {
+                    this._showKeybindList();
+                } else if (typeof item.action === 'function') {
+                    if (this.onCloseShortcutMenu) this.onCloseShortcutMenu();
+                    item.action();
+                }
+            });
+
+            this.shortcutMenuGrid.appendChild(el);
+        }
+    }
+
+    _showKeybindList() {
+        this.shortcutMenuGrid.style.display = 'none';
+        this.keybindList.classList.add('active');
+        this.shortcutMenuHeaderEl.innerText = 'KEYBINDS';
+    }
+
+    _showMenuGrid() {
+        this.keybindList.classList.remove('active');
+        this.shortcutMenuGrid.style.display = '';
+        this.shortcutMenuHeaderEl.innerText = 'MENU';
+    }
+
+    toggleShortcutMenu(visible) {
+        if (visible) {
+            this._showMenuGrid();
+            this.shortcutMenuOverlay.classList.remove('hidden');
+        } else {
+            this.shortcutMenuOverlay.classList.add('hidden');
+        }
     }
 }
