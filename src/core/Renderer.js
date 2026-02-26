@@ -1149,20 +1149,28 @@ export class Renderer {
         const x = (canvasW - BAR_W) / 2;
         const y = 20;
 
+        // Read boss config or use defaults (backward compatible)
+        const bossName = boss.name || 'BOSS';
+        const defaultPhaseColors = ['#4a7c59', '#8b3a3a', '#5c2d82'];
+        const defaultPhaseNames = ['I', 'II', 'III'];
+        const defaultPhaseMarkers = [0.6, 0.25];
+        const bossPhaseColors = boss.phaseColors || defaultPhaseColors;
+        const bossPhaseNames = boss.phaseNames || defaultPhaseNames;
+        const bossPhaseMarkers = boss.phaseMarkers || defaultPhaseMarkers;
+
         ctx.save();
 
         // Name
         ctx.font = '14px monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fff';
-        ctx.fillText('MUTANT BEAST', canvasW / 2, y - 4);
+        ctx.fillText(bossName, canvasW / 2, y - 4);
 
         // Phase indicator
-        const phaseColors = ['#4a7c59', '#8b3a3a', '#5c2d82'];
-        const phaseNames = ['I', 'II', 'III'];
         ctx.font = '10px monospace';
-        ctx.fillStyle = phaseColors[boss.phase - 1] || '#fff';
-        ctx.fillText('Phase ' + phaseNames[boss.phase - 1], canvasW / 2, y + BAR_H + 14);
+        ctx.fillStyle = bossPhaseColors[boss.phase - 1] || '#fff';
+        const phaseName = bossPhaseNames[boss.phase - 1] || boss.phase;
+        ctx.fillText('Phase ' + phaseName, canvasW / 2, y + BAR_H + 14);
 
         // Bar background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -1170,21 +1178,17 @@ export class Renderer {
 
         // HP fill
         const hpRatio = Math.max(0, boss.hp / boss.maxHp);
-        const fillColor = boss.phase === 1 ? '#4a7c59'
-            : boss.phase === 2 ? '#c0392b'
-            : '#8e44ad';
+        const fillColor = bossPhaseColors[boss.phase - 1] || '#4a7c59';
         ctx.fillStyle = fillColor;
         ctx.fillRect(x, y, BAR_W * hpRatio, BAR_H);
 
         // Phase transition markers
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.lineWidth = 1;
-        // 60% marker
-        const mark60 = x + BAR_W * 0.6;
-        ctx.beginPath(); ctx.moveTo(mark60, y); ctx.lineTo(mark60, y + BAR_H); ctx.stroke();
-        // 25% marker
-        const mark25 = x + BAR_W * 0.25;
-        ctx.beginPath(); ctx.moveTo(mark25, y); ctx.lineTo(mark25, y + BAR_H); ctx.stroke();
+        for (const marker of bossPhaseMarkers) {
+            const mx = x + BAR_W * marker;
+            ctx.beginPath(); ctx.moveTo(mx, y); ctx.lineTo(mx, y + BAR_H); ctx.stroke();
+        }
 
         // Border
         ctx.strokeStyle = '#aaa';
