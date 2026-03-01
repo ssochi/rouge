@@ -91,6 +91,11 @@ export class SnakeBoss extends Enemy {
         // External references
         this.worldSystem = null;
         this.combatSystem = null;
+
+        this._lightOccluderCanvas = document.createElement('canvas');
+        this._lightOccluderCanvas.width = 128;
+        this._lightOccluderCanvas.height = 128;
+        this._lightOccluderCtx = this._lightOccluderCanvas.getContext('2d');
     }
 
     // ========== DAMAGE & PHASES ==========
@@ -686,6 +691,39 @@ export class SnakeBoss extends Enemy {
         this._drawStatusOverlays(ctx, drawY);
 
         ctx.restore();
+    }
+
+    getLightOccluderSprites() {
+        if (this.hp <= 0 || this.blocksLight === false || this.isUnderground) return [];
+        if (!this._lightOccluderCtx) return [];
+
+        const oc = this._lightOccluderCtx;
+        const size = this._lightOccluderCanvas.width;
+        const center = size / 2;
+        oc.clearRect(0, 0, size, size);
+
+        oc.save();
+        oc.translate(center, center);
+
+        const drawY = -this.heightZ;
+        const colors = this._getColors();
+        const pulsePhase = (this.animationTimer % 64) / 64;
+        const pulseT = 0.5 + 0.5 * Math.sin(pulsePhase * Math.PI * 2);
+        const jawOpen = this._getJawOpen();
+        this._drawHeadLayers(oc, drawY, colors, pulseT, jawOpen);
+        oc.restore();
+
+        return [{
+            kind: 'sprite',
+            sprite: this._lightOccluderCanvas,
+            pivotX: this.x,
+            pivotY: this.y,
+            originX: center,
+            originY: center,
+            rotation: 0,
+            flipX: false,
+            forceMaskRefresh: true
+        }];
     }
 
     // ========== MULTI-LAYER HELPERS ==========

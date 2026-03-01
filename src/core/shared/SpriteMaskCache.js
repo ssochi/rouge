@@ -192,10 +192,12 @@ function buildUnionFrame(frames) {
 export class SpriteMaskCache {
     constructor() {
         this._cache = new Map();
+        this._canvasFrameCache = new WeakMap();
     }
 
     clear() {
         this._cache.clear();
+        this._canvasFrameCache = new WeakMap();
     }
 
     _buildTypeData(type) {
@@ -240,6 +242,27 @@ export class SpriteMaskCache {
             union: data.union,
             frameCount
         };
+    }
+
+    getFrameDataForCanvas(canvas, forceRefresh = false) {
+        if (!hasCanvasShape(canvas)) return null;
+
+        if (!forceRefresh) {
+            const cached = this._canvasFrameCache.get(canvas);
+            if (cached) return cached;
+        }
+
+        const frame = analyzeFrame(canvas);
+        if (!frame) return null;
+
+        const data = {
+            frameIndex: 0,
+            frameCount: 1,
+            frame,
+            union: frame
+        };
+        this._canvasFrameCache.set(canvas, data);
+        return data;
     }
 
     getFrameWorldBounds(obj) {

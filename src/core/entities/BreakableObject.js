@@ -19,6 +19,7 @@ export class BreakableObject {
         this.hitbox = { offsetX: 5, offsetY: 20, width: 22, height: 10 };
         this.hp = 20;
         this.shadow = { rx: 12, ry: 6, y: 30 };
+        this.blocksLight = true;
 
         this.def = getObjectDef(type);
         if (this.def && this.def.configure) {

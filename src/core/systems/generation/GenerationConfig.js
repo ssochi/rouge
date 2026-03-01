@@ -36,7 +36,12 @@ export const FURNITURE_CATALOG = Object.freeze({
         variants: [{ type: 'armchair', w: 1, h: 1 }]
     },
     floor_lamp: {
-        variants: [{ type: 'floor_lamp', w: 1, h: 1 }]
+        variants: [
+            { type: 'floor_lamp_warm', w: 1, h: 1 },
+            { type: 'floor_lamp_cool', w: 1, h: 1 },
+            { type: 'floor_lamp_mint', w: 1, h: 1 },
+            { type: 'floor_lamp_rose', w: 1, h: 1 }
+        ]
     },
     potted_plant: {
         variants: [{ type: 'potted_plant', w: 1, h: 1 }]

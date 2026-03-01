@@ -48,6 +48,9 @@ import { createCoatRackSprite } from '../assets/objects/furniture/CoatRackSprite
 import { createFishTankSprite } from '../assets/objects/furniture/FishTankSprite.js';
 import { createWorkbenchSprite } from '../assets/objects/furniture/WorkbenchSprite.js';
 import { createComputerDeskSprite } from '../assets/objects/furniture/ComputerDeskSprite.js';
+import { createDungeonRubbleSprite } from '../assets/objects/dungeon/DungeonRubbleSprite.js';
+import { createDungeonIronCageSprite } from '../assets/objects/dungeon/DungeonIronCageSprite.js';
+import { createDungeonBonePileSprite } from '../assets/objects/dungeon/DungeonBonePileSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -98,6 +101,11 @@ import { VAMPYRE_GUN_SPRITE } from '../assets/weapons/VampyreGunGenerator.js';
 import { NEEDLE_GUN_SPRITE } from '../assets/weapons/NeedleGunGenerator.js';
 import { RAILGUN_SPRITE } from '../assets/weapons/RailgunGenerator.js';
 import { generateTurretDeployer } from '../assets/weapons/TurretDeployerGenerator.js';
+import { GALE_SHOTGUN_SPRITE } from '../assets/weapons/GaleShotgunGenerator.js';
+import { VENOM_SPRAYER_SPRITE } from '../assets/weapons/VenomSprayerGenerator.js';
+import { STORM_REVOLVER_SPRITE } from '../assets/weapons/StormRevolverGenerator.js';
+import { METEOR_CANNON_SPRITE } from '../assets/weapons/MeteorCannonGenerator.js';
+import { PHANTOM_PISTOL_SPRITE } from '../assets/weapons/PhantomPistolGenerator.js';
 import { createTurretSprite } from '../assets/objects/TurretSprite.js';
 import {
     generateHairLongIcon, generateMessyHairIcon, generateShortHairIcon,
@@ -196,6 +204,9 @@ const coatRackSprite = createCoatRackSprite();
 const fishTankSprite = createFishTankSprite();
 const workbenchSprite = createWorkbenchSprite();
 const computerDeskSprite = createComputerDeskSprite();
+const dungeonRubbleSprite = createDungeonRubbleSprite();
+const dungeonIronCageSprite = createDungeonIronCageSprite();
+const dungeonBonePileSprite = createDungeonBonePileSprite();
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -402,6 +413,14 @@ export const Assets = {
         armchair_flash: PixelDraw.createSilhouette(armchairSprite),
         floor_lamp: floorLampSprite,
         floor_lamp_flash: PixelDraw.createSilhouette(floorLampSprite),
+        floor_lamp_warm: floorLampSprite,
+        floor_lamp_warm_flash: PixelDraw.createSilhouette(floorLampSprite),
+        floor_lamp_cool: floorLampSprite,
+        floor_lamp_cool_flash: PixelDraw.createSilhouette(floorLampSprite),
+        floor_lamp_mint: floorLampSprite,
+        floor_lamp_mint_flash: PixelDraw.createSilhouette(floorLampSprite),
+        floor_lamp_rose: floorLampSprite,
+        floor_lamp_rose_flash: PixelDraw.createSilhouette(floorLampSprite),
         potted_plant: pottedPlantSprite,
         potted_plant_flash: PixelDraw.createSilhouette(pottedPlantSprite),
         cabinet: cabinetSprite,
@@ -440,6 +459,12 @@ export const Assets = {
         workbench_flash: PixelDraw.createSilhouette(workbenchSprite),
         computer_desk: computerDeskSprite,
         computer_desk_flash: PixelDraw.createSilhouette(computerDeskSprite),
+        dungeon_rubble: dungeonRubbleSprite,
+        dungeon_rubble_flash: PixelDraw.createSilhouette(dungeonRubbleSprite),
+        dungeon_iron_cage: dungeonIronCageSprite,
+        dungeon_iron_cage_flash: PixelDraw.createSilhouette(dungeonIronCageSprite),
+        dungeon_bone_pile: dungeonBonePileSprite,
+        dungeon_bone_pile_flash: PixelDraw.createSilhouette(dungeonBonePileSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,
@@ -506,6 +531,11 @@ export const Assets = {
     needle_gun: NEEDLE_GUN_SPRITE,
     railgun: RAILGUN_SPRITE,
     turret_deployer: generateTurretDeployer(),
+    gale_shotgun: GALE_SHOTGUN_SPRITE,
+    venom_sprayer: VENOM_SPRAYER_SPRITE,
+    storm_revolver: STORM_REVOLVER_SPRITE,
+    meteor_cannon: METEOR_CANNON_SPRITE,
+    phantom_pistol: PHANTOM_PISTOL_SPRITE,
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),

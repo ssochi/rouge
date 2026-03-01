@@ -41,6 +41,9 @@ import { CoatRackObject } from './CoatRackObject.js';
 import { FishTankObject } from './FishTankObject.js';
 import { WorkbenchObject } from './WorkbenchObject.js';
 import { ComputerDeskObject } from './ComputerDeskObject.js';
+import { DungeonRubbleObject } from './DungeonRubbleObject.js';
+import { DungeonIronCageObject } from './DungeonIronCageObject.js';
+import { DungeonBonePileObject } from './DungeonBonePileObject.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -65,6 +68,10 @@ const OBJECT_DEFS = new Map([
     ['sink', SinkObject],
     ['armchair', ArmchairObject],
     ['floor_lamp', FloorLampObject],
+    ['floor_lamp_warm', FloorLampObject],
+    ['floor_lamp_cool', FloorLampObject],
+    ['floor_lamp_mint', FloorLampObject],
+    ['floor_lamp_rose', FloorLampObject],
     ['potted_plant', PottedPlantObject],
     ['cabinet', CabinetObject],
     ['fridge', FridgeObject],
@@ -87,10 +94,12 @@ const OBJECT_DEFS = new Map([
     ['coat_rack', CoatRackObject],
     ['fish_tank', FishTankObject],
     ['workbench', WorkbenchObject],
-    ['computer_desk', ComputerDeskObject]
+    ['computer_desk', ComputerDeskObject],
+    ['dungeon_rubble', DungeonRubbleObject],
+    ['dungeon_iron_cage', DungeonIronCageObject],
+    ['dungeon_bone_pile', DungeonBonePileObject]
 ]);
 
 export function getObjectDef(type) {
     return OBJECT_DEFS.get(type) || null;
 }
-

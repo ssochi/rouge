@@ -37,8 +37,8 @@
       - `Turret.js`: 炮塔实体（静态防御设施，HP 80，自动攻击范围内敌人，具有部署动画和破坏效果）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）通过 BSP 算法生成互联房间，委托 `DungeonManager` 管理运行时状态。
-      - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。
+      - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
@@ -50,17 +50,18 @@
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable/costume）。
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
-      - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：BSP 空间分割→房间放置→MST 走廊连接→房间内部布局模板→能量屏障 gate 放置→掩体生成→按楼层敌人配置预计算；`RoomInteriorTemplates.js`：6 种房间内部布局模板定义与加权随机选择）。
+      - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：中心工作区 BSP 切分→紧凑房间筛选→近邻约束 MST + 短环路→房间分类（open/cover/maze/trapline/reward/boss）→内部模板→gate 放置→掩体与装饰生成→楼层敌人配置；`RoomInteriorTemplates.js`：12 种房间内部布局模板与按分类加权选择）。
     - `lighting/`: 像素光影子系统。
-      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
-      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
-      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源）与增量缓存；物体遮挡优先使用当前显示帧的像素 mask。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。同时每帧收集玩家/敌人/车辆的挡光体并注入阴影构建。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置；`floor_lamp` 支持多色预设（warm/cool/mint/rose），实例按颜色发出对应光色。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源 + 动态实体遮挡源）与增量缓存；静态墙体/物体按哈希增量更新，动态实体（玩家/敌人/车辆）每帧刷新。物体与实体遮挡优先使用当前显示帧的像素 mask（支持翻转/旋转）。
       - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
       - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。全局规则：所有光源至少受墙/门遮挡，不允许穿墙。
       - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
+      - `EntityLightOccluderResolver.js`: 动态实体遮挡解析器，负责将玩家/敌人/车辆的当前渲染帧转换为光照遮挡描述（像素级 mask + 旋转/翻转信息）。
     - `shared/`: 跨系统共享缓存。
-      - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。
-    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角 140×140，按房间状态着色，楼层标签 F1/F2，脉冲玩家标记点）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
+      - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。新增 Canvas 级弱引用缓存，用于动态实体遮挡复用 mask 分析结果。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角拓扑节点图，visited/frontier 分层、实线/虚线连通、玩家朝向箭头、锁门脉冲高亮、F层+探索进度标签）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
     - `Camera.js`: 摄像机跟随与视口计算。
     - `Input.js`: 统一的键鼠输入处理。
@@ -188,15 +189,15 @@
 
 ### 地牢模式（dungeon / dungeon_f2）
 - 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 2 层楼层。
-- 生成流水线（`DungeonLayoutGenerator.js`）：BSP 空间分割（minRegion 20）→ 矩形房间放置（普通房 14~22 tiles，Boss 房 20~24 tiles，起始房 10~14 tiles）→ Prim MST 走廊连接（使用 `closestEdgePoints()` 边缘最近点，走廊更短）+ 1~2 条额外环路 → 房间内部布局模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间内掩体生成（box/barrel/explosive_barrel，数量按面积缩放）→ BFS 计算房间深度 → 按深度和楼层分配敌人配置。
-- 房间内部布局模板（`RoomInteriorTemplates.js`）：为每个非起始房间选择一种布局模板，生成永久墙体结构作为掩体。6 种模板：`pillars`（四柱阵列）、`center_divide`（中央隔墙+开口）、`l_alcoves`（L 型凹室墙段）、`cross`（十字分割四象限）、`arena`（Boss 房环形矮墙桩）、`corridors`（平行墙 S 形通道）。模板选择采用加权随机，已使用模板权重减半以促进多样性。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。
+- 生成流水线（`DungeonLayoutGenerator.js`）：中心 `80x80` 工作区 BSP 切分（minRegion 14）→ 紧凑房间筛选（10~14 间，普通房 10~16 tiles）→ 近邻约束 MST（K近邻 + 短边阈值）+ 1~2 条短环路 → 房间分类（`combat_open/combat_cover/combat_maze/challenge_trapline/reward/boss_arena`）→ 房间内部模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间掩体（box/barrel/explosive_barrel）与装饰（`dungeon_rubble/dungeon_iron_cage/dungeon_bone_pile`）生成 → BFS 深度计算 → 按深度/分类/楼层分配敌人配置。生成带质量门限与自动重试，约束走廊均长与极值。
+- 房间内部布局模板（`RoomInteriorTemplates.js`）：为非起始房间按“类型+分类”选择布局模板，生成永久墙体结构作为掩体。当前 12 种模板：`pillars`、`center_divide`、`l_alcoves`、`cross`、`corridors`、`offset_pillars`、`checker_blocks`、`broken_ring`、`zigzag_walls`、`gate_channels`、`arena`、`boss_spokes`。模板选择采用加权随机，已使用模板权重减半以促进多样性。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。
 - 房间类型：`start`（起始安全区+返回传送门）、`normal`（战斗房+内部墙体结构+掩体物品）、`boss`（距起始房最远的房间，Boss + 小怪+竞技场布局+掩体）。
-- 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 30% 概率掉武器 + 50% 概率掉消耗品。
+- 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 30% 概率掉武器 + 50% 概率掉消耗品。新增小地图可见性模型：`visited + frontier`。
 - 能量屏障门系统：不使用 BreakableObject，而是在 `DungeonManager.gates[]` 中管理。激活时动态往 `worldSystem.walls[]` 添加墙体 rect 阻挡通行，清除时移除。`Renderer._drawEnergyBarrier()` 绘制蓝紫色半透明屏障（竖条纹脉冲+水平能量带+角落光点）。
 - 楼层系统：F1 Boss 清除后在房间中心生成绿色"FLOOR 2"传送门 → 进入 `dungeon_f2` 地图 → F2 Boss 清除后生成金色"VICTORY"传送门回 Hub。
 - F1 敌人：depth 1-2 僵尸系、depth 3-4 混合（+brute/hunter）、depth 5+ 精英（brute/hunter/soldier），Boss = mutant_beast。
 - F2 敌人（更强）：depth 1-2 zombie_female/brute/hunter、depth 3-4 brute/hunter/soldier、depth 5+ hunter/soldier 多数，Boss = mecha_golem + 3 soldier + 1 hunter。
-- 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制 140×140 区域，标题显示 "DUNGEON F1" 或 "DUNGEON F2"，已清除=绿色、active=黄色、未探索=深灰、Boss=红色、当前=白色边框，脉冲白色玩家点。
+- 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制拓扑节点图（约 158×158 区域），采用“邻接预览 + 动态探索”：已探索房间实心、前沿房间半透明轮廓、已探索连线实线、前沿连线虚线；当前房间高亮，锁门状态脉冲描边，玩家标记为朝向箭头，标题显示 `F层 + 已探索/总房间`，底部附状态图例（CLR/ACT/BOSS/FR）。
 - 地板使用 STONE(5) 石砖瓦片，石砖纹理通过 `FloorSprites.js` 的 `createStoneVariant()` 程序化生成。
 
 ### 地板瓦片系统

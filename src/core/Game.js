@@ -75,6 +75,7 @@ export class Game {
             animationTimer: 0,
             knockbackX: 0,
             knockbackY: 0,
+            blocksLight: true,
             burnTimer: 0,
             burnDamage: 0,
             burnTickInterval: 20,
@@ -210,6 +211,7 @@ export class Game {
             particles: this.particles,
             breakableObjects: this.breakableObjects,
             worldSystem: this.worldSystem,
+            costumeSystem: this.costumeSystem,
             blackHoles: this.blackHoles,
             acidPuddles: this.acidPuddles,
             quality: 'high'

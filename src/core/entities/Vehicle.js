@@ -58,6 +58,7 @@ export class Vehicle {
         // State
         this.controlled = false;
         this.driver = null; // Player reference
+        this.blocksLight = true;
         
         // Assets
         this.sprites = Assets.vehicle[type] || Assets.vehicle.suv;
@@ -1300,6 +1301,221 @@ export class Vehicle {
         ctx.drawImage(f, -f.width / 2, -f.height / 2);
 
         ctx.restore();
+    }
+
+    _makeSpriteOccluder(sprite, pivotX, pivotY, originX, originY, rotation) {
+        if (!sprite) return null;
+        if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return null;
+        return {
+            kind: 'sprite',
+            sprite,
+            pivotX,
+            pivotY,
+            originX,
+            originY,
+            rotation: Number.isFinite(rotation) ? rotation : 0,
+            flipX: false
+        };
+    }
+
+    _getCarLightOccluders() {
+        const list = [];
+        const susp = this.suspensionOffset || 0;
+
+        const chassis = this.sprites?.chassis;
+        const body = this.sprites?.body;
+        const roof = this.sprites?.roof;
+
+        const chassisOcc = this._makeSpriteOccluder(
+            chassis,
+            this.x,
+            this.y + susp * 0.5,
+            (chassis?.width || 0) / 2,
+            (chassis?.height || 0) / 2,
+            this.angle
+        );
+        if (chassisOcc) list.push(chassisOcc);
+
+        const bodyOcc = this._makeSpriteOccluder(
+            body,
+            this.x,
+            this.y + (-4 + susp),
+            (body?.width || 0) / 2,
+            (body?.height || 0) / 2,
+            this.angle
+        );
+        if (bodyOcc) list.push(bodyOcc);
+
+        const roofOcc = this._makeSpriteOccluder(
+            roof,
+            this.x,
+            this.y + (-8 + susp),
+            (roof?.width || 0) / 2,
+            (roof?.height || 0) / 2,
+            this.angle
+        );
+        if (roofOcc) list.push(roofOcc);
+
+        return list;
+    }
+
+    _getTankLightOccluders() {
+        const list = [];
+        const susp = this.suspensionOffset || 0;
+
+        const track = this.sprites?.tracks;
+        if (track) {
+            const leftX = -this.width / 2 + 2;
+            const leftY = -this.height / 2;
+            const rightX = -this.width / 2 + 2;
+            const rightY = this.height / 2 - track.height;
+
+            const leftTrack = this._makeSpriteOccluder(
+                track,
+                this.x,
+                this.y,
+                -leftX,
+                -leftY,
+                this.angle
+            );
+            if (leftTrack) list.push(leftTrack);
+
+            const rightTrack = this._makeSpriteOccluder(
+                track,
+                this.x,
+                this.y,
+                -rightX,
+                -rightY,
+                this.angle
+            );
+            if (rightTrack) list.push(rightTrack);
+        }
+
+        const chassis = this.sprites?.chassis;
+        const body = this.sprites?.body;
+        const turret = this.sprites?.turret;
+
+        const chassisOcc = this._makeSpriteOccluder(
+            chassis,
+            this.x,
+            this.y + susp * 0.5,
+            (chassis?.width || 0) / 2,
+            (chassis?.height || 0) / 2,
+            this.angle
+        );
+        if (chassisOcc) list.push(chassisOcc);
+
+        const bodyOcc = this._makeSpriteOccluder(
+            body,
+            this.x,
+            this.y + (-4 + susp),
+            (body?.width || 0) / 2,
+            (body?.height || 0) / 2,
+            this.angle
+        );
+        if (bodyOcc) list.push(bodyOcc);
+
+        const turretOcc = this._makeSpriteOccluder(
+            turret,
+            this.x,
+            this.y + (-8 + susp),
+            16,
+            (turret?.height || 0) / 2,
+            this.turretAngle
+        );
+        if (turretOcc) list.push(turretOcc);
+
+        return list;
+    }
+
+    _getSpiderLightOccluders() {
+        const list = [];
+        const susp = this.suspensionOffset || 0;
+        const bodyElevation = -8 + susp;
+        const turretElevation = -12 + susp;
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+
+        const body = this.sprites?.body;
+        const turret = this.sprites?.turret;
+        const legUpper = this.sprites?.legUpper;
+        const legLower = this.sprites?.legLower;
+        const foot = this.sprites?.foot;
+
+        const bodyOcc = this._makeSpriteOccluder(
+            body,
+            this.x,
+            this.y + bodyElevation,
+            (body?.width || 0) / 2,
+            (body?.height || 0) / 2,
+            this.angle
+        );
+        if (bodyOcc) list.push(bodyOcc);
+
+        const turretOcc = this._makeSpriteOccluder(
+            turret,
+            this.x,
+            this.y + turretElevation,
+            10,
+            (turret?.height || 0) / 2,
+            this.turretAngle
+        );
+        if (turretOcc) list.push(turretOcc);
+
+        for (let i = 0; i < 6; i++) {
+            const leg = SPIDER_LEG_CONFIG[i];
+            const state = this.legStates[i];
+            if (!state) continue;
+
+            const hipWorldX = this.x + leg.hipX * cos - leg.hipY * sin;
+            const hipWorldY = this.y + bodyElevation + leg.hipX * sin + leg.hipY * cos;
+            const hipAngle = state.hipAngle || 0;
+            const kneeAngle = state.kneeAngle || 0;
+            const lowerAngle = hipAngle + kneeAngle;
+
+            const upperOcc = this._makeSpriteOccluder(
+                legUpper,
+                hipWorldX,
+                hipWorldY,
+                0,
+                (legUpper?.height || 0) / 2,
+                hipAngle
+            );
+            if (upperOcc) list.push(upperOcc);
+
+            const kneeWorldX = hipWorldX + Math.cos(hipAngle) * SPIDER_UPPER_LEN;
+            const kneeWorldY = hipWorldY + Math.sin(hipAngle) * SPIDER_UPPER_LEN;
+            const lowerOcc = this._makeSpriteOccluder(
+                legLower,
+                kneeWorldX,
+                kneeWorldY,
+                0,
+                (legLower?.height || 0) / 2,
+                lowerAngle
+            );
+            if (lowerOcc) list.push(lowerOcc);
+
+            const footWorldX = kneeWorldX + Math.cos(lowerAngle) * SPIDER_LOWER_LEN;
+            const footWorldY = kneeWorldY + Math.sin(lowerAngle) * SPIDER_LOWER_LEN;
+            const footOcc = this._makeSpriteOccluder(
+                foot,
+                footWorldX,
+                footWorldY,
+                (foot?.width || 0) / 2,
+                (foot?.height || 0) / 2,
+                lowerAngle
+            );
+            if (footOcc) list.push(footOcc);
+        }
+
+        return list;
+    }
+
+    getLightOccluderSprites() {
+        if (this.isDead || this.blocksLight === false) return [];
+        if (this.isSpider) return this._getSpiderLightOccluders();
+        if (this.isTank) return this._getTankLightOccluders();
+        return this._getCarLightOccluders();
     }
 
     drawHpBar(ctx) {

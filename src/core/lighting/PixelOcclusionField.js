@@ -65,15 +65,20 @@ export class PixelOcclusionField {
     }
 
     rasterizeSpriteMask({
-        spriteX,
-        spriteY,
         mask,
         maskWidth,
         maskHeight,
-        localBounds
+        localBounds,
+        pivotX,
+        pivotY,
+        originX = 0,
+        originY = 0,
+        rotation = 0,
+        flipX = false
     }, viewX, viewY, scale, ownerId = 0) {
         if (!mask || !Number.isFinite(maskWidth) || !Number.isFinite(maskHeight)) return;
         if (maskWidth <= 0 || maskHeight <= 0) return;
+        if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return;
 
         const minX = Math.max(0, localBounds?.minX ?? 0);
         const minY = Math.max(0, localBounds?.minY ?? 0);
@@ -81,13 +86,46 @@ export class PixelOcclusionField {
         const maxY = Math.min(maskHeight - 1, localBounds?.maxY ?? (maskHeight - 1));
         if (maxX < minX || maxY < minY) return;
 
+        const rot = Number.isFinite(rotation) ? rotation : 0;
+        const isFlipped = flipX === true;
+        const useAffine = isFlipped || Math.abs(rot) > 0.0001 || originX !== 0 || originY !== 0;
+
+        if (!useAffine) {
+            const baseX = pivotX;
+            const baseY = pivotY;
+            for (let sy = minY; sy <= maxY; sy++) {
+                const srcRow = sy * maskWidth;
+                for (let sx = minX; sx <= maxX; sx++) {
+                    if (!mask[srcRow + sx]) continue;
+
+                    const worldX = baseX + sx;
+                    const worldY = baseY + sy;
+                    const bx = Math.floor((worldX - viewX) * scale);
+                    const by = Math.floor((worldY - viewY) * scale);
+
+                    if (bx < 0 || by < 0 || bx >= this.width || by >= this.height) continue;
+
+                    const idx = by * this.width + bx;
+                    this.solid[idx] = 1;
+                    this.ownerIds[idx] = ownerId;
+                }
+            }
+            return;
+        }
+
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+        const signX = isFlipped ? -1 : 1;
+
         for (let sy = minY; sy <= maxY; sy++) {
             const srcRow = sy * maskWidth;
+            const dy = sy - originY;
             for (let sx = minX; sx <= maxX; sx++) {
                 if (!mask[srcRow + sx]) continue;
 
-                const worldX = spriteX + sx;
-                const worldY = spriteY + sy;
+                const dx = (sx - originX) * signX;
+                const worldX = pivotX + dx * cos - dy * sin;
+                const worldY = pivotY + dx * sin + dy * cos;
                 const bx = Math.floor((worldX - viewX) * scale);
                 const by = Math.floor((worldY - viewY) * scale);
 

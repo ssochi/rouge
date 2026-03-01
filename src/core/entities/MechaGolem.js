@@ -616,6 +616,52 @@ export class MechaGolem extends Enemy {
         ctx.restore();
     }
 
+    getLightOccluderSprites() {
+        if (this.hp <= 0 || this.blocksLight === false) return [];
+
+        const phaseKey = 'phase' + this.phase;
+        const assets = Assets.mechaGolem ? Assets.mechaGolem[phaseKey] : null;
+        if (!assets) return [];
+
+        let frames;
+        let frameIndex = 0;
+        if (this.isTransitioning && assets.transition) {
+            frames = assets.transition;
+            frameIndex = Math.min(
+                Math.floor((this.transitionTimer / this.transitionDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.currentAttack && assets[this.currentAttack]) {
+            frames = assets[this.currentAttack];
+            const dur = this.getAttackDuration(this.currentAttack);
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / dur) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run' && assets.run) {
+            frames = assets.run;
+            frameIndex = Math.floor(this.animationTimer / 6) % frames.length;
+        } else {
+            frames = assets.idle;
+            frameIndex = Math.floor(this.animationTimer / 8) % frames.length;
+        }
+        if (!frames || frames.length === 0) return [];
+
+        const sprite = frames?.[frameIndex];
+        if (!sprite) return [];
+
+        return [{
+            kind: 'sprite',
+            sprite,
+            pivotX: this.x,
+            pivotY: this.y,
+            originX: 32,
+            originY: 32,
+            rotation: 0,
+            flipX: this.facingRight === true
+        }];
+    }
+
     _drawSpriteOverlay(ctx, sprite, drawY, color, alpha) {
         const oc = this._overlayCtx;
         oc.clearRect(0, 0, 64, 64);

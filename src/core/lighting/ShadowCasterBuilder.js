@@ -42,9 +42,47 @@ function dist2ToRect(x, y, entry) {
     return dx * dx + dy * dy;
 }
 
+function transformPoint(px, py, pivotX, pivotY, originX, originY, rotation, flipX) {
+    const signX = flipX ? -1 : 1;
+    const dx = (px - originX) * signX;
+    const dy = py - originY;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    return {
+        x: pivotX + dx * cos - dy * sin,
+        y: pivotY + dx * sin + dy * cos
+    };
+}
+
+function computeSpriteAabb(bounds, pivotX, pivotY, originX, originY, rotation, flipX) {
+    if (!bounds) return null;
+    const minX = bounds.minX;
+    const minY = bounds.minY;
+    const maxX = bounds.maxX + 1;
+    const maxY = bounds.maxY + 1;
+
+    const p1 = transformPoint(minX, minY, pivotX, pivotY, originX, originY, rotation, flipX);
+    const p2 = transformPoint(maxX, minY, pivotX, pivotY, originX, originY, rotation, flipX);
+    const p3 = transformPoint(maxX, maxY, pivotX, pivotY, originX, originY, rotation, flipX);
+    const p4 = transformPoint(minX, maxY, pivotX, pivotY, originX, originY, rotation, flipX);
+
+    const worldMinX = Math.min(p1.x, p2.x, p3.x, p4.x);
+    const worldMaxX = Math.max(p1.x, p2.x, p3.x, p4.x);
+    const worldMinY = Math.min(p1.y, p2.y, p3.y, p4.y);
+    const worldMaxY = Math.max(p1.y, p2.y, p3.y, p4.y);
+
+    const x = Math.floor(worldMinX);
+    const y = Math.floor(worldMinY);
+    const w = Math.max(1, Math.ceil(worldMaxX) - x);
+    const h = Math.max(1, Math.ceil(worldMaxY) - y);
+    return { x, y, w, h };
+}
+
 export class ShadowCasterBuilder {
     constructor() {
         this.entries = [];
+        this.staticEntries = [];
+        this.dynamicEntries = [];
         this._lastHash = null;
         this._ownerIds = new WeakMap();
         this._nextOwnerId = 1;
@@ -68,6 +106,7 @@ export class ShadowCasterBuilder {
 
     _shouldBlock(obj) {
         if (!obj || obj.isBroken) return false;
+        if (obj.blocksLight === false) return false;
         if (this._isDoor(obj) && obj.isOpen) return false;
         return true;
     }
@@ -91,6 +130,7 @@ export class ShadowCasterBuilder {
             hash = mix(hash, obj.y | 0);
             hash = mix(hash, obj.isBroken ? 1 : 0);
             hash = mix(hash, obj.isOpen ? 1 : 0);
+            hash = mix(hash, obj.blocksLight === false ? 0 : 1);
             hash = mix(hash, obj.wallMask | 0);
             hash = mix(hash, obj.frameIndex | 0);
             hash = mix(hash, hashString(obj.type || ''));
@@ -99,21 +139,70 @@ export class ShadowCasterBuilder {
         return hash >>> 0;
     }
 
-    rebuildIfNeeded(walls = [], breakableObjects = []) {
-        const nextHash = this._computeHash(walls, breakableObjects);
-        if (nextHash === this._lastHash) return false;
+    _pushRectEntry(target, owner, ownerId, rawRect) {
+        const rect = toRect(rawRect);
+        if (!rect) return;
+        target.push({
+            kind: 'rect',
+            ...rect,
+            owner,
+            ownerId
+        });
+    }
 
-        this._lastHash = nextHash;
-        this.entries.length = 0;
+    _pushSpriteEntry(target, owner, ownerId, {
+        mask,
+        maskWidth,
+        maskHeight,
+        localBounds,
+        pivotX,
+        pivotY,
+        originX = 0,
+        originY = 0,
+        rotation = 0,
+        flipX = false
+    }) {
+        if (!mask || !Number.isFinite(maskWidth) || !Number.isFinite(maskHeight)) return;
+        if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return;
+
+        const bounds = computeSpriteAabb(
+            localBounds,
+            pivotX,
+            pivotY,
+            originX,
+            originY,
+            rotation,
+            flipX
+        );
+        if (!bounds) return;
+
+        target.push({
+            kind: 'sprite',
+            ...bounds,
+            pivotX,
+            pivotY,
+            originX,
+            originY,
+            rotation,
+            flipX,
+            mask,
+            maskWidth,
+            maskHeight,
+            localBounds,
+            owner,
+            ownerId
+        });
+    }
+
+    _rebuildStaticEntries(walls = [], breakableObjects = []) {
+        this.staticEntries.length = 0;
 
         for (const wall of walls) {
-            const rect = toRect({ x: wall.x, y: wall.y, width: wall.w, height: wall.h });
-            if (!rect) continue;
-            this.entries.push({
-                kind: 'rect',
-                ...rect,
-                owner: null,
-                ownerId: 0
+            this._pushRectEntry(this.staticEntries, null, 0, {
+                x: wall.x,
+                y: wall.y,
+                width: wall.w,
+                height: wall.h
             });
         }
 
@@ -129,44 +218,90 @@ export class ShadowCasterBuilder {
                 if (bounds) {
                     const drawOffsetX = obj.drawOffset?.x || 0;
                     const drawOffsetY = obj.drawOffset?.y || 0;
-                    const spriteX = obj.x + drawOffsetX;
-                    const spriteY = obj.y + drawOffsetY;
-                    this.entries.push({
-                        kind: 'sprite',
-                        x: Math.floor(spriteX + bounds.minX),
-                        y: Math.floor(spriteY + bounds.minY),
-                        w: Math.ceil(bounds.width),
-                        h: Math.ceil(bounds.height),
-                        spriteX,
-                        spriteY,
+                    const pivotX = obj.x + drawOffsetX;
+                    const pivotY = obj.y + drawOffsetY;
+                    this._pushSpriteEntry(this.staticEntries, obj, ownerId, {
                         mask: frame.mask,
                         maskWidth: frame.width,
                         maskHeight: frame.height,
                         localBounds: bounds,
-                        owner: obj,
-                        ownerId
+                        pivotX,
+                        pivotY,
+                        originX: 0,
+                        originY: 0,
+                        rotation: 0,
+                        flipX: false
                     });
                     continue;
                 }
             }
 
-            // Fallback for doors / non-sprite entries: use bullet hurtboxes.
             const hurtboxes = obj.getHurtboxes
                 ? obj.getHurtboxes()
                 : [obj.getHurtbox?.(), obj.getHitbox?.()].filter(Boolean);
             for (const hb of hurtboxes) {
-                const rect = toRect(hb);
-                if (!rect) continue;
-                this.entries.push({
-                    kind: 'rect',
-                    ...rect,
-                    owner: obj,
-                    ownerId
+                this._pushRectEntry(this.staticEntries, obj, ownerId, hb);
+            }
+        }
+    }
+
+    _rebuildDynamicEntries(dynamicOccluders = []) {
+        this.dynamicEntries.length = 0;
+        if (!Array.isArray(dynamicOccluders) || dynamicOccluders.length === 0) return;
+
+        for (const group of dynamicOccluders) {
+            const owner = group?.owner || null;
+            const occluders = Array.isArray(group?.occluders) ? group.occluders : [];
+            if (occluders.length === 0) continue;
+
+            const ownerId = this._getOwnerId(owner);
+            for (const occluder of occluders) {
+                if (!occluder) continue;
+
+                if (occluder.kind === 'rect') {
+                    this._pushRectEntry(this.dynamicEntries, owner, ownerId, occluder);
+                    continue;
+                }
+
+                const frameData = spriteMaskCache.getFrameDataForCanvas(
+                    occluder.sprite,
+                    occluder.forceMaskRefresh === true
+                );
+                const frame = frameData?.frame || null;
+                const bounds = frame?.bounds || null;
+                if (!frame || !bounds) continue;
+
+                this._pushSpriteEntry(this.dynamicEntries, owner, ownerId, {
+                    mask: frame.mask,
+                    maskWidth: frame.width,
+                    maskHeight: frame.height,
+                    localBounds: bounds,
+                    pivotX: occluder.pivotX,
+                    pivotY: occluder.pivotY,
+                    originX: occluder.originX || 0,
+                    originY: occluder.originY || 0,
+                    rotation: occluder.rotation || 0,
+                    flipX: occluder.flipX === true
                 });
             }
         }
+    }
 
-        return true;
+    rebuildIfNeeded(walls = [], breakableObjects = [], dynamicOccluders = []) {
+        const nextHash = this._computeHash(walls, breakableObjects);
+        const staticChanged = nextHash !== this._lastHash;
+        if (staticChanged) {
+            this._lastHash = nextHash;
+            this._rebuildStaticEntries(walls, breakableObjects);
+        }
+
+        this._rebuildDynamicEntries(dynamicOccluders);
+
+        this.entries.length = 0;
+        this.entries.push(...this.staticEntries);
+        this.entries.push(...this.dynamicEntries);
+
+        return staticChanged;
     }
 
     query(x, y, radius, maxEntries = Infinity, ignoreOwner = null) {

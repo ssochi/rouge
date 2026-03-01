@@ -589,6 +589,59 @@ export class MutantBeast extends Enemy {
         ctx.restore();
     }
 
+    getLightOccluderSprites() {
+        if (this.hp <= 0 || this.blocksLight === false) return [];
+        const phaseKey = 'phase' + this.phase;
+        const assets = Assets.mutantBeast ? Assets.mutantBeast[phaseKey] : null;
+        if (!assets) return [];
+
+        let frames;
+        let frameIndex = 0;
+        if (this.isTransitioning && assets.roar) {
+            frames = assets.roar;
+            frameIndex = Math.min(
+                Math.floor((this.transitionTimer / this.transitionDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.currentAttack && assets[this.currentAttack]) {
+            frames = assets[this.currentAttack];
+            const dur = this.attacks[this.currentAttack]?.duration || 60;
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / dur) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run' && assets.run) {
+            frames = assets.run;
+            frameIndex = Math.floor(this.animationTimer / 7) % frames.length;
+        } else {
+            frames = assets.idle;
+            frameIndex = Math.floor(this.animationTimer / 7) % frames.length;
+        }
+        if (!frames || frames.length === 0) return [];
+
+        const sprite = frames?.[frameIndex];
+        if (!sprite) return [];
+
+        let drawY = -40;
+        if (this.isAirborne) {
+            const leapCfg = this.attacks.leap_slam;
+            const airProgress = (this.attackTimer - leapCfg.airStart) / (leapCfg.airEnd - leapCfg.airStart);
+            const arcHeight = Math.sin(airProgress * Math.PI) * 40;
+            drawY -= arcHeight;
+        }
+
+        return [{
+            kind: 'sprite',
+            sprite,
+            pivotX: this.x,
+            pivotY: this.y,
+            originX: 40,
+            originY: -drawY,
+            rotation: 0,
+            flipX: this.facingRight === true
+        }];
+    }
+
     /**
      * Draw a color overlay that matches the sprite silhouette (not a rectangle).
      */

@@ -207,6 +207,40 @@ export class Zombie extends Enemy {
         this.drawHpBar(ctx);
     }
 
+    getLightOccluderSprites() {
+        if (this.hp <= 0 || this.blocksLight === false) return [];
+
+        let frames = Assets.zombie.idle;
+        let frameIndex = 0;
+        if (this.isAttacking && Assets.zombie.attack) {
+            frames = Assets.zombie.attack;
+            frameIndex = Math.min(
+                Math.floor((this.attackTimer / this.attackDuration) * frames.length),
+                frames.length - 1
+            );
+        } else if (this.state === 'run') {
+            frames = Assets.zombie.run;
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
+        } else {
+            frameIndex = Math.floor(this.animationTimer / 5) % frames.length;
+        }
+        if (!frames || frames.length === 0) return [];
+
+        const sprite = frames?.[frameIndex];
+        if (!sprite) return [];
+
+        return [{
+            kind: 'sprite',
+            sprite,
+            pivotX: this.x,
+            pivotY: this.y,
+            originX: 16,
+            originY: 16,
+            rotation: 0,
+            flipX: this.facingRight === true
+        }];
+    }
+
     drawHpBar(ctx) {
         if (this.hpBarTimer <= 0) return;
 

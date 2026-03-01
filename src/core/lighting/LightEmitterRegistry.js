@@ -12,6 +12,50 @@ const OBJECT_LIGHTS = {
         priority: 90,
         ignoreSelfShadow: true
     },
+    floor_lamp_warm: {
+        offsetX: 16,
+        offsetY: 6,
+        radius: 138,
+        color: '#ffd9a3',
+        intensity: 1.0,
+        flicker: 0.04,
+        castsShadows: true,
+        priority: 90,
+        ignoreSelfShadow: true
+    },
+    floor_lamp_cool: {
+        offsetX: 16,
+        offsetY: 6,
+        radius: 138,
+        color: '#b8e9ff',
+        intensity: 0.92,
+        flicker: 0.03,
+        castsShadows: true,
+        priority: 90,
+        ignoreSelfShadow: true
+    },
+    floor_lamp_mint: {
+        offsetX: 16,
+        offsetY: 6,
+        radius: 138,
+        color: '#c8ffcf',
+        intensity: 0.9,
+        flicker: 0.03,
+        castsShadows: true,
+        priority: 90,
+        ignoreSelfShadow: true
+    },
+    floor_lamp_rose: {
+        offsetX: 16,
+        offsetY: 6,
+        radius: 138,
+        color: '#ffc1de',
+        intensity: 0.88,
+        flicker: 0.025,
+        castsShadows: true,
+        priority: 90,
+        ignoreSelfShadow: true
+    },
     fish_tank: {
         offsetX: 16,
         offsetY: -2,

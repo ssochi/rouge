@@ -2,6 +2,7 @@ import { cloneLightingPreset, DEFAULT_LIGHTING_QUALITY } from './LightingConfig.
 import { LightEmitterRegistry } from './LightEmitterRegistry.js';
 import { ShadowCasterBuilder } from './ShadowCasterBuilder.js';
 import { LightBufferRenderer } from './LightBufferRenderer.js';
+import { resolvePlayerLightOccluders, resolveEntityLightOccluders } from './EntityLightOccluderResolver.js';
 
 const QUALITY_ORDER = ['low', 'medium', 'high'];
 
@@ -19,6 +20,7 @@ export class LightSystem {
         particles,
         breakableObjects,
         worldSystem,
+        costumeSystem,
         blackHoles,
         acidPuddles,
         quality = DEFAULT_LIGHTING_QUALITY
@@ -31,6 +33,7 @@ export class LightSystem {
         this.particles = particles || [];
         this.breakableObjects = breakableObjects || [];
         this.worldSystem = worldSystem || null;
+        this.costumeSystem = costumeSystem || null;
         this.blackHoles = blackHoles || [];
         this.acidPuddles = acidPuddles || [];
 
@@ -52,6 +55,66 @@ export class LightSystem {
         this.lastRenderMs = 0;
         this._overBudgetFrames = 0;
         this._underBudgetFrames = 0;
+    }
+
+    _toFallbackOccluders(entity) {
+        if (!entity) return [];
+        const result = [];
+
+        const tryPushRect = (raw) => {
+            if (!raw) return;
+            const width = raw.width ?? raw.w;
+            const height = raw.height ?? raw.h;
+            if (!Number.isFinite(raw.x) || !Number.isFinite(raw.y) || !Number.isFinite(width) || !Number.isFinite(height)) return;
+            if (width <= 0 || height <= 0) return;
+            result.push({
+                kind: 'rect',
+                x: raw.x,
+                y: raw.y,
+                width,
+                height
+            });
+        };
+
+        if (typeof entity.getBulletHurtbox === 'function') {
+            tryPushRect(entity.getBulletHurtbox());
+        } else if (typeof entity.getHitbox === 'function') {
+            tryPushRect(entity.getHitbox());
+        }
+
+        return result;
+    }
+
+    _collectDynamicOccluders() {
+        const groups = [];
+        const pushGroup = (owner, occluders) => {
+            if (!owner || !Array.isArray(occluders) || occluders.length === 0) return;
+            groups.push({ owner, occluders });
+        };
+
+        pushGroup(this.player, resolvePlayerLightOccluders(this.player, this.costumeSystem));
+
+        for (const enemy of this.enemies) {
+            if (!isAliveEnemy(enemy)) continue;
+            const occluders = resolveEntityLightOccluders(enemy);
+            if (occluders.length > 0) {
+                pushGroup(enemy, occluders);
+            } else {
+                pushGroup(enemy, this._toFallbackOccluders(enemy));
+            }
+        }
+
+        for (const vehicle of this.vehicles) {
+            if (!vehicle || vehicle.isDead) continue;
+            const occluders = resolveEntityLightOccluders(vehicle);
+            if (occluders.length > 0) {
+                pushGroup(vehicle, occluders);
+            } else {
+                pushGroup(vehicle, this._toFallbackOccluders(vehicle));
+            }
+        }
+
+        return groups;
     }
 
     _pushEmitter(list, emitter) {
@@ -206,7 +269,8 @@ export class LightSystem {
 
         const walls = this.worldSystem?.walls || [];
         const shadowObjects = this.breakableObjects.filter(obj => obj && !obj.isBroken);
-        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, shadowObjects);
+        const dynamicOccluders = this._collectDynamicOccluders();
+        const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, shadowObjects, dynamicOccluders);
         if (castersChanged) {
             this._forceStaticRefresh = true;
         }

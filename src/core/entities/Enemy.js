@@ -13,6 +13,7 @@ export class Enemy {
         this.hp = hp;
         this.maxHp = hp;
         this.speed = speed;
+        this.blocksLight = true;
         
         this.vx = 0;
         this.vy = 0;
@@ -122,6 +123,10 @@ export class Enemy {
 
     draw(ctx, camera) {
         // Base draw implementation or empty
+    }
+
+    getLightOccluderSprites() {
+        return [];
     }
 
     // Unified enemy hurtbox used by bullet hit detection.
