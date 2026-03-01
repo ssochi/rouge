@@ -70,306 +70,422 @@ export class SnakeBossGenerator {
         const drawer = new PixelDraw(48, 48);
         const c = this.getColors(phase);
         const cx = 24;
-        const baseY = 38; // ground reference
+        const baseY = 38;
 
         const headY = baseY - 22 + (pose.headOffset?.y || 0);
         const jawOpen = pose.jawOpen || 0;
         const pulse = pose.pulsePhase || 0;
+        const coreP = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
+        const jawDrop = Math.floor(jawOpen * 8);
 
-        // --- Neck base cylinder (connects to body, shows depth) ---
-        // Neck side wall
-        drawer.rect(cx - 9, headY + 12, 18, 6, c.bellyDark);
-        // Neck side highlights
-        drawer.vLine(cx - 9, headY + 12, 6, c.armorDark);
-        drawer.vLine(cx + 8, headY + 12, 6, c.armorDark);
-        drawer.vLine(cx - 5, headY + 12, 5, c.belly);
-        drawer.vLine(cx + 4, headY + 12, 5, c.belly);
-        // Neck bottom ellipse
-        drawer.ellipse(cx, headY + 17, 9, 4, c.bellyDark);
-        // Energy ring at neck joint
-        drawer.ellipse(cx, headY + 17, 10, 3, c.coreRing);
-        const ringC = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
-        drawer.ellipse(cx, headY + 17, 8, 2, ringC);
-        // Neck top ellipse
-        drawer.ellipse(cx, headY + 12, 9, 3, c.armor);
+        // --- Neck Joint (Deep Volume) ---
+        drawer.fillPath([
+            {x: cx - 11, y: headY + 10}, {x: cx + 11, y: headY + 10},
+            {x: cx + 9, y: headY + 20}, {x: cx - 9, y: headY + 20}
+        ], c.bellyDark);
+        drawer.ellipse(cx, headY + 18, 9, 4, '#111');
 
-        // --- Lower jaw (behind upper head) ---
-        const jawDrop = Math.floor(jawOpen * 6);
-        if (jawOpen > 0.05) {
-            // Jaw interior (dark mouth)
+        // Ribbed neck structure
+        for(let i=0; i<3; i++) {
+            drawer.hLine(cx - 8, headY + 12 + i*3, 16, c.joint);
+            drawer.hLine(cx - 7, headY + 13 + i*3, 14, c.belly);
+            drawer.pixel(cx - 8, headY + 12 + i*3, c.coreRing);
+            drawer.pixel(cx + 7, headY + 12 + i*3, c.coreRing);
+        }
+
+        // --- Lower Jaw Assembly ---
+        if (jawOpen > 0.02) {
+            // Inner Mouth Cavity
             drawer.fillPath([
-                { x: cx - 9, y: headY + 4 },
-                { x: cx + 9, y: headY + 4 },
-                { x: cx + 6, y: headY + 8 + jawDrop },
-                { x: cx - 6, y: headY + 8 + jawDrop }
-            ], '#0a0a0a');
-            // Lower jaw plate
+                {x: cx - 10, y: headY + 5}, {x: cx + 10, y: headY + 5},
+                {x: cx + 7, y: headY + 12 + jawDrop}, {x: cx - 7, y: headY + 12 + jawDrop}
+            ], '#080808');
+
+            // Glowing mouth core
+            drawer.ellipse(cx, headY + 9 + Math.floor(jawDrop/2), 4, 2, c.coreRing);
+            drawer.hLine(cx - 2, headY + 9 + Math.floor(jawDrop/2), 4, coreP);
+
+            // Lower Mandible Base
             drawer.fillPath([
-                { x: cx - 8, y: headY + 6 + jawDrop },
-                { x: cx + 8, y: headY + 6 + jawDrop },
-                { x: cx + 5, y: headY + 10 + jawDrop },
-                { x: cx - 5, y: headY + 10 + jawDrop }
+                {x: cx - 12, y: headY + 7 + jawDrop}, {x: cx + 12, y: headY + 7 + jawDrop},
+                {x: cx + 6, y: headY + 14 + jawDrop}, {x: cx - 6, y: headY + 14 + jawDrop},
+                {x: cx, y: headY + 16 + jawDrop}
             ], c.jawDark);
-            // Jaw teeth
-            for (let i = -2; i <= 2; i++) {
-                drawer.rect(cx + i * 3 - 1, headY + 5 + jawDrop, 2, 3, c.fang);
-                drawer.pixel(cx + i * 3 - 1, headY + 5 + jawDrop, '#ffffff');
+
+            // Mandible Armor Plates
+            drawer.fillPath([
+                {x: cx - 9, y: headY + 8 + jawDrop}, {x: cx + 9, y: headY + 8 + jawDrop},
+                {x: cx + 4, y: headY + 13 + jawDrop}, {x: cx - 4, y: headY + 13 + jawDrop}
+            ], c.jaw);
+            drawer.hLine(cx - 3, headY + 13 + jawDrop, 6, c.armorLight);
+
+            // Lower Fangs
+            for (let i of [-1, 1]) {
+                const fx = cx + i * 7;
+                drawer.fillPath([
+                    {x: fx - 1, y: headY + 7 + jawDrop}, {x: fx + 1, y: headY + 7 + jawDrop},
+                    {x: fx, y: headY + 2 + jawDrop}
+                ], c.fang);
+                drawer.pixel(fx - 1, headY + 4 + jawDrop, '#ffffff'); // Glint
+            }
+            // Inner small teeth
+            for (let i of [-1, 0, 1]) {
+                drawer.rect(cx + i * 3 - 1, headY + 7 + jawDrop, 2, 2, c.fang);
+                drawer.pixel(cx + i * 3, headY + 7 + jawDrop, '#fff');
             }
         }
 
-        // --- Main skull: 3D armored head ---
-        // Side walls (visible depth under the top plate)
+        // --- Upper Cranium Shadow / Underbelly ---
         drawer.fillPath([
-            { x: cx - 13, y: headY },
-            { x: cx - 13, y: headY + 8 },
-            { x: cx - 10, y: headY + 10 },
-            { x: cx - 10, y: headY + 2 }
+            {x: cx - 14, y: headY - 2}, {x: cx + 14, y: headY - 2},
+            {x: cx + 16, y: headY + 6}, {x: cx + 8, y: headY + 10},
+            {x: cx, y: headY + 12}, {x: cx - 8, y: headY + 10},
+            {x: cx - 16, y: headY + 6}
         ], c.armorDark);
-        drawer.fillPath([
-            { x: cx + 13, y: headY },
-            { x: cx + 13, y: headY + 8 },
-            { x: cx + 10, y: headY + 10 },
-            { x: cx + 10, y: headY + 2 }
-        ], c.armorDark);
-        // Front face (chin area)
-        drawer.fillPath([
-            { x: cx - 4, y: headY - 6 },
-            { x: cx + 4, y: headY - 6 },
-            { x: cx + 4, y: headY + 4 },
-            { x: cx - 4, y: headY + 4 }
-        ], c.belly);
 
-        // Top armor plate (angular, diamond-like from 35° view)
+        // --- Cheek Guards ---
+        for (let i of [-1, 1]) {
+            const sideX = cx + i * 11;
+            drawer.fillPath([
+                {x: sideX, y: headY - 1}, {x: sideX + i*4, y: headY + 5},
+                {x: sideX + i*2, y: headY + 9}, {x: sideX - i*2, y: headY + 5}
+            ], c.armor);
+            // Highlight
+            drawer.line(sideX, headY, sideX + i*3, headY + 4, c.armorLight);
+        }
+
+        // --- Main Top Armor Plate (Aggressive Chevron shape) ---
         drawer.fillPath([
-            { x: cx, y: headY - 8 },
-            { x: cx + 13, y: headY },
-            { x: cx + 12, y: headY + 8 },
-            { x: cx, y: headY + 4 },
-            { x: cx - 12, y: headY + 8 },
-            { x: cx - 13, y: headY }
+            {x: cx, y: headY - 12},
+            {x: cx + 14, y: headY - 4}, {x: cx + 12, y: headY + 4},
+            {x: cx + 5, y: headY + 6}, {x: cx, y: headY + 8},
+            {x: cx - 5, y: headY + 6}, {x: cx - 12, y: headY + 4},
+            {x: cx - 14, y: headY - 4}
         ], c.armor);
 
-        // Top plate highlight bands
+        // Top Armor Layering & Bevels
         drawer.fillPath([
-            { x: cx, y: headY - 6 },
-            { x: cx + 9, y: headY },
-            { x: cx + 5, y: headY + 3 },
-            { x: cx - 5, y: headY + 3 },
-            { x: cx - 9, y: headY }
+            {x: cx, y: headY - 10},
+            {x: cx + 11, y: headY - 3}, {x: cx + 8, y: headY + 3},
+            {x: cx, y: headY + 5}, {x: cx - 8, y: headY + 3},
+            {x: cx - 11, y: headY - 3}
         ], c.armorLight);
-        // Bright specular on crest
-        drawer.hLine(cx - 3, headY - 4, 6, c.armorHi);
-        drawer.hLine(cx - 2, headY - 5, 4, c.armorHi);
 
-        // Central ridge (dorsal spine)
-        drawer.vLine(cx, headY - 6, 12, c.armorDark);
-
-        // Armor seam lines
-        drawer.hLine(cx - 10, headY + 1, 20, c.armorDark);
-        drawer.hLine(cx - 8, headY + 5, 16, c.armorDark);
-
-        // Rivets
-        drawer.pixel(cx - 7, headY - 1, c.rivet);
-        drawer.pixel(cx + 6, headY - 1, c.rivet);
-        drawer.pixel(cx - 9, headY + 3, c.rivet);
-        drawer.pixel(cx + 8, headY + 3, c.rivet);
-
-        // --- Eyes (optical sensors) ---
-        drawer.rect(cx - 11, headY - 2, 5, 5, c.armorDark);
-        drawer.rect(cx - 10, headY - 1, 3, 3, c.eye);
-        drawer.pixel(cx - 10, headY - 1, c.eyeBright);
-        drawer.pixel(cx - 9, headY - 1, '#ffffff');
-
-        drawer.rect(cx + 6, headY - 2, 5, 5, c.armorDark);
-        drawer.rect(cx + 7, headY - 1, 3, 3, c.eye);
-        drawer.pixel(cx + 9, headY - 1, c.eyeBright);
-        drawer.pixel(cx + 8, headY - 1, '#ffffff');
-
-        // --- Forehead energy core ---
-        const corePrimary = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
-        drawer.rect(cx - 2, headY - 5, 4, 3, c.coreRing);
-        drawer.rect(cx - 1, headY - 4, 2, 1, corePrimary);
-        drawer.pixel(cx, headY - 4, '#ffffff');
-
-        // --- Nose armor tip ---
+        // Crown peak highlight
         drawer.fillPath([
-            { x: cx, y: headY - 8 },
-            { x: cx - 3, y: headY - 4 },
-            { x: cx + 3, y: headY - 4 }
-        ], c.jaw);
-        drawer.pixel(cx, headY - 7, c.armorHi);
+            {x: cx, y: headY - 11}, {x: cx + 6, y: headY - 6},
+            {x: cx, y: headY - 3}, {x: cx - 6, y: headY - 6}
+        ], c.armorHi);
+        drawer.vLine(cx, headY - 10, 8, '#ffffff');
 
-        // Phase 2: cracks and sparks
+        // Central Dorsal Ridge (Spine continuing to head)
+        drawer.fillPath([
+            {x: cx - 2, y: headY - 12}, {x: cx + 2, y: headY - 12},
+            {x: cx + 3, y: headY - 2}, {x: cx, y: headY + 8},
+            {x: cx - 3, y: headY - 2}
+        ], c.armorDark);
+        drawer.vLine(cx, headY - 12, 18, c.bellyDark);
+
+        // --- Forehead Energy Core / Sensor Array ---
+        drawer.fillPath([
+            {x: cx, y: headY - 8}, {x: cx + 4, y: headY - 4},
+            {x: cx, y: headY - 1}, {x: cx - 4, y: headY - 4}
+        ], c.coreRing);
+        drawer.fillPath([
+            {x: cx, y: headY - 6}, {x: cx + 2, y: headY - 4},
+            {x: cx, y: headY - 2}, {x: cx - 2, y: headY - 4}
+        ], coreP);
+        drawer.pixel(cx, headY - 4, '#ffffff');
+        drawer.pixel(cx - 1, headY - 4, '#ffffff');
+
+        // --- Snout & Upper Jaw ---
+        drawer.fillPath([
+            {x: cx - 6, y: headY + 4}, {x: cx + 6, y: headY + 4},
+            {x: cx + 4, y: headY + 10}, {x: cx, y: headY + 12},
+            {x: cx - 4, y: headY + 10}
+        ], c.jaw);
+
+        // Snout Vents (Nostrils)
+        drawer.line(cx - 4, headY + 7, cx - 2, headY + 9, '#111');
+        drawer.line(cx + 4, headY + 7, cx + 2, headY + 9, '#111');
+        drawer.pixel(cx - 3, headY + 8, coreP);
+        drawer.pixel(cx + 3, headY + 8, coreP);
+
+        // Upper Fangs (when open jaw, or overlapping lower)
+        drawer.rect(cx - 7, headY + 8, 2, 4, c.fang);
+        drawer.pixel(cx - 6, headY + 12, c.fang);
+        drawer.pixel(cx - 7, headY + 9, '#fff');
+
+        drawer.rect(cx + 5, headY + 8, 2, 4, c.fang);
+        drawer.pixel(cx + 6, headY + 12, c.fang);
+        drawer.pixel(cx + 5, headY + 9, '#fff');
+
+        // --- Eyes (Aggressive Visor / Sensor) ---
+        for (let i of [-1, 1]) {
+            const ex = cx + i * 8;
+            // Eye socket
+            drawer.fillPath([
+                {x: ex - i*3, y: headY - 4}, {x: ex + i*4, y: headY},
+                {x: ex + i*2, y: headY + 3}, {x: ex - i*4, y: headY - 1}
+            ], c.armorDark);
+
+            // Glowing optics
+            drawer.line(ex - i*2, headY - 2, ex + i*2, headY + 1, c.eye);
+            drawer.line(ex - i*1, headY - 2, ex + i*1, headY, c.eyeBright);
+            drawer.pixel(ex + i, headY - 1, '#ffffff');
+        }
+
+        // Rivets/Details
+        const rf = [
+            [cx - 8, headY + 5], [cx + 8, headY + 5],
+            [cx - 10, headY - 4], [cx + 10, headY - 4]
+        ];
+        rf.forEach(p => drawer.pixel(p[0], p[1], c.rivet));
+
+        // --- Phase 2: Overload FX ---
         if (phase === 2 && c.crack) {
-            drawer.line(cx - 5, headY - 3, cx - 9, headY + 3, c.crack);
-            drawer.line(cx + 4, headY - 2, cx + 8, headY + 4, c.crack);
-            if (c.spark && pulse > 0.5) {
-                drawer.pixel(cx - 8, headY + 2, c.spark);
-                drawer.pixel(cx + 7, headY + 3, c.spark);
-                drawer.pixel(cx - 3, headY + 6, c.spark);
+            // Battle damage
+            drawer.line(cx - 6, headY - 6, cx - 10, headY, c.crack);
+            drawer.line(cx - 9, headY - 1, cx - 11, headY + 2, c.crack);
+            drawer.line(cx + 5, headY - 8, cx + 8, headY - 3, c.crack);
+            drawer.pixel(cx + 7, headY - 4, c.crack);
+
+            // Sparks
+            if (c.spark && pulse > 0.4) {
+                drawer.pixel(cx - 10, headY + 2, c.spark);
+                drawer.pixel(cx + 10, headY - 1, c.spark);
+                drawer.pixel(cx, headY + 6, '#fff');
             }
         }
 
         return drawer.getCanvas();
     }
 
-    // ========== BODY SEGMENT (36×36) — 3D Cylinder ==========
+    // ========== BODY SEGMENT (36×36) ==========
 
     generateBodySegment(pose = {}, phase = 1) {
         const drawer = new PixelDraw(36, 36);
         const c = this.getColors(phase);
         const cx = 18;
-        const topY = 8;    // top ellipse center Y
-        const wallH = 12;  // visible side wall height
-        const botY = topY + wallH; // bottom ellipse center Y
-        const rx = 12;     // horizontal radius
-        const ryTop = 5;   // top ellipse vertical radius
-        const ryBot = 5;   // bottom ellipse vertical radius
+        const topY = 8;
+        const wallH = 14;
+        const botY = topY + wallH;
+        const rx = 13;
+        const ryTop = 5;
+        const ryBot = 5;
 
         const pulse = pose.pulsePhase || 0;
+        const coreP = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
 
-        // --- Bottom ellipse (belly, partially visible) ---
-        drawer.ellipse(cx, botY, rx, ryBot, c.bellyDark);
+        // --- Bottom socket / underbelly ---
+        drawer.ellipse(cx, botY, rx - 1, ryBot, '#111');
+        drawer.ellipse(cx, botY - 1, rx - 2, ryBot, c.bellyDark);
 
-        // --- Side walls (the cylindrical body between top and bottom) ---
-        // Left dark edge
+        // Side mechanical ribs (Under-chassis)
         for (let y = topY; y <= botY; y++) {
-            const t = (y - topY) / wallH;
-            // Calculate width at this Y from ellipse interpolation
-            const w = rx;
-            // Left edge (dark shadow)
-            drawer.vLine(cx - w, y, 1, c.armorDark);
-            drawer.vLine(cx - w + 1, y, 1, c.armorDark);
-            // Right edge (dark shadow)
-            drawer.vLine(cx + w - 1, y, 1, c.armorDark);
-            drawer.vLine(cx + w - 2, y, 1, c.armorDark);
+            const w = rx - 1;
+            drawer.hLine(cx - w, y, w * 2, c.bellyDark);
+            // Gradient / shadows for cylindrical feel
+            drawer.vLine(cx - w, y, 1, '#1a1a1a');
+            drawer.vLine(cx + w - 1, y, 1, '#1a1a1a');
+            drawer.pixel(cx - w + 2, y, c.belly);
+            drawer.pixel(cx + w - 3, y, c.belly);
         }
-        // Main side fill
-        drawer.rect(cx - rx + 2, topY, rx * 2 - 4, wallH, c.armor);
-        // Left-side gradient (darker toward edge)
-        drawer.rect(cx - rx + 2, topY, 3, wallH, c.belly);
-        // Right-side gradient
-        drawer.rect(cx + rx - 5, topY, 3, wallH, c.belly);
-        // Center belly band (lighter, facing camera)
-        drawer.rect(cx - 4, topY + 2, 8, wallH - 2, c.bellyLight);
 
-        // Armor plate horizontal bands on side wall
-        drawer.hLine(cx - rx + 2, topY + 3, rx * 2 - 4, c.armorDark);
-        drawer.hLine(cx - rx + 2, topY + 7, rx * 2 - 4, c.armorDark);
-        drawer.hLine(cx - rx + 2, topY + wallH - 1, rx * 2 - 4, c.armorDark);
+        // --- Overlapping Heavy Armor Plates ---
+        // Side wrap plates
+        drawer.fillPath([
+            {x: cx - rx, y: topY + 2}, {x: cx + rx, y: topY + 2},
+            {x: cx + rx - 1, y: botY - 2}, {x: cx + rx - 4, y: botY + 2},
+            {x: cx - rx + 4, y: botY + 2}, {x: cx - rx + 1, y: botY - 2}
+        ], c.armorDark);
 
-        // Rivets on side wall
-        drawer.pixel(cx - 7, topY + 2, c.rivet);
-        drawer.pixel(cx + 6, topY + 2, c.rivet);
-        drawer.pixel(cx - 7, topY + 6, c.rivet);
-        drawer.pixel(cx + 6, topY + 6, c.rivet);
-        drawer.pixel(cx - 7, topY + 10, c.rivet);
-        drawer.pixel(cx + 6, topY + 10, c.rivet);
+        drawer.fillPath([
+            {x: cx - rx + 1, y: topY + 2}, {x: cx + rx - 1, y: topY + 2},
+            {x: cx + rx - 2, y: botY - 3}, {x: cx + rx - 5, y: botY + 1},
+            {x: cx - rx + 5, y: botY + 1}, {x: cx - rx + 2, y: botY - 3}
+        ], c.armor);
 
-        // --- Top ellipse (armor plate, the top face of the cylinder) ---
-        drawer.ellipse(cx, topY, rx, ryTop, c.armor);
-        // Top highlight (convex surface catching light)
+        // Center protective shield
+        drawer.fillQuadCurve(cx - 7, topY + 2, cx, botY + 8, cx + 7, topY + 2, c.bellyLight);
+        drawer.fillQuadCurve(cx - 5, topY + 2, cx, botY + 5, cx + 5, topY + 2, c.armorLight);
+
+        // Armor Plate Highlights & Bevels
+        // Highlight on the top-left curve
+        drawer.line(cx - rx + 2, topY + 3, cx - rx + 4, botY - 3, c.armorLight);
+        // Bounce light on right
+        drawer.line(cx + rx - 2, topY + 3, cx + rx - 4, botY - 3, c.belly);
+
+        // Horizontal segmentation breaks (vents)
+        drawer.hLine(cx - rx + 4, topY + 6, rx*2 - 8, c.armorDark);
+        drawer.hLine(cx - rx + 3, topY + 10, rx*2 - 6, c.armorDark);
+
+        // Side Energy Vents
+        for (let i of [-1, 1]) {
+            drawer.rect(cx + i*(rx - 3) - 1, topY + 7, 2, 4, '#111');
+            drawer.vLine(cx + i*(rx - 3), topY + 8, 2, coreP);
+        }
+
+        // --- Top Ellipse (Connecting surface) ---
+        // Base plate
+        drawer.ellipse(cx, topY, rx, ryTop, c.armorDark);
+        drawer.ellipse(cx, topY - 1, rx - 1, ryTop - 1, c.armor);
+        // Shiny bevel
         drawer.ellipse(cx, topY - 1, rx - 3, ryTop - 2, c.armorLight);
-        drawer.ellipse(cx, topY - 2, rx - 6, ryTop - 3, c.armorHi);
-        // Central dorsal ridge
-        drawer.vLine(cx, topY - ryTop, ryTop * 2, c.armorDark);
+        drawer.hLine(cx - 5, topY - ryTop + 1, 10, c.armorHi);
 
-        // --- Energy rings at joints (top and bottom seams) ---
-        const ringColor = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
-        // Top ring
-        drawer.ellipse(cx, topY - ryTop + 1, rx + 1, 2, c.coreRing);
-        drawer.ellipse(cx, topY - ryTop + 1, rx - 1, 1, ringColor);
-        // Bottom ring
-        drawer.ellipse(cx, botY + ryBot - 1, rx + 1, 2, c.coreRing);
-        drawer.ellipse(cx, botY + ryBot - 1, rx - 1, 1, ringColor);
+        // Central Dorsal Ridge (The Spine)
+        drawer.fillPath([
+            {x: cx - 3, y: topY - ryTop}, {x: cx + 3, y: topY - ryTop},
+            {x: cx + 4, y: topY + 2}, {x: cx + 2, y: botY + 2},
+            {x: cx - 2, y: botY + 2}, {x: cx - 4, y: topY + 2}
+        ], c.armorDark);
 
-        // Side energy glow dots
-        drawer.pixel(cx - rx, topY + wallH / 2, ringColor);
-        drawer.pixel(cx + rx - 1, topY + wallH / 2, ringColor);
+        // Raised spine segments
+        drawer.rect(cx - 2, topY - ryTop + 1, 4, 3, c.armor);
+        drawer.rect(cx - 1, topY - ryTop + 1, 2, 1, c.armorHi);
 
-        // Phase 2: crack effects
+        drawer.rect(cx - 2, topY + 1, 4, 4, c.armor);
+        drawer.rect(cx - 1, topY + 1, 2, 1, c.armorHi);
+
+        drawer.rect(cx - 1, topY + 7, 2, 4, c.armor);
+
+        // --- Joint Energy Rings ---
+        // Inner glowing joint at the top
+        drawer.ellipse(cx, topY - ryTop + 2, 6, 2, '#111');
+        drawer.hLine(cx - 4, topY - ryTop + 2, 8, c.coreRing);
+        drawer.hLine(cx - 2, topY - ryTop + 2, 4, coreP);
+        drawer.pixel(cx, topY - ryTop + 2, '#fff');
+
+        // Rivets
+        drawer.pixel(cx - 8, topY + 4, c.rivet);
+        drawer.pixel(cx + 8, topY + 4, c.rivet);
+        drawer.pixel(cx - 6, botY - 1, c.rivet);
+        drawer.pixel(cx + 6, botY - 1, c.rivet);
+
+        // --- Phase 2: Overload Effects ---
         if (phase === 2 && c.crack) {
-            drawer.line(cx - 4, topY, cx - 7, topY + 8, c.crack);
-            drawer.line(cx + 3, topY + 1, cx + 6, topY + 9, c.crack);
-            if (c.spark && pulse > 0.7) {
-                drawer.pixel(cx - 6, topY + 7, c.spark);
-                drawer.pixel(cx + 5, topY + 8, c.spark);
+            drawer.line(cx - 9, topY + 3, cx - 11, topY + 10, c.crack);
+            drawer.line(cx + 5, botY - 6, cx + 8, botY, c.crack);
+
+            if (c.spark && pulse > 0.6) {
+                drawer.pixel(cx - 10, topY + 8, c.spark);
+                drawer.pixel(cx + 6, botY - 3, c.spark);
+                drawer.pixel(cx, topY + 5, '#fff');
             }
         }
 
         return drawer.getCanvas();
     }
 
-    // ========== TAIL (28×28) — 3D Tapered Cone ==========
+    // ========== TAIL (28×28) ==========
 
     generateTail(pose = {}, phase = 1) {
         const drawer = new PixelDraw(28, 28);
         const c = this.getColors(phase);
         const cx = 14;
-        const topY = 5;
-        const tipY = 24;
-        const rx = 9;
+        const topY = 6;
+        const tipY = 26;
+        const rx = 10;
         const ryTop = 4;
 
         const pulse = pose.pulsePhase || 0;
+        const coreP = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
 
-        // --- Energy ring at top joint ---
-        const ringColor = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
-        drawer.ellipse(cx, topY - ryTop + 1, rx + 1, 2, c.coreRing);
-        drawer.ellipse(cx, topY - ryTop + 1, rx - 1, 1, ringColor);
+        // --- Deep shadow socket & Joint Ring ---
+        drawer.ellipse(cx, topY - ryTop + 1, 5, 2, '#111');
+        drawer.hLine(cx - 3, topY - ryTop + 1, 6, c.coreRing);
+        drawer.hLine(cx - 1, topY - ryTop + 1, 2, coreP);
 
-        // --- Tapered cone side walls ---
-        // Draw left and right edges tapering to tip
+        // --- Tapered Fin Blades (Lateral weapons) ---
+        // Drawn behind the main cone body
+        drawer.fillPath([
+            {x: cx - rx + 1, y: topY + 4},
+            {x: cx - rx - 4, y: topY + 8},
+            {x: cx - rx + 2, y: topY + 14}
+        ], c.armorDark);
+        drawer.line(cx - rx + 1, topY + 4, cx - rx - 4, topY + 8, c.armorLight);
+
+        drawer.fillPath([
+            {x: cx + rx - 1, y: topY + 4},
+            {x: cx + rx + 4, y: topY + 8},
+            {x: cx + rx - 2, y: topY + 14}
+        ], c.armorDark);
+        drawer.line(cx + rx - 1, topY + 4, cx + rx + 4, topY + 8, c.armorLight);
+
+        // --- Tapered Main Cone Body ---
         for (let y = topY; y <= tipY; y++) {
             const t = (y - topY) / (tipY - topY);
-            const w = Math.floor(rx * (1 - t * 0.85)); // taper from full width to narrow
-            if (w <= 0) continue;
-            // Side fill
-            const sideColor = t < 0.3 ? c.armor : (t < 0.7 ? c.belly : c.bellyDark);
-            drawer.hLine(cx - w, y, w * 2, sideColor);
-            // Left/right dark edge
-            drawer.pixel(cx - w, y, c.armorDark);
-            drawer.pixel(cx + w - 1, y, c.armorDark);
-        }
-        // Highlight on front
-        for (let y = topY + 1; y <= tipY - 4; y++) {
-            const t = (y - topY) / (tipY - topY);
-            const hw = Math.max(1, Math.floor(3 * (1 - t)));
-            drawer.hLine(cx - hw, y, hw * 2, c.bellyLight);
+            // Non-linear taper for a sharper pinpoint
+            const w = Math.max(1, Math.floor(rx * Math.pow(1 - t, 1.2)));
+
+            // Base fill
+            drawer.hLine(cx - w, y, w * 2, c.bellyDark);
+
+            // Layered armor plates shading
+            if (t < 0.8) {
+                const aw = Math.max(1, w - 1);
+                drawer.hLine(cx - aw, y, aw * 2, c.armor);
+                // Bevel highlights
+                drawer.pixel(cx - aw, y, c.armorLight);
+                drawer.pixel(cx + aw - 1, y, c.belly);
+            }
         }
 
-        // Armor plate seams
-        const seamY1 = topY + 4;
-        const seamY2 = topY + 9;
-        const w1 = Math.floor(rx * (1 - (seamY1 - topY) / (tipY - topY) * 0.85));
-        const w2 = Math.floor(rx * (1 - (seamY2 - topY) / (tipY - topY) * 0.85));
-        drawer.hLine(cx - w1, seamY1, w1 * 2, c.armorDark);
-        drawer.hLine(cx - w2, seamY2, w2 * 2, c.armorDark);
+        // Armor Plate Segmentation Seams
+        const s1Y = topY + 5;
+        const s2Y = topY + 11;
+        const s3Y = topY + 16;
+        const cuts = [s1Y, s2Y, s3Y];
+        cuts.forEach(cy => {
+            const t = (cy - topY) / (tipY - topY);
+            const w = Math.floor(rx * Math.pow(1 - t, 1.2));
+            drawer.hLine(cx - w, cy, w * 2, c.armorDark);
+            drawer.hLine(cx - Math.max(1, w - 2), cy + 1, Math.max(1, (w-2)*2), c.armorLight);
+        });
 
-        // --- Top ellipse (armor cap) ---
-        drawer.ellipse(cx, topY, rx, ryTop, c.armor);
+        // --- Top Ellipse (Armor Cap) ---
+        drawer.ellipse(cx, topY, rx, ryTop, c.armorDark);
+        drawer.ellipse(cx, topY - 1, rx - 1, ryTop - 1, c.armor);
         drawer.ellipse(cx, topY - 1, rx - 3, ryTop - 2, c.armorLight);
-        drawer.ellipse(cx, topY - 2, rx - 5, ryTop - 3, c.armorHi);
-        drawer.vLine(cx, topY - ryTop, ryTop * 2, c.armorDark);
+        drawer.hLine(cx - 4, topY - ryTop + 1, 8, c.armorHi);
+
+        // --- Spine / Dorsal Ridge ---
+        drawer.fillPath([
+            {x: cx - 2, y: topY - ryTop + 1}, {x: cx + 2, y: topY - ryTop + 1},
+            {x: cx + 3, y: topY + 2}, {x: cx, y: tipY - 4},
+            {x: cx - 3, y: topY + 2}
+        ], c.armorDark);
+        drawer.line(cx, topY - ryTop + 1, cx, tipY - 4, c.armor);
+        drawer.line(cx - 1, topY - ryTop + 1, cx - 1, topY + 2, c.armorHi);
 
         // Rivets
-        drawer.pixel(cx - 5, topY + 2, c.rivet);
-        drawer.pixel(cx + 4, topY + 2, c.rivet);
+        drawer.pixel(cx - 5, topY + 3, c.rivet);
+        drawer.pixel(cx + 5, topY + 3, c.rivet);
+        drawer.pixel(cx - 3, topY + 8, c.rivet);
+        drawer.pixel(cx + 3, topY + 8, c.rivet);
 
-        // --- Drill tip / energy emitter ---
-        const tipColor = Math.sin(pulse * Math.PI * 2) > 0 ? c.core : c.coreGlow;
-        drawer.rect(cx - 1, tipY - 2, 2, 4, c.jaw);
-        drawer.pixel(cx, tipY + 1, tipColor);
-        drawer.pixel(cx - 1, tipY, '#ffffff');
+        // --- Plasma Stinger Tip ---
+        drawer.fillPath([
+            {x: cx - 2, y: tipY - 5}, {x: cx + 2, y: tipY - 5},
+            {x: cx + 1, y: tipY - 1}, {x: cx - 1, y: tipY - 1}
+        ], c.jaw);
 
-        // Central ridge
-        drawer.vLine(cx, topY, tipY - topY, c.armorDark);
+        // Energy needle
+        drawer.vLine(cx, tipY - 3, 5, c.coreRing);
+        drawer.vLine(cx, tipY - 1, 3, coreP);
+        drawer.pixel(cx, tipY + 1, '#ffffff');
 
-        // Phase 2 effects
+        // Side emitter glow
+        drawer.pixel(cx - 1, tipY - 2, coreP);
+        drawer.pixel(cx + 1, tipY - 2, coreP);
+
+        // --- Phase 2 Effects ---
         if (phase === 2 && c.crack) {
-            drawer.line(cx - 3, topY + 2, cx - 5, topY + 8, c.crack);
-            if (c.spark && pulse > 0.6) {
-                drawer.pixel(cx - 4, topY + 7, c.spark);
+            drawer.line(cx - 4, topY + 5, cx - 1, topY + 10, c.crack);
+            if (c.spark && pulse > 0.5) {
+                drawer.pixel(cx - 2, topY + 9, c.spark);
+                drawer.pixel(cx + 3, topY + 14, c.spark);
             }
         }
 
