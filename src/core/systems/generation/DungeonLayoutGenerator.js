@@ -2,23 +2,40 @@ import { tileKey, randomInt } from './GenerationUtils.js';
 import { applyTemplate } from './RoomInteriorTemplates.js';
 
 /**
- * BSP-based dungeon layout generator.
- * Generates interconnected rooms with corridors suitable for a roguelike dungeon crawl.
+ * Compact dungeon layout generator.
+ * Focuses on tighter room clusters, shorter corridors, stronger room identity,
+ * and richer tactical cover/decor distribution.
  */
 
 const DUNGEON_CONFIG = {
-    mapPadding: 3,
-    roomCountMin: 7,
-    roomCountMax: 9,
-    normalRoomMin: 14,
-    normalRoomMax: 22,
-    bossRoomMin: 20,
-    bossRoomMax: 24,
+    // Generate dungeon inside a compact central work area, not the full world map.
+    dungeonBoundsSize: 80,
+    mapPadding: 4,
+
+    roomCountMin: 10,
+    roomCountMax: 14,
+    normalRoomMin: 10,
+    normalRoomMax: 16,
+    bossRoomMin: 16,
+    bossRoomMax: 20,
     startRoomMin: 10,
-    startRoomMax: 14,
+    startRoomMax: 13,
+
     corridorWidth: 3,
-    bspMinRegion: 20,
-    roomPadding: 1
+    bspMinRegion: 14,
+    roomPadding: 1,
+
+    // Graph shaping for short corridors.
+    neighborLimit: 4,
+    edgeDistanceThreshold: 34,
+    loopEdgeMaxDistance: 30,
+    extraEdgeMin: 1,
+    extraEdgeMax: 2,
+
+    // Generation quality gates.
+    maxGenerationAttempts: 8,
+    maxCorridorLenHard: 90,
+    maxCorridorAvg: 45
 };
 
 function createRng(seed) {
@@ -51,16 +68,16 @@ function splitBSP(node, rng, depth, maxDepth, minSize) {
     if (node.w < minSize * 2 && node.h < minSize * 2) return;
 
     let splitH;
-    if (node.w > node.h * 1.3) {
+    if (node.w > node.h * 1.25) {
         splitH = false;
-    } else if (node.h > node.w * 1.3) {
+    } else if (node.h > node.w * 1.25) {
         splitH = true;
     } else {
         splitH = rng() > 0.5;
     }
 
-    const minRatio = 0.35;
-    const maxRatio = 0.65;
+    const minRatio = 0.38;
+    const maxRatio = 0.62;
 
     if (splitH) {
         if (node.h < minSize * 2) return;
@@ -87,52 +104,245 @@ function collectLeaves(node) {
 }
 
 function placeRoom(leaf, rng, minW, maxW, minH, maxH, padding) {
-    const rw = randomInt(rng, Math.min(minW, leaf.w - padding * 2), Math.min(maxW, leaf.w - padding * 2));
-    const rh = randomInt(rng, Math.min(minH, leaf.h - padding * 2), Math.min(maxH, leaf.h - padding * 2));
-    if (rw < 6 || rh < 6) return null;
+    const maxAllowedW = leaf.w - padding * 2;
+    const maxAllowedH = leaf.h - padding * 2;
 
-    const rx = leaf.x + randomInt(rng, padding, Math.max(padding, leaf.w - rw - padding));
-    const ry = leaf.y + randomInt(rng, padding, Math.max(padding, leaf.h - rh - padding));
+    const rwMin = Math.max(8, Math.min(minW, maxAllowedW));
+    const rhMin = Math.max(8, Math.min(minH, maxAllowedH));
+    const rwMax = Math.min(maxW, maxAllowedW);
+    const rhMax = Math.min(maxH, maxAllowedH);
+
+    if (rwMax < rwMin || rhMax < rhMin) return null;
+
+    const rw = randomInt(rng, rwMin, rwMax);
+    const rh = randomInt(rng, rhMin, rhMax);
+
+    const xMin = leaf.x + padding;
+    const yMin = leaf.y + padding;
+    const xMax = leaf.x + leaf.w - rw - padding;
+    const yMax = leaf.y + leaf.h - rh - padding;
+
+    const rx = randomInt(rng, xMin, Math.max(xMin, xMax));
+    const ry = randomInt(rng, yMin, Math.max(yMin, yMax));
 
     return { x: rx, y: ry, w: rw, h: rh };
 }
 
-/**
- * Find the closest edge points between two rooms for corridor connection.
- */
+function roomDist(a, b) {
+    const ax = a.x + a.w / 2;
+    const ay = a.y + a.h / 2;
+    const bx = b.x + b.w / 2;
+    const by = b.y + b.h / 2;
+    return Math.abs(ax - bx) + Math.abs(ay - by);
+}
+
+function getRoomCenter(room) {
+    return {
+        x: room.x + room.w / 2,
+        y: room.y + room.h / 2
+    };
+}
+
+function computeDungeonBounds(mapWidth, mapHeight, cfg) {
+    const maxSize = Math.min(mapWidth - cfg.mapPadding * 2, mapHeight - cfg.mapPadding * 2);
+    const size = Math.max(48, Math.min(cfg.dungeonBoundsSize, maxSize));
+    const x = Math.floor((mapWidth - size) / 2);
+    const y = Math.floor((mapHeight - size) / 2);
+    return { x, y, w: size, h: size };
+}
+
+function selectCompactRooms(rooms, targetCount, center, rng) {
+    const scored = rooms
+        .map((room, idx) => {
+            const c = getRoomCenter(room);
+            const dist = Math.abs(c.x - center.x) + Math.abs(c.y - center.y);
+            return {
+                room,
+                idx,
+                score: dist + rng() * 4
+            };
+        })
+        .sort((a, b) => a.score - b.score);
+
+    const out = scored.slice(0, targetCount).map(s => ({ ...s.room }));
+    for (let i = 0; i < out.length; i++) {
+        out[i].id = `dungeon_room_${i}`;
+        out[i].connectedTo = [];
+    }
+    return out;
+}
+
+function buildAllDistanceEdges(rooms) {
+    const edges = [];
+    for (let i = 0; i < rooms.length; i++) {
+        for (let j = i + 1; j < rooms.length; j++) {
+            edges.push({ a: i, b: j, dist: roomDist(rooms[i], rooms[j]) });
+        }
+    }
+    edges.sort((x, y) => x.dist - y.dist);
+    return edges;
+}
+
+function edgeKey(a, b) {
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+}
+
+function buildConstrainedMST(rooms, allEdges, cfg) {
+    if (rooms.length <= 1) return [];
+
+    const byNode = new Map();
+    for (let i = 0; i < rooms.length; i++) byNode.set(i, []);
+    for (const e of allEdges) {
+        byNode.get(e.a).push(e);
+        byNode.get(e.b).push(e);
+    }
+
+    // Candidate edges: per-node nearest K + global short threshold.
+    const candidateKeys = new Set();
+
+    for (let i = 0; i < rooms.length; i++) {
+        const nearest = byNode.get(i)
+            .slice()
+            .sort((x, y) => x.dist - y.dist)
+            .slice(0, cfg.neighborLimit);
+        for (const e of nearest) candidateKeys.add(edgeKey(e.a, e.b));
+    }
+
+    for (const e of allEdges) {
+        if (e.dist <= cfg.edgeDistanceThreshold) {
+            candidateKeys.add(edgeKey(e.a, e.b));
+        }
+    }
+
+    const inTree = new Set([0]);
+    const mst = [];
+
+    while (inTree.size < rooms.length) {
+        let best = null;
+
+        for (const e of allEdges) {
+            const aIn = inTree.has(e.a);
+            const bIn = inTree.has(e.b);
+            if (aIn === bIn) continue;
+
+            const key = edgeKey(e.a, e.b);
+            if (!candidateKeys.has(key)) continue;
+
+            if (!best || e.dist < best.dist) best = e;
+        }
+
+        // Fallback: connect disconnected pieces using shortest possible edge.
+        if (!best) {
+            for (const e of allEdges) {
+                const aIn = inTree.has(e.a);
+                const bIn = inTree.has(e.b);
+                if (aIn === bIn) continue;
+                if (!best || e.dist < best.dist) best = e;
+            }
+        }
+
+        if (!best) break;
+
+        mst.push({ a: best.a, b: best.b });
+        inTree.add(best.a);
+        inTree.add(best.b);
+        candidateKeys.add(edgeKey(best.a, best.b));
+    }
+
+    return { mst, candidateKeys };
+}
+
+function addLoopEdges(mst, allEdges, candidateKeys, rng, cfg) {
+    const result = [...mst];
+    const existing = new Set(mst.map(e => edgeKey(e.a, e.b)));
+
+    const extraCandidates = allEdges.filter(e => {
+        const key = edgeKey(e.a, e.b);
+        if (existing.has(key)) return false;
+        if (!candidateKeys.has(key)) return false;
+        if (e.dist > cfg.loopEdgeMaxDistance) return false;
+        return true;
+    });
+
+    // Shuffle for variety while staying in short-edge pool.
+    for (let i = extraCandidates.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [extraCandidates[i], extraCandidates[j]] = [extraCandidates[j], extraCandidates[i]];
+    }
+
+    const extraEdgeCount = randomInt(rng, cfg.extraEdgeMin, cfg.extraEdgeMax);
+    let added = 0;
+
+    for (const e of extraCandidates) {
+        if (added >= extraEdgeCount) break;
+        const key = edgeKey(e.a, e.b);
+        if (existing.has(key)) continue;
+        result.push({ a: e.a, b: e.b });
+        existing.add(key);
+        added++;
+    }
+
+    return result;
+}
+
+function computeDepths(rooms, edges, startIdx) {
+    const adj = new Map();
+    for (let i = 0; i < rooms.length; i++) adj.set(i, []);
+    for (const e of edges) {
+        adj.get(e.a).push(e.b);
+        adj.get(e.b).push(e.a);
+    }
+
+    const depths = new Array(rooms.length).fill(-1);
+    depths[startIdx] = 0;
+
+    const queue = [startIdx];
+    let head = 0;
+
+    while (head < queue.length) {
+        const cur = queue[head++];
+        for (const nb of adj.get(cur)) {
+            if (depths[nb] !== -1) continue;
+            depths[nb] = depths[cur] + 1;
+            queue.push(nb);
+        }
+    }
+
+    return { depths, adj };
+}
+
 function closestEdgePoints(a, b) {
-    // Clamp each room's center onto the other room's span
     const acx = Math.floor(a.x + a.w / 2);
     const acy = Math.floor(a.y + a.h / 2);
     const bcx = Math.floor(b.x + b.w / 2);
     const bcy = Math.floor(b.y + b.h / 2);
 
-    let ax, ay, bx, by;
+    let ax;
+    let ay;
+    let bx;
+    let by;
 
-    // Determine dominant axis
     const dx = bcx - acx;
     const dy = bcy - acy;
 
     if (Math.abs(dx) >= Math.abs(dy)) {
-        // Horizontally separated - connect left/right edges
         if (dx > 0) {
-            ax = a.x + a.w; // right edge of A
-            bx = b.x;       // left edge of B
+            ax = a.x + a.w;
+            bx = b.x;
         } else {
-            ax = a.x;       // left edge of A
-            bx = b.x + b.w; // right edge of B
+            ax = a.x;
+            bx = b.x + b.w;
         }
-        // Y: clamp to overlapping range, or use centers
+
         const overlapTop = Math.max(a.y + 2, b.y + 2);
-        const overlapBot = Math.min(a.y + a.h - 2, b.y + b.h - 2);
-        if (overlapTop <= overlapBot) {
-            ay = by = Math.floor((overlapTop + overlapBot) / 2);
+        const overlapBottom = Math.min(a.y + a.h - 2, b.y + b.h - 2);
+        if (overlapTop <= overlapBottom) {
+            ay = by = Math.floor((overlapTop + overlapBottom) / 2);
         } else {
             ay = acy;
             by = bcy;
         }
     } else {
-        // Vertically separated
         if (dy > 0) {
             ay = a.y + a.h;
             by = b.y;
@@ -140,6 +350,7 @@ function closestEdgePoints(a, b) {
             ay = a.y;
             by = b.y + b.h;
         }
+
         const overlapLeft = Math.max(a.x + 2, b.x + 2);
         const overlapRight = Math.min(a.x + a.w - 2, b.x + b.w - 2);
         if (overlapLeft <= overlapRight) {
@@ -153,152 +364,72 @@ function closestEdgePoints(a, b) {
     return { ax, ay, bx, by };
 }
 
-/**
- * Generate L-shaped corridor between closest room edges.
- */
 function generateCorridor(roomA, roomB, corridorWidth, rng) {
     const { ax, ay, bx, by } = closestEdgePoints(roomA, roomB);
-
     const tiles = new Set();
-    const hw = Math.floor(corridorWidth / 2);
+    const halfWidth = Math.floor(corridorWidth / 2);
+    const horizontalFirst = rng() > 0.5;
 
-    const hFirst = rng() > 0.5;
-
-    if (hFirst) {
+    if (horizontalFirst) {
         const minX = Math.min(ax, bx);
         const maxX = Math.max(ax, bx);
         for (let x = minX; x <= maxX; x++) {
-            for (let d = -hw; d <= hw; d++) tiles.add(tileKey(x, ay + d));
+            for (let d = -halfWidth; d <= halfWidth; d++) {
+                tiles.add(tileKey(x, ay + d));
+            }
         }
+
         const minY = Math.min(ay, by);
         const maxY = Math.max(ay, by);
         for (let y = minY; y <= maxY; y++) {
-            for (let d = -hw; d <= hw; d++) tiles.add(tileKey(bx + d, y));
+            for (let d = -halfWidth; d <= halfWidth; d++) {
+                tiles.add(tileKey(bx + d, y));
+            }
         }
     } else {
         const minY = Math.min(ay, by);
         const maxY = Math.max(ay, by);
         for (let y = minY; y <= maxY; y++) {
-            for (let d = -hw; d <= hw; d++) tiles.add(tileKey(ax + d, y));
+            for (let d = -halfWidth; d <= halfWidth; d++) {
+                tiles.add(tileKey(ax + d, y));
+            }
         }
+
         const minX = Math.min(ax, bx);
         const maxX = Math.max(ax, bx);
         for (let x = minX; x <= maxX; x++) {
-            for (let d = -hw; d <= hw; d++) tiles.add(tileKey(x, by + d));
+            for (let d = -halfWidth; d <= halfWidth; d++) {
+                tiles.add(tileKey(x, by + d));
+            }
         }
     }
 
     return tiles;
 }
 
-function buildMST(rooms) {
-    if (rooms.length <= 1) return [];
-    const edges = [];
-    const inMST = new Set([0]);
-    const candidates = [];
-
-    for (let i = 1; i < rooms.length; i++) {
-        candidates.push({ from: 0, to: i, dist: roomDist(rooms[0], rooms[i]) });
-    }
-
-    while (inMST.size < rooms.length) {
-        let bestIdx = -1;
-        let bestDist = Infinity;
-        for (let i = 0; i < candidates.length; i++) {
-            if (!inMST.has(candidates[i].to) && candidates[i].dist < bestDist) {
-                bestDist = candidates[i].dist;
-                bestIdx = i;
-            }
-        }
-        if (bestIdx === -1) break;
-
-        const edge = candidates[bestIdx];
-        edges.push({ a: edge.from, b: edge.to });
-        inMST.add(edge.to);
-
-        for (let i = 0; i < rooms.length; i++) {
-            if (!inMST.has(i)) {
-                candidates.push({ from: edge.to, to: i, dist: roomDist(rooms[edge.to], rooms[i]) });
-            }
-        }
-    }
-
-    return edges;
-}
-
-function roomDist(a, b) {
-    const ax = a.x + a.w / 2;
-    const ay = a.y + a.h / 2;
-    const bx = b.x + b.w / 2;
-    const by = b.y + b.h / 2;
-    return Math.abs(ax - bx) + Math.abs(ay - by);
-}
-
-function computeDepths(rooms, edges, startIdx) {
-    const adj = new Map();
-    for (let i = 0; i < rooms.length; i++) adj.set(i, []);
-    for (const e of edges) {
-        adj.get(e.a).push(e.b);
-        adj.get(e.b).push(e.a);
-    }
-
-    const depths = new Array(rooms.length).fill(-1);
-    depths[startIdx] = 0;
-    const queue = [startIdx];
-    let head = 0;
-
-    while (head < queue.length) {
-        const cur = queue[head++];
-        for (const nb of adj.get(cur)) {
-            if (depths[nb] === -1) {
-                depths[nb] = depths[cur] + 1;
-                queue.push(nb);
-            }
-        }
-    }
-
-    return { depths, adj };
-}
-
-/**
- * Find gate positions at room-corridor boundaries.
- * Each gate is a group of tiles that fully blocks a corridor entrance.
- * Returns gates with a `tiles` array containing all tile positions to block.
- */
 function findGatePositions(rooms, allCorridorTiles) {
-    // Collect all individual gate tiles per room edge
-    const rawTiles = []; // { x, y, orientation, roomId, edge }
+    const rawTiles = [];
 
     for (const room of rooms) {
-        // Top edge: corridor tile is at y-1, gate tile at y (inside room edge)
         for (let x = room.x; x < room.x + room.w; x++) {
             if (allCorridorTiles.has(tileKey(x, room.y - 1))) {
                 rawTiles.push({ x, y: room.y, orientation: 'h', roomId: room.id, edge: `top_${room.id}` });
             }
-        }
-        // Bottom edge
-        for (let x = room.x; x < room.x + room.w; x++) {
             if (allCorridorTiles.has(tileKey(x, room.y + room.h))) {
                 rawTiles.push({ x, y: room.y + room.h - 1, orientation: 'h', roomId: room.id, edge: `bot_${room.id}` });
             }
         }
-        // Left edge
+
         for (let y = room.y; y < room.y + room.h; y++) {
             if (allCorridorTiles.has(tileKey(room.x - 1, y))) {
                 rawTiles.push({ x: room.x, y, orientation: 'v', roomId: room.id, edge: `left_${room.id}` });
             }
-        }
-        // Right edge
-        for (let y = room.y; y < room.y + room.h; y++) {
             if (allCorridorTiles.has(tileKey(room.x + room.w, y))) {
                 rawTiles.push({ x: room.x + room.w - 1, y, orientation: 'v', roomId: room.id, edge: `right_${room.id}` });
             }
         }
     }
 
-    // Group into contiguous runs along the same edge
-    // For horizontal gates (top/bottom): group by same y and edge, contiguous x
-    // For vertical gates (left/right): group by same x and edge, contiguous y
     const edgeGroups = new Map();
     for (const t of rawTiles) {
         if (!edgeGroups.has(t.edge)) edgeGroups.set(t.edge, []);
@@ -306,62 +437,62 @@ function findGatePositions(rooms, allCorridorTiles) {
     }
 
     const gates = [];
+
     for (const [, tiles] of edgeGroups) {
-        if (tiles.length === 0) continue;
+        if (!tiles.length) continue;
+
         const orient = tiles[0].orientation;
 
         if (orient === 'h') {
-            // Sort by x, group contiguous
             tiles.sort((a, b) => a.x - b.x);
             let run = [tiles[0]];
             for (let i = 1; i < tiles.length; i++) {
                 if (tiles[i].x === run[run.length - 1].x + 1 && tiles[i].y === run[0].y) {
                     run.push(tiles[i]);
                 } else {
-                    gates.push(_buildGate(run, orient));
+                    gates.push(buildGate(run, orient));
                     run = [tiles[i]];
                 }
             }
-            gates.push(_buildGate(run, orient));
+            gates.push(buildGate(run, orient));
         } else {
-            // Sort by y, group contiguous
             tiles.sort((a, b) => a.y - b.y);
             let run = [tiles[0]];
             for (let i = 1; i < tiles.length; i++) {
                 if (tiles[i].y === run[run.length - 1].y + 1 && tiles[i].x === run[0].x) {
                     run.push(tiles[i]);
                 } else {
-                    gates.push(_buildGate(run, orient));
+                    gates.push(buildGate(run, orient));
                     run = [tiles[i]];
                 }
             }
-            gates.push(_buildGate(run, orient));
+            gates.push(buildGate(run, orient));
         }
     }
 
-    // Deduplicate gates at same position (two rooms may share a corridor entrance)
-    const dedupMap = new Map();
+    const dedup = new Map();
     for (const g of gates) {
         const key = g.tiles.map(t => `${t.x},${t.y}`).sort().join('|');
-        if (dedupMap.has(key)) {
-            // Merge roomIds
-            const existing = dedupMap.get(key);
-            for (const rid of g.roomIds) {
-                if (!existing.roomIds.includes(rid)) existing.roomIds.push(rid);
-            }
-        } else {
-            dedupMap.set(key, g);
+        if (!dedup.has(key)) {
+            dedup.set(key, g);
+            continue;
+        }
+
+        const existing = dedup.get(key);
+        for (const rid of g.roomIds) {
+            if (!existing.roomIds.includes(rid)) existing.roomIds.push(rid);
         }
     }
 
-    return [...dedupMap.values()];
+    return [...dedup.values()];
 }
 
-function _buildGate(tileRun, orientation) {
+function buildGate(tileRun, orientation) {
     const roomIds = [];
     for (const t of tileRun) {
         if (!roomIds.includes(t.roomId)) roomIds.push(t.roomId);
     }
+
     return {
         tiles: tileRun.map(t => ({ x: t.x, y: t.y })),
         orientation,
@@ -369,16 +500,59 @@ function _buildGate(tileRun, orientation) {
     };
 }
 
-/**
- * Compute enemy configuration for a room based on depth and floor.
- */
-function computeEnemyConfig(roomType, depth, floor) {
+function assignRoomCategories(rooms, depths, startIdx, bossIdx, rng) {
+    const normalIds = [];
+    let maxDepth = 0;
+    for (let i = 0; i < rooms.length; i++) {
+        if (depths[i] > maxDepth) maxDepth = depths[i];
+        if (i !== startIdx && i !== bossIdx) normalIds.push(i);
+    }
+
+    // Reward rooms: pick deepest normal rooms first.
+    normalIds.sort((a, b) => depths[b] - depths[a]);
+    const rewardCount = normalIds.length >= 7 ? 2 : 1;
+    const rewardSet = new Set(normalIds.slice(0, rewardCount));
+
+    for (let i = 0; i < rooms.length; i++) {
+        if (i === startIdx) {
+            rooms[i].category = 'start';
+            continue;
+        }
+        if (i === bossIdx) {
+            rooms[i].category = 'boss_arena';
+            continue;
+        }
+
+        if (rewardSet.has(i)) {
+            rooms[i].category = 'reward';
+            continue;
+        }
+
+        const d = depths[i];
+        const p = maxDepth > 0 ? d / maxDepth : 0;
+        const roll = rng();
+
+        if (p < 0.35) {
+            rooms[i].category = roll < 0.55 ? 'combat_open' : 'combat_cover';
+        } else if (p < 0.7) {
+            if (roll < 0.45) rooms[i].category = 'combat_cover';
+            else if (roll < 0.82) rooms[i].category = 'combat_maze';
+            else rooms[i].category = 'challenge_trapline';
+        } else {
+            if (roll < 0.25) rooms[i].category = 'combat_cover';
+            else if (roll < 0.65) rooms[i].category = 'combat_maze';
+            else rooms[i].category = 'challenge_trapline';
+        }
+    }
+}
+
+function computeEnemyConfig(roomType, depth, floor, category = 'combat_cover') {
     if (roomType === 'start') {
         return { types: [], count: 0 };
     }
 
     if (floor === 2) {
-        return computeEnemyConfigFloor2(roomType, depth);
+        return computeEnemyConfigFloor2(roomType, depth, category);
     }
 
     if (roomType === 'boss') {
@@ -392,6 +566,23 @@ function computeEnemyConfig(roomType, depth, floor) {
         };
     }
 
+    // Reward rooms are intentionally lighter to create pacing contrast.
+    if (category === 'reward') {
+        const count = depth <= 2 ? 2 : 3;
+        return {
+            types: depth <= 2
+                ? [
+                    { type: 'zombie', count: Math.ceil(count * 0.5) },
+                    { type: 'zombie_female', count: Math.floor(count * 0.5) }
+                ]
+                : [
+                    { type: 'zombie_female', count: 1 },
+                    { type: 'hunter', count: Math.max(1, count - 1) }
+                ],
+            count
+        };
+    }
+
     if (depth <= 2) {
         const count = 4 + Math.floor(Math.random() * 2);
         return {
@@ -402,6 +593,7 @@ function computeEnemyConfig(roomType, depth, floor) {
             count
         };
     }
+
     if (depth <= 4) {
         const count = 5 + Math.floor(Math.random() * 3);
         return {
@@ -414,6 +606,7 @@ function computeEnemyConfig(roomType, depth, floor) {
             count
         };
     }
+
     const count = 6 + Math.floor(Math.random() * 3);
     return {
         types: [
@@ -425,7 +618,7 @@ function computeEnemyConfig(roomType, depth, floor) {
     };
 }
 
-function computeEnemyConfigFloor2(roomType, depth) {
+function computeEnemyConfigFloor2(roomType, depth, category = 'combat_cover') {
     if (roomType === 'boss') {
         return {
             types: [
@@ -434,6 +627,17 @@ function computeEnemyConfigFloor2(roomType, depth) {
                 { type: 'hunter', count: 1 }
             ],
             count: 5
+        };
+    }
+
+    if (category === 'reward') {
+        const count = depth <= 2 ? 3 : 4;
+        return {
+            types: [
+                { type: 'zombie_brute', count: Math.max(1, Math.floor(count * 0.34)) },
+                { type: 'hunter', count: Math.max(1, Math.ceil(count * 0.66)) }
+            ],
+            count
         };
     }
 
@@ -448,6 +652,7 @@ function computeEnemyConfigFloor2(roomType, depth) {
             count
         };
     }
+
     if (depth <= 4) {
         const count = 7 + Math.floor(Math.random() * 3);
         return {
@@ -459,6 +664,7 @@ function computeEnemyConfigFloor2(roomType, depth) {
             count
         };
     }
+
     const count = 8 + Math.floor(Math.random() * 3);
     return {
         types: [
@@ -469,30 +675,43 @@ function computeEnemyConfigFloor2(roomType, depth) {
     };
 }
 
-/**
- * Generate cover objects (boxes, barrels) inside a room.
- */
-function generateRoomCover(room, rng, interiorWallTiles = new Set()) {
+function generateRoomCover(room, rng, interiorWallTiles = new Set(), occupied = new Set()) {
     if (room.type === 'start') return [];
 
     const covers = [];
     const coverTypes = ['box', 'box', 'box', 'barrel', 'barrel', 'explosive_barrel'];
 
-    // Scale cover count with room area
-    const area = (room.w - 4) * (room.h - 4); // interior area
-    const count = room.type === 'boss'
-        ? randomInt(rng, 6, 10)
-        : Math.min(12, randomInt(rng, 4, Math.floor(area / 25)));
+    const area = (room.w - 4) * (room.h - 4);
+    let minCount = 3;
+    let maxCount = Math.max(4, Math.floor(area / 22));
 
-    const occupied = new Set();
+    if (room.category === 'combat_open') {
+        minCount = 2;
+        maxCount = Math.max(3, Math.floor(area / 35));
+    } else if (room.category === 'combat_cover') {
+        minCount = 4;
+        maxCount = Math.max(6, Math.floor(area / 18));
+    } else if (room.category === 'challenge_trapline') {
+        minCount = 5;
+        maxCount = Math.max(7, Math.floor(area / 17));
+    } else if (room.category === 'reward') {
+        minCount = 1;
+        maxCount = 3;
+    } else if (room.type === 'boss') {
+        minCount = 6;
+        maxCount = 10;
+    }
+
+    const count = randomInt(rng, minCount, Math.min(12, maxCount));
     const cx = Math.floor(room.x + room.w / 2);
     const cy = Math.floor(room.y + room.h / 2);
 
     for (let i = 0; i < count; i++) {
-        for (let attempt = 0; attempt < 20; attempt++) {
-            let tx, ty;
+        for (let attempt = 0; attempt < 24; attempt++) {
+            let tx;
+            let ty;
+
             if (room.type === 'boss') {
-                // Boss room: place in corners
                 const cornerIdx = i % 4;
                 const qx = cornerIdx % 2 === 0 ? room.x + 2 : room.x + room.w - 3;
                 const qy = cornerIdx < 2 ? room.y + 2 : room.y + room.h - 3;
@@ -503,25 +722,23 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set()) {
                 ty = randomInt(rng, room.y + 2, room.y + room.h - 3);
             }
 
-            // Skip center area
+            // Keep center open for navigation readability.
             if (Math.abs(tx - cx) <= 1 && Math.abs(ty - cy) <= 1) continue;
 
-            // Skip interior wall tiles and 1-tile buffer around them
-            let onWall = false;
-            for (let dy = -1; dy <= 1; dy++) {
+            let blocked = false;
+            for (let dy = -1; dy <= 1 && !blocked; dy++) {
                 for (let dx = -1; dx <= 1; dx++) {
                     if (interiorWallTiles.has(tileKey(tx + dx, ty + dy))) {
-                        onWall = true;
+                        blocked = true;
                         break;
                     }
                 }
-                if (onWall) break;
             }
-            if (onWall) continue;
+            if (blocked) continue;
 
-            // Check spacing from other covers
             const key = tileKey(tx, ty);
             if (occupied.has(key)) continue;
+
             let tooClose = false;
             for (const ok of occupied) {
                 const [ox, oy] = ok.split(',').map(Number);
@@ -532,18 +749,357 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set()) {
             }
             if (tooClose) continue;
 
-            // Bounds check
             if (tx < room.x + 2 || tx >= room.x + room.w - 2) continue;
             if (ty < room.y + 2 || ty >= room.y + room.h - 2) continue;
 
             occupied.add(key);
             const type = coverTypes[Math.floor(rng() * coverTypes.length)];
-            covers.push({ x: tx, y: ty, type });
+            covers.push({ x: tx, y: ty, type, roomId: room.id });
             break;
         }
     }
 
     return covers;
+}
+
+function generateRoomDecor(room, rng, interiorWallTiles = new Set(), occupied = new Set()) {
+    if (room.type === 'start') return [];
+
+    const decorTypes = [
+        'dungeon_rubble',
+        'dungeon_bone_pile',
+        'dungeon_rubble',
+        'dungeon_iron_cage'
+    ];
+
+    let maxDecor = 2;
+    if (room.category === 'combat_open') maxDecor = 1;
+    if (room.category === 'combat_maze' || room.category === 'challenge_trapline') maxDecor = 3;
+    if (room.type === 'boss') maxDecor = 2;
+
+    const count = randomInt(rng, 0, maxDecor);
+    const out = [];
+
+    for (let i = 0; i < count; i++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
+            const tx = randomInt(rng, room.x + 2, room.x + room.w - 3);
+            const ty = randomInt(rng, room.y + 2, room.y + room.h - 3);
+            const key = tileKey(tx, ty);
+
+            if (occupied.has(key)) continue;
+            if (interiorWallTiles.has(key)) continue;
+
+            // Keep gates/major passages cleaner: avoid strict center cross.
+            const centerX = room.x + Math.floor(room.w / 2);
+            const centerY = room.y + Math.floor(room.h / 2);
+            if ((Math.abs(tx - centerX) <= 1 && Math.abs(ty - centerY) <= 1)) continue;
+
+            occupied.add(key);
+            const type = decorTypes[Math.floor(rng() * decorTypes.length)];
+            out.push({ x: tx, y: ty, type, roomId: room.id });
+            break;
+        }
+    }
+
+    return out;
+}
+
+function buildMinimapGraph(rooms, edges, bounds) {
+    const gridSize = 14;
+    const occupied = new Set();
+
+    const nodes = rooms.map(room => {
+        const c = getRoomCenter(room);
+        const nx = bounds.w > 1 ? (c.x - bounds.x) / (bounds.w - 1) : 0.5;
+        const ny = bounds.h > 1 ? (c.y - bounds.y) / (bounds.h - 1) : 0.5;
+
+        let gx = Math.max(0, Math.min(gridSize - 1, Math.round(nx * (gridSize - 1))));
+        let gy = Math.max(0, Math.min(gridSize - 1, Math.round(ny * (gridSize - 1))));
+
+        // Resolve collisions with a small spiral search.
+        if (occupied.has(tileKey(gx, gy))) {
+            let placed = false;
+            for (let radius = 1; radius <= 5 && !placed; radius++) {
+                for (let dy = -radius; dy <= radius && !placed; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+                        const sx = gx + dx;
+                        const sy = gy + dy;
+                        if (sx < 0 || sx >= gridSize || sy < 0 || sy >= gridSize) continue;
+                        const sk = tileKey(sx, sy);
+                        if (occupied.has(sk)) continue;
+                        gx = sx;
+                        gy = sy;
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        occupied.add(tileKey(gx, gy));
+
+        return {
+            id: room.id,
+            gx,
+            gy,
+            type: room.type,
+            category: room.category,
+            depth: room.depth
+        };
+    });
+
+    return {
+        nodes,
+        edges: edges.map(e => ({ a: rooms[e.a].id, b: rooms[e.b].id }))
+    };
+}
+
+function computeCorridorMetrics(corridors) {
+    if (!corridors.length) {
+        return { avg: 0, max: 0 };
+    }
+
+    let total = 0;
+    let max = 0;
+
+    for (const c of corridors) {
+        const len = c.tiles.length;
+        total += len;
+        if (len > max) max = len;
+    }
+
+    return {
+        avg: total / corridors.length,
+        max
+    };
+}
+
+function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
+    const bounds = computeDungeonBounds(mapWidth, mapHeight, cfg);
+
+    const root = new BSPNode(
+        bounds.x + cfg.mapPadding,
+        bounds.y + cfg.mapPadding,
+        bounds.w - cfg.mapPadding * 2,
+        bounds.h - cfg.mapPadding * 2
+    );
+
+    const maxDepth = 4 + Math.floor(rng() * 2);
+    splitBSP(root, rng, 0, maxDepth, cfg.bspMinRegion);
+
+    const leaves = collectLeaves(root);
+    const candidates = [];
+
+    for (const leaf of leaves) {
+        const room = placeRoom(
+            leaf,
+            rng,
+            cfg.normalRoomMin,
+            cfg.normalRoomMax,
+            cfg.normalRoomMin,
+            cfg.normalRoomMax,
+            cfg.roomPadding
+        );
+        if (room) candidates.push(room);
+    }
+
+    if (candidates.length < cfg.roomCountMin) {
+        throw new Error(`Dungeon generation failed: too few candidate rooms (${candidates.length})`);
+    }
+
+    const center = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+    const targetCount = randomInt(
+        rng,
+        cfg.roomCountMin,
+        Math.min(cfg.roomCountMax, candidates.length)
+    );
+
+    const rooms = selectCompactRooms(candidates, targetCount, center, rng);
+
+    // Start room: closest to center.
+    let startIdx = 0;
+    let minCenterDist = Infinity;
+    for (let i = 0; i < rooms.length; i++) {
+        const c = getRoomCenter(rooms[i]);
+        const dist = Math.abs(c.x - center.x) + Math.abs(c.y - center.y);
+        if (dist < minCenterDist) {
+            minCenterDist = dist;
+            startIdx = i;
+        }
+    }
+
+    const allEdges = buildAllDistanceEdges(rooms);
+    const { mst, candidateKeys } = buildConstrainedMST(rooms, allEdges, cfg);
+
+    if (mst.length < rooms.length - 1) {
+        throw new Error('Dungeon generation failed: graph disconnected');
+    }
+
+    const graphEdges = addLoopEdges(mst, allEdges, candidateKeys, rng, cfg);
+
+    for (const room of rooms) {
+        room.connectedTo = [];
+    }
+
+    for (const e of graphEdges) {
+        rooms[e.a].connectedTo.push(rooms[e.b].id);
+        rooms[e.b].connectedTo.push(rooms[e.a].id);
+    }
+
+    const { depths } = computeDepths(rooms, graphEdges, startIdx);
+
+    let bossIdx = startIdx;
+    let bestDepth = -1;
+    let bestArea = -1;
+
+    for (let i = 0; i < rooms.length; i++) {
+        if (i === startIdx) continue;
+
+        const d = depths[i];
+        const area = rooms[i].w * rooms[i].h;
+
+        if (d > bestDepth || (d === bestDepth && area > bestArea)) {
+            bestDepth = d;
+            bestArea = area;
+            bossIdx = i;
+        }
+    }
+
+    for (let i = 0; i < rooms.length; i++) {
+        rooms[i].depth = depths[i];
+        if (i === startIdx) rooms[i].type = 'start';
+        else if (i === bossIdx) rooms[i].type = 'boss';
+        else rooms[i].type = 'normal';
+    }
+
+    assignRoomCategories(rooms, depths, startIdx, bossIdx, rng);
+
+    const allCorridorTiles = new Set();
+    const corridors = [];
+
+    for (const edge of graphEdges) {
+        const tiles = generateCorridor(rooms[edge.a], rooms[edge.b], cfg.corridorWidth, rng);
+        const tileArray = [...tiles].map(k => {
+            const [x, y] = k.split(',').map(Number);
+            return { x, y };
+        });
+
+        corridors.push({
+            id: `corridor_${corridors.length}`,
+            tiles: tileArray,
+            connectsRooms: [rooms[edge.a].id, rooms[edge.b].id]
+        });
+
+        for (const t of tiles) allCorridorTiles.add(t);
+    }
+
+    const corridorMetrics = computeCorridorMetrics(corridors);
+    if (corridorMetrics.max > cfg.maxCorridorLenHard || corridorMetrics.avg > cfg.maxCorridorAvg) {
+        throw new Error(`Dungeon generation failed: corridor quality max=${corridorMetrics.max}, avg=${corridorMetrics.avg.toFixed(1)}`);
+    }
+
+    const floorTiles = new Set();
+
+    for (const room of rooms) {
+        for (let y = room.y; y < room.y + room.h; y++) {
+            for (let x = room.x; x < room.x + room.w; x++) {
+                floorTiles.add(tileKey(x, y));
+            }
+        }
+    }
+
+    for (const t of allCorridorTiles) {
+        floorTiles.add(t);
+    }
+
+    const gates = findGatePositions(rooms, allCorridorTiles);
+
+    const interiorWallTiles = new Set();
+    const usedTemplateIds = new Set();
+
+    for (const room of rooms) {
+        const result = applyTemplate(room, rng, usedTemplateIds);
+        if (!result.walls || result.walls.length === 0) continue;
+
+        for (const w of result.walls) {
+            const key = tileKey(w.x, w.y);
+            interiorWallTiles.add(key);
+            floorTiles.delete(key);
+        }
+    }
+
+    const wallTiles = new Set();
+    for (const key of floorTiles) {
+        const [fx, fy] = key.split(',').map(Number);
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nk = tileKey(fx + dx, fy + dy);
+                if (!floorTiles.has(nk)) {
+                    wallTiles.add(nk);
+                }
+            }
+        }
+    }
+
+    // Merge interior walls as hard walls.
+    for (const key of interiorWallTiles) {
+        wallTiles.add(key);
+    }
+
+    // Gate tiles should remain passable floor when unlocked.
+    for (const g of gates) {
+        for (const t of g.tiles) {
+            const gk = tileKey(t.x, t.y);
+            wallTiles.delete(gk);
+            floorTiles.add(gk);
+        }
+    }
+
+    const decorObjects = [];
+    const coverObjects = [];
+
+    for (const room of rooms) {
+        room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor, room.category);
+
+        room.spawnPoints = [];
+        for (let y = room.y + 2; y < room.y + room.h - 2; y++) {
+            for (let x = room.x + 2; x < room.x + room.w - 2; x++) {
+                if (interiorWallTiles.has(tileKey(x, y))) continue;
+                room.spawnPoints.push({ x, y });
+            }
+        }
+
+        const occupied = new Set();
+        const roomCovers = generateRoomCover(room, rng, interiorWallTiles, occupied);
+        coverObjects.push(...roomCovers);
+
+        const roomDecor = generateRoomDecor(room, rng, interiorWallTiles, occupied);
+        decorObjects.push(...roomDecor);
+    }
+
+    const graph = buildMinimapGraph(rooms, graphEdges, bounds);
+
+    return {
+        rooms,
+        corridors,
+        gates,
+        wallTiles,
+        floorTiles,
+        coverObjects,
+        decorObjects,
+        startRoomId: rooms[startIdx].id,
+        bossRoomId: rooms[bossIdx].id,
+        floor,
+        bounds,
+        graph,
+        metrics: {
+            roomCount: rooms.length,
+            corridorAvg: corridorMetrics.avg,
+            corridorMax: corridorMetrics.max
+        }
+    };
 }
 
 /**
@@ -555,189 +1111,21 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set()) {
  * @returns {Object} Dungeon layout
  */
 export function generateDungeonLayout(mapWidth, mapHeight, seed, floor = 1) {
-    const rng = createRng(seed || (Date.now() & 0xFFFFFFFF));
     const cfg = DUNGEON_CONFIG;
+    const baseSeed = (seed || (Date.now() & 0xFFFFFFFF)) | 0;
 
-    const pad = cfg.mapPadding;
-    const areaW = mapWidth - pad * 2;
-    const areaH = mapHeight - pad * 2;
+    let lastErr = null;
 
-    // 1. BSP partition
-    const root = new BSPNode(pad, pad, areaW, areaH);
-    const maxDepth = 2 + Math.floor(rng() * 2);
-    splitBSP(root, rng, 0, maxDepth, cfg.bspMinRegion);
+    for (let attempt = 0; attempt < cfg.maxGenerationAttempts; attempt++) {
+        const attemptSeed = (baseSeed + attempt * 0x9E3779B9) | 0;
+        const rng = createRng(attemptSeed);
 
-    // 2. Collect leaves and place rooms
-    const leaves = collectLeaves(root);
-    const rooms = [];
-
-    for (let i = 0; i < leaves.length; i++) {
-        const leaf = leaves[i];
-        const isFirst = i === 0;
-        const minW = isFirst ? cfg.startRoomMin : cfg.normalRoomMin;
-        const maxW = isFirst ? cfg.startRoomMax : cfg.normalRoomMax;
-
-        const room = placeRoom(leaf, rng, minW, maxW, minW, maxW, cfg.roomPadding);
-        if (room) {
-            room.id = `dungeon_room_${rooms.length}`;
-            room.connectedTo = [];
-            rooms.push(room);
+        try {
+            return generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg);
+        } catch (err) {
+            lastErr = err;
         }
     }
 
-    const targetCount = randomInt(rng, cfg.roomCountMin, cfg.roomCountMax);
-    while (rooms.length > targetCount) {
-        rooms.pop();
-    }
-
-    if (rooms.length < 3) {
-        throw new Error('Dungeon generation failed: too few rooms');
-    }
-
-    // 3. Build MST + extra edges
-    const mstEdges = buildMST(rooms);
-    const extraEdgeCount = randomInt(rng, 1, 2);
-    for (let e = 0; e < extraEdgeCount; e++) {
-        const a = randomInt(rng, 0, rooms.length - 1);
-        const b = randomInt(rng, 0, rooms.length - 1);
-        if (a !== b && !mstEdges.some(ed => (ed.a === a && ed.b === b) || (ed.a === b && ed.b === a))) {
-            mstEdges.push({ a, b });
-        }
-    }
-
-    for (const e of mstEdges) {
-        rooms[e.a].connectedTo.push(rooms[e.b].id);
-        rooms[e.b].connectedTo.push(rooms[e.a].id);
-    }
-
-    // 4. Assign room types
-    const startIdx = 0;
-    const { depths } = computeDepths(rooms, mstEdges, startIdx);
-
-    let bossIdx = 0;
-    let maxDepth2 = 0;
-    for (let i = 1; i < rooms.length; i++) {
-        if (depths[i] > maxDepth2) {
-            maxDepth2 = depths[i];
-            bossIdx = i;
-        }
-    }
-
-    rooms[startIdx].type = 'start';
-    rooms[startIdx].depth = 0;
-    rooms[bossIdx].type = 'boss';
-    rooms[bossIdx].depth = depths[bossIdx];
-
-    if (rooms[bossIdx].w < cfg.bossRoomMin) rooms[bossIdx].w = cfg.bossRoomMin;
-    if (rooms[bossIdx].h < cfg.bossRoomMin) rooms[bossIdx].h = cfg.bossRoomMin;
-
-    for (let i = 0; i < rooms.length; i++) {
-        if (i !== startIdx && i !== bossIdx) {
-            rooms[i].type = 'normal';
-            rooms[i].depth = depths[i];
-        }
-    }
-
-    // 5. Generate corridors
-    const allCorridorTiles = new Set();
-    const corridors = [];
-
-    for (const edge of mstEdges) {
-        const tiles = generateCorridor(rooms[edge.a], rooms[edge.b], cfg.corridorWidth, rng);
-        corridors.push({
-            id: `corridor_${corridors.length}`,
-            tiles: [...tiles].map(k => { const [x, y] = k.split(',').map(Number); return { x, y }; }),
-            connectsRooms: [rooms[edge.a].id, rooms[edge.b].id]
-        });
-        for (const t of tiles) allCorridorTiles.add(t);
-    }
-
-    // 6. Compute floor tiles
-    const floorTiles = new Set();
-    for (const room of rooms) {
-        for (let y = room.y; y < room.y + room.h; y++) {
-            for (let x = room.x; x < room.x + room.w; x++) {
-                floorTiles.add(tileKey(x, y));
-            }
-        }
-    }
-    for (const t of allCorridorTiles) floorTiles.add(t);
-
-    // 6.5. Generate interior wall tiles from room templates
-    const interiorWallTiles = new Set();
-    const usedTemplateIds = new Set();
-    for (const room of rooms) {
-        const result = applyTemplate(room, rng, usedTemplateIds);
-        if (result.walls && result.walls.length > 0) {
-            for (const w of result.walls) {
-                const key = tileKey(w.x, w.y);
-                interiorWallTiles.add(key);
-                floorTiles.delete(key); // interior walls are not walkable floor
-            }
-        }
-    }
-
-    // 7. Compute wall tiles
-    const wallTiles = new Set();
-    for (const key of floorTiles) {
-        const [fx, fy] = key.split(',').map(Number);
-        for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-                if (dx === 0 && dy === 0) continue;
-                const nk = tileKey(fx + dx, fy + dy);
-                if (!floorTiles.has(nk)) wallTiles.add(nk);
-            }
-        }
-    }
-
-    // 8. Find gate positions (energy barriers at room-corridor boundaries)
-    const gates = findGatePositions(rooms, allCorridorTiles);
-
-    // Gate tiles: remove from walls, ensure they're floor
-    for (const g of gates) {
-        for (const t of g.tiles) {
-            const gk = tileKey(t.x, t.y);
-            wallTiles.delete(gk);
-            floorTiles.add(gk);
-        }
-    }
-
-    // 8.5. Merge interior wall tiles into wallTiles
-    for (const key of interiorWallTiles) {
-        wallTiles.add(key);
-    }
-
-    // 9. Enemy config per room
-    for (const room of rooms) {
-        room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor);
-    }
-
-    // 10. Spawn points (skip interior wall tiles)
-    for (const room of rooms) {
-        room.spawnPoints = [];
-        for (let y = room.y + 2; y < room.y + room.h - 2; y++) {
-            for (let x = room.x + 2; x < room.x + room.w - 2; x++) {
-                if (interiorWallTiles.has(tileKey(x, y))) continue;
-                room.spawnPoints.push({ x, y });
-            }
-        }
-    }
-
-    // 11. Cover objects (avoid interior wall tiles)
-    const coverObjects = [];
-    for (const room of rooms) {
-        coverObjects.push(...generateRoomCover(room, rng, interiorWallTiles));
-    }
-
-    return {
-        rooms,
-        corridors,
-        gates,
-        wallTiles,
-        floorTiles,
-        coverObjects,
-        startRoomId: rooms[startIdx].id,
-        bossRoomId: rooms[bossIdx].id,
-        floor
-    };
+    throw new Error(`Dungeon generation failed after ${cfg.maxGenerationAttempts} attempts: ${lastErr?.message || 'unknown error'}`);
 }

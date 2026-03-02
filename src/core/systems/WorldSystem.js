@@ -512,6 +512,15 @@ export class WorldSystem {
             ));
         }
 
+        // Place dungeon decor objects (visual identity + light tactical noise)
+        for (const decor of (layout.decorObjects || [])) {
+            this.breakableObjects.push(new BreakableObject(
+                decor.x * TILE_SIZE,
+                decor.y * TILE_SIZE,
+                decor.type
+            ));
+        }
+
         // Build floor map (stone for rooms/corridors, NONE elsewhere)
         const S = FLOOR_TILES_PER_CELL;
         this.floorMapWidth = MAP_WIDTH * S;

@@ -1,4 +1,5 @@
 import { PixelOcclusionField } from './PixelOcclusionField.js';
+import { FrameScratchPool } from './FrameScratchPool.js';
 
 const TWO_PI = Math.PI * 2;
 
@@ -38,6 +39,12 @@ export class LightBufferRenderer {
         this.bufferWidth = 0;
         this.bufferHeight = 0;
         this.occlusionField = new PixelOcclusionField();
+        this._scratchPool = new FrameScratchPool();
+        this._fullCircleRayLut = {
+            rayCount: 0,
+            cos: new Float32Array(0),
+            sin: new Float32Array(0)
+        };
     }
 
     updateConfig(config) {
@@ -117,7 +124,26 @@ export class LightBufferRenderer {
         }
     }
 
-    _computeVisibilityPolygon(light, rayCount, viewX, viewY, scale, includeContourPoints = false) {
+    _ensureFullCircleRayLut(rayCount) {
+        if (this._fullCircleRayLut.rayCount === rayCount && this._fullCircleRayLut.cos.length === rayCount + 1) {
+            return this._fullCircleRayLut;
+        }
+
+        const size = rayCount + 1;
+        const cos = new Float32Array(size);
+        const sin = new Float32Array(size);
+        const step = TWO_PI / rayCount;
+        for (let i = 0; i <= rayCount; i++) {
+            const angle = step * i;
+            cos[i] = Math.cos(angle);
+            sin[i] = Math.sin(angle);
+        }
+
+        this._fullCircleRayLut = { rayCount, cos, sin };
+        return this._fullCircleRayLut;
+    }
+
+    _computeVisibilityPolygon(light, rayCount, viewX, viewY, scale, includeContourPoints = false, fullCircleRayLut = null) {
         const contourPoints = includeContourPoints ? [] : null;
         const contourSeen = includeContourPoints ? new Set() : null;
 
@@ -143,21 +169,46 @@ export class LightBufferRenderer {
             points.push({ x: ox, y: oy });
         }
 
-        for (let i = 0; i <= rayCount; i++) {
-            const angle = startAngle + angleStep * Math.min(i, rayCount);
-            const dx = Math.cos(angle);
-            const dy = Math.sin(angle);
+        if (!isCone && fullCircleRayLut && fullCircleRayLut.rayCount === rayCount) {
+            const startCos = Math.cos(startAngle);
+            const startSin = Math.sin(startAngle);
 
-            const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
-            points.push({ x: result.x, y: result.y });
+            for (let i = 0; i <= rayCount; i++) {
+                const baseCos = fullCircleRayLut.cos[i];
+                const baseSin = fullCircleRayLut.sin[i];
+                const dx = baseCos * startCos - baseSin * startSin;
+                const dy = baseSin * startCos + baseCos * startSin;
 
-            if (includeContourPoints && result.hit && result.ownerId > 0) {
-                const qx = Math.floor(result.x);
-                const qy = Math.floor(result.y);
-                const key = `${qx},${qy}`;
-                if (!contourSeen.has(key)) {
-                    contourSeen.add(key);
-                    contourPoints.push({ x: qx, y: qy });
+                const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
+                points.push({ x: result.x, y: result.y });
+
+                if (includeContourPoints && result.hit && result.ownerId > 0) {
+                    const qx = Math.floor(result.x);
+                    const qy = Math.floor(result.y);
+                    const key = `${qx},${qy}`;
+                    if (!contourSeen.has(key)) {
+                        contourSeen.add(key);
+                        contourPoints.push({ x: qx, y: qy });
+                    }
+                }
+            }
+        } else {
+            for (let i = 0; i <= rayCount; i++) {
+                const angle = startAngle + angleStep * Math.min(i, rayCount);
+                const dx = Math.cos(angle);
+                const dy = Math.sin(angle);
+
+                const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
+                points.push({ x: result.x, y: result.y });
+
+                if (includeContourPoints && result.hit && result.ownerId > 0) {
+                    const qx = Math.floor(result.x);
+                    const qy = Math.floor(result.y);
+                    const key = `${qx},${qy}`;
+                    if (!contourSeen.has(key)) {
+                        contourSeen.add(key);
+                        contourPoints.push({ x: qx, y: qy });
+                    }
                 }
             }
         }
@@ -252,8 +303,10 @@ export class LightBufferRenderer {
         const viewH = Math.ceil(viewportHeight) + 1 + PADDING * 2;
 
         this._ensureBufferSize(viewW, viewH);
+        this._scratchPool.reset();
 
         const rayCount = this.config.shadowRays;
+        const fullCircleRayLut = this._ensureFullCircleRayLut(rayCount);
         const gradientSteps = this.config.gradientSteps;
         const glowSteps = this.config.glowSteps;
         const enableContourGlow = this.config.enableContourGlow === true;
@@ -288,37 +341,46 @@ export class LightBufferRenderer {
             const needsShadowQuery = !!shadowBuilder && (blockWalls || needsObjectShadows);
 
             // Query all blockers once.
-            let allBlockers = [];
+            const allBlockers = this._scratchPool.takeArray();
             if (needsShadowQuery) {
-                allBlockers = shadowBuilder.query(
+                shadowBuilder.query(
                     light.x,
                     light.y,
                     light.radius,
                     this.config.maxBlockersPerLight,
-                    light.ignoreSelfShadow ? light.owner : null
+                    light.ignoreSelfShadow ? light.owner : null,
+                    allBlockers
                 );
             }
 
             // Separate wall/door blockers from furniture/object blockers.
             // ownerId === 0 = world geometry walls; breakable walls/doors have ownerId > 0
             // but their owner.type starts with 'wall' or 'door'.
-            const wallBlockers = allBlockers.filter(b => {
-                if (b.ownerId === 0) return true;
-                const t = b.owner?.type || '';
-                return t.startsWith('wall') || t.startsWith('door');
-            });
+            const wallBlockers = this._scratchPool.takeArray();
+            for (const blocker of allBlockers) {
+                if (!blocker) continue;
+                if (blocker.ownerId === 0) {
+                    wallBlockers.push(blocker);
+                    continue;
+                }
+                const type = blocker.owner?.type || '';
+                if (type.startsWith('wall') || type.startsWith('door')) {
+                    wallBlockers.push(blocker);
+                }
+            }
+
             if (!blockWalls) {
                 wallBlockers.length = 0;
             }
-            if (shadowMask === 'walls' || !needsObjectShadows) {
-                // Wall-only occlusion, or lights that do not require object shadowing.
-                allBlockers = wallBlockers;
-            }
+
+            const pointBlockers = (shadowMask === 'walls' || !needsObjectShadows)
+                ? wallBlockers
+                : allBlockers;
             const hasObjectBlockers =
                 !disableAmbientPointSplit &&
                 needsObjectShadows &&
-                (allBlockers.length > wallBlockers.length);
-            const singlePassBlockers = (needsObjectShadows && shadowMask === 'all') ? allBlockers : wallBlockers;
+                (pointBlockers.length > wallBlockers.length);
+            const singlePassBlockers = (needsObjectShadows && shadowMask === 'all') ? pointBlockers : wallBlockers;
 
             if (!hasObjectBlockers) {
                 // No object blockers nearby — ambient and point polygons are identical.
@@ -334,7 +396,7 @@ export class LightBufferRenderer {
                         this.occlusionField.clear();
                     }
                     const result = this._computeVisibilityPolygon(
-                        light, rayCount, viewX, viewY, bufferScale, enableContourGlow
+                        light, rayCount, viewX, viewY, bufferScale, enableContourGlow, fullCircleRayLut
                     );
                     polygon = result.points;
                     contourPoints = result.contourPoints;
@@ -369,7 +431,7 @@ export class LightBufferRenderer {
                         this.occlusionField.clear();
                     }
                     ambientPoly = this._computeVisibilityPolygon(
-                        light, rayCount, viewX, viewY, bufferScale, false
+                        light, rayCount, viewX, viewY, bufferScale, false, fullCircleRayLut
                     ).points;
                 }
 
@@ -383,9 +445,9 @@ export class LightBufferRenderer {
                 let pointPoly = null;
                 let contourPoints = null;
 
-                this._buildOcclusionField(allBlockers, viewX, viewY, bufferScale);
+                this._buildOcclusionField(pointBlockers, viewX, viewY, bufferScale);
                 const result = this._computeVisibilityPolygon(
-                    light, rayCount, viewX, viewY, bufferScale, enableContourGlow
+                    light, rayCount, viewX, viewY, bufferScale, enableContourGlow, fullCircleRayLut
                 );
                 pointPoly = result.points;
                 contourPoints = result.contourPoints;

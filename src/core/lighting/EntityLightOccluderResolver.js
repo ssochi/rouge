@@ -117,7 +117,8 @@ export function resolveEntityLightOccluders(entity) {
             originY: Number.isFinite(item.originY) ? item.originY : 0,
             rotation: Number.isFinite(item.rotation) ? item.rotation : 0,
             flipX: item.flipX === true,
-            forceMaskRefresh: item.forceMaskRefresh === true
+            forceMaskRefresh: item.forceMaskRefresh === true,
+            maskVersion: Number.isFinite(item.maskVersion) ? item.maskVersion : undefined
         });
     }
 

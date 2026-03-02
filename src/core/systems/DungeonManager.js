@@ -46,6 +46,14 @@ export class DungeonManager {
         this.currentRoomId = layout.startRoomId;
         this.prevRoomId = null;
 
+        this.graphNodesById = new Map((layout.graph?.nodes || []).map(node => [node.id, node]));
+        this.graphEdges = Array.isArray(layout.graph?.edges) && layout.graph.edges.length > 0
+            ? layout.graph.edges
+            : (layout.corridors || []).map(c => ({
+                a: c.connectsRooms[0],
+                b: c.connectsRooms[1]
+            }));
+
         // Energy barrier gates
         this.gates = []; // { x, y, orientation, roomIds, active, wallRef, alpha, animTimer }
 
@@ -341,51 +349,61 @@ export class DungeonManager {
 
     /**
      * Get minimap data for rendering.
-     * @returns {{ rooms: Array, corridors: Array, currentRoomId: string, playerTileX: number, playerTileY: number, floor: number }}
+     * @returns {{ rooms: Array, edges: Array, currentRoomId: string, playerTileX: number, playerTileY: number, floor: number }}
      */
-    getMinimapData(player) {
-        const roomData = [];
+    getMinimapData(player, aimAngle = null) {
+        const visitedIds = new Set();
+        const frontierIds = new Set();
+
+        for (const [, rs] of this.rooms) {
+            if (rs.visited) {
+                visitedIds.add(rs.id);
+            }
+        }
+
         for (const [, rs] of this.rooms) {
             if (!rs.visited) continue;
+            for (const cid of rs.connectedTo) {
+                const connected = this.rooms.get(cid);
+                if (connected && !connected.visited) {
+                    frontierIds.add(connected.id);
+                }
+            }
+        }
+
+        const roomData = [];
+
+        for (const [, rs] of this.rooms) {
+            const isVisited = visitedIds.has(rs.id);
+            const isFrontier = frontierIds.has(rs.id);
+            if (!isVisited && !isFrontier) continue;
+
+            const graphNode = this.graphNodesById.get(rs.id) || null;
             roomData.push({
                 x: rs.x,
                 y: rs.y,
                 w: rs.w,
                 h: rs.h,
                 type: rs.type,
-                state: rs.state,
-                id: rs.id
+                category: rs.category || null,
+                state: isVisited ? rs.state : 'unknown',
+                visibilityState: isVisited ? 'visited' : 'frontier',
+                id: rs.id,
+                locked: isVisited ? rs.gates.some(gate => gate.active) : false,
+                graphNode
             });
-        }
-
-        // Also reveal rooms adjacent to visited rooms (as unexplored silhouettes)
-        for (const [, rs] of this.rooms) {
-            if (rs.visited) continue;
-            // Check if any connected room is visited
-            const isAdjacent = rs.connectedTo.some(cid => {
-                const connected = this.rooms.get(cid);
-                return connected && connected.visited;
-            });
-            if (isAdjacent) {
-                roomData.push({
-                    x: rs.x,
-                    y: rs.y,
-                    w: rs.w,
-                    h: rs.h,
-                    type: rs.type,
-                    state: 'unknown',
-                    id: rs.id
-                });
-            }
         }
 
         return {
             rooms: roomData,
-            corridors: this.layout.corridors,
+            edges: this.graphEdges,
             currentRoomId: this.currentRoomId,
             playerTileX: Math.floor(player.x / TILE_SIZE),
             playerTileY: Math.floor(player.y / TILE_SIZE),
-            floor: this.currentFloor
+            playerFacingAngle: Number.isFinite(aimAngle) ? aimAngle : null,
+            floor: this.currentFloor,
+            visitedCount: visitedIds.size,
+            totalRooms: this.rooms.size
         };
     }
 }

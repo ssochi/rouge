@@ -1205,120 +1205,202 @@ export class Renderer {
         const dm = this.worldSystem && this.worldSystem.dungeonManager;
         if (!dm) return;
 
-        const data = dm.getMinimapData(this.player);
+        const data = dm.getMinimapData(this.player, this.handSystem?.angle);
         if (!data.rooms.length) return;
 
-        const MINIMAP_SIZE = 140;
-        const PADDING = 10;
+        const MINIMAP_SIZE = 158;
+        const PANEL_PADDING = 10;
+        const INNER_PADDING = 16;
         const canvasW = this.canvas.width;
-        const mx = canvasW - MINIMAP_SIZE - PADDING;
-        const my = PADDING;
+        const mx = canvasW - MINIMAP_SIZE - PANEL_PADDING;
+        const my = PANEL_PADDING;
 
         ctx.save();
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillStyle = 'rgba(8, 10, 14, 0.76)';
         ctx.fillRect(mx - 4, my - 4, MINIMAP_SIZE + 8, MINIMAP_SIZE + 8);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.strokeStyle = 'rgba(180, 195, 215, 0.42)';
         ctx.lineWidth = 1;
         ctx.strokeRect(mx - 4, my - 4, MINIMAP_SIZE + 8, MINIMAP_SIZE + 8);
 
-        // Calculate bounds of all rooms for fitting
-        let minRX = Infinity, minRY = Infinity, maxRX = -Infinity, maxRY = -Infinity;
-        for (const room of dm.layout.rooms) {
-            minRX = Math.min(minRX, room.x);
-            minRY = Math.min(minRY, room.y);
-            maxRX = Math.max(maxRX, room.x + room.w);
-            maxRY = Math.max(maxRY, room.y + room.h);
+        const nodeById = new Map();
+        for (const room of data.rooms) {
+            const graphNode = room.graphNode || {};
+            const gx = Number.isFinite(graphNode.gx) ? graphNode.gx : room.x;
+            const gy = Number.isFinite(graphNode.gy) ? graphNode.gy : room.y;
+            nodeById.set(room.id, {
+                ...room,
+                gx,
+                gy
+            });
         }
 
-        const worldW = maxRX - minRX;
-        const worldH = maxRY - minRY;
-        const scale = Math.min(
-            (MINIMAP_SIZE - 16) / worldW,
-            (MINIMAP_SIZE - 16) / worldH
-        );
-        const offsetX = mx + (MINIMAP_SIZE - worldW * scale) / 2;
-        const offsetY = my + (MINIMAP_SIZE - worldH * scale) / 2;
+        const nodes = [...nodeById.values()];
+        if (nodes.length === 0) {
+            ctx.restore();
+            return;
+        }
 
-        const toMiniX = (tx) => offsetX + (tx - minRX) * scale;
-        const toMiniY = (ty) => offsetY + (ty - minRY) * scale;
+        let minGX = Infinity;
+        let minGY = Infinity;
+        let maxGX = -Infinity;
+        let maxGY = -Infinity;
+        for (const room of nodes) {
+            minGX = Math.min(minGX, room.gx);
+            minGY = Math.min(minGY, room.gy);
+            maxGX = Math.max(maxGX, room.gx);
+            maxGY = Math.max(maxGY, room.gy);
+        }
 
-        // Draw corridors (only between visited rooms)
-        ctx.strokeStyle = 'rgba(100, 100, 120, 0.5)';
-        ctx.lineWidth = Math.max(1, scale * 2);
-        for (const corridor of data.corridors) {
-            const [rid1, rid2] = corridor.connectsRooms;
-            const r1 = dm.rooms.get(rid1);
-            const r2 = dm.rooms.get(rid2);
-            if (!r1 || !r2) continue;
-            if (!r1.visited && !r2.visited) continue;
+        const rangeX = Math.max(1, maxGX - minGX + 1);
+        const rangeY = Math.max(1, maxGY - minGY + 1);
+        const usable = MINIMAP_SIZE - INNER_PADDING * 2;
+        const cell = Math.max(7, Math.min(14, Math.floor(usable / Math.max(rangeX, rangeY))));
+        const usedW = rangeX * cell;
+        const usedH = rangeY * cell;
+        const offsetX = mx + Math.floor((MINIMAP_SIZE - usedW) / 2);
+        const offsetY = my + Math.floor((MINIMAP_SIZE - usedH) / 2) + 4;
 
-            const cx1 = toMiniX(r1.x + r1.w / 2);
-            const cy1 = toMiniY(r1.y + r1.h / 2);
-            const cx2 = toMiniX(r2.x + r2.w / 2);
-            const cy2 = toMiniY(r2.y + r2.h / 2);
+        const nodeCenter = (node) => ({
+            x: offsetX + (node.gx - minGX) * cell + cell / 2,
+            y: offsetY + (node.gy - minGY) * cell + cell / 2
+        });
+
+        for (const edge of data.edges || []) {
+            const a = nodeById.get(edge.a);
+            const b = nodeById.get(edge.b);
+            if (!a || !b) continue;
+
+            const aVisited = a.visibilityState === 'visited';
+            const bVisited = b.visibilityState === 'visited';
+            const frontierEdge = (a.visibilityState === 'frontier' || b.visibilityState === 'frontier');
+
+            if (!aVisited && !bVisited && !frontierEdge) continue;
+
+            const p1 = nodeCenter(a);
+            const p2 = nodeCenter(b);
+
+            if (aVisited && bVisited) {
+                ctx.strokeStyle = 'rgba(120, 165, 196, 0.72)';
+                ctx.setLineDash([]);
+            } else {
+                ctx.strokeStyle = 'rgba(124, 133, 152, 0.55)';
+                ctx.setLineDash([3, 2]);
+            }
+
+            ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(cx1, cy1);
-            ctx.lineTo(cx2, cy2);
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
             ctx.stroke();
         }
+        ctx.setLineDash([]);
 
-        // Draw rooms
-        for (const room of data.rooms) {
-            const rx = toMiniX(room.x);
-            const ry = toMiniY(room.y);
-            const rw = room.w * scale;
-            const rh = room.h * scale;
+        for (const room of nodes) {
+            const c = nodeCenter(room);
+            const size = room.visibilityState === 'frontier'
+                ? Math.max(6, Math.floor(cell * 0.58))
+                : Math.max(7, Math.floor(cell * 0.72));
+            const rx = Math.floor(c.x - size / 2);
+            const ry = Math.floor(c.y - size / 2);
 
-            // Room fill color based on state
-            if (room.state === 'unknown') {
-                ctx.fillStyle = 'rgba(60, 60, 70, 0.6)';
-            } else if (room.id === data.currentRoomId) {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            } else if (room.state === 'cleared') {
-                ctx.fillStyle = room.type === 'start' ? 'rgba(80, 140, 200, 0.7)' : 'rgba(80, 180, 80, 0.7)';
-            } else if (room.state === 'active') {
-                ctx.fillStyle = 'rgba(220, 180, 50, 0.7)';
-            } else if (room.type === 'boss') {
-                ctx.fillStyle = 'rgba(180, 50, 50, 0.7)';
-            } else {
-                ctx.fillStyle = 'rgba(100, 100, 110, 0.7)';
+            if (room.visibilityState === 'frontier') {
+                ctx.fillStyle = 'rgba(86, 97, 120, 0.36)';
+                ctx.fillRect(rx, ry, size, size);
+                ctx.strokeStyle = 'rgba(142, 157, 182, 0.72)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(rx + 0.5, ry + 0.5, size, size);
+                continue;
             }
 
-            ctx.fillRect(rx, ry, rw, rh);
+            let fill = 'rgba(96, 112, 130, 0.86)';
+            if (room.id === data.currentRoomId) fill = 'rgba(236, 244, 255, 0.9)';
+            else if (room.type === 'boss') fill = room.state === 'cleared' ? 'rgba(130, 88, 92, 0.85)' : 'rgba(188, 74, 84, 0.92)';
+            else if (room.state === 'active') fill = 'rgba(226, 183, 68, 0.9)';
+            else if (room.category === 'reward' && room.state === 'cleared') fill = 'rgba(86, 184, 189, 0.9)';
+            else if (room.state === 'cleared') fill = room.type === 'start' ? 'rgba(91, 145, 212, 0.86)' : 'rgba(88, 176, 108, 0.9)';
+            else if (room.category === 'combat_maze') fill = 'rgba(123, 111, 178, 0.86)';
+            else if (room.category === 'challenge_trapline') fill = 'rgba(168, 115, 82, 0.86)';
 
-            // Room border
-            ctx.strokeStyle = room.id === data.currentRoomId ? '#fff' : 'rgba(150, 150, 160, 0.6)';
+            ctx.fillStyle = fill;
+            ctx.fillRect(rx, ry, size, size);
+
+            ctx.strokeStyle = room.id === data.currentRoomId
+                ? 'rgba(255,255,255,0.95)'
+                : 'rgba(172, 188, 212, 0.72)';
             ctx.lineWidth = room.id === data.currentRoomId ? 2 : 1;
-            ctx.strokeRect(rx, ry, rw, rh);
+            ctx.strokeRect(rx + 0.5, ry + 0.5, size, size);
 
-            // Boss room skull indicator
-            if (room.type === 'boss' && room.state !== 'unknown') {
-                ctx.fillStyle = '#fff';
-                ctx.font = `${Math.max(8, Math.floor(rw * 0.4))}px monospace`;
+            if (room.locked) {
+                const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(Date.now() / 220));
+                ctx.strokeStyle = `rgba(240, 150, 70, ${pulse.toFixed(3)})`;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(rx - 1.5, ry - 1.5, size + 3, size + 3);
+            }
+
+            if (room.type === 'boss' || room.category === 'reward') {
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.font = '8px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('B', rx + rw / 2, ry + rh / 2);
+                ctx.fillText(room.type === 'boss' ? 'B' : '+', rx + size / 2, ry + size / 2 + 0.5);
             }
         }
 
-        // Draw player dot
-        const px = toMiniX(data.playerTileX);
-        const py = toMiniY(data.playerTileY);
-        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.6 + pulse * 0.4})`;
-        ctx.beginPath();
-        ctx.arc(px, py, 3, 0, Math.PI * 2);
-        ctx.fill();
+        const currentRoom = nodeById.get(data.currentRoomId);
+        if (currentRoom) {
+            const center = nodeCenter(currentRoom);
+            const roomSize = Math.max(7, Math.floor(cell * 0.72));
+            const localX = ((data.playerTileX - currentRoom.x) / Math.max(1, currentRoom.w) - 0.5) * roomSize * 0.85;
+            const localY = ((data.playerTileY - currentRoom.y) / Math.max(1, currentRoom.h) - 0.5) * roomSize * 0.85;
+            const px = center.x + Math.max(-roomSize * 0.4, Math.min(roomSize * 0.4, localX));
+            const py = center.y + Math.max(-roomSize * 0.4, Math.min(roomSize * 0.4, localY));
+            const facing = Number.isFinite(data.playerFacingAngle)
+                ? data.playerFacingAngle
+                : (this.player.facingRight ? 0 : Math.PI);
+            const radius = 4;
+
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(facing);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(-radius, -radius * 0.7);
+            ctx.lineTo(-radius * 0.65, 0);
+            ctx.lineTo(-radius, radius * 0.7);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
 
         // Title with floor label
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.fillStyle = 'rgba(230, 238, 252, 0.72)';
         ctx.font = '9px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        const floorLabel = data.floor ? `DUNGEON F${data.floor}` : 'DUNGEON';
+        const floorLabel = data.floor
+            ? `DUNGEON F${data.floor} ${data.visitedCount}/${data.totalRooms}`
+            : 'DUNGEON';
         ctx.fillText(floorLabel, mx + MINIMAP_SIZE / 2, my - 2);
+
+        const legendY = my + MINIMAP_SIZE - 12;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(120, 190, 120, 0.9)';
+        ctx.fillRect(mx + 6, legendY + 2, 4, 4);
+        ctx.fillStyle = 'rgba(215, 178, 78, 0.9)';
+        ctx.fillRect(mx + 44, legendY + 2, 4, 4);
+        ctx.fillStyle = 'rgba(188, 74, 84, 0.9)';
+        ctx.fillRect(mx + 82, legendY + 2, 4, 4);
+        ctx.fillStyle = 'rgba(142, 157, 182, 0.9)';
+        ctx.fillRect(mx + 118, legendY + 2, 4, 4);
+        ctx.fillStyle = 'rgba(210, 220, 236, 0.75)';
+        ctx.font = '7px monospace';
+        ctx.fillText('CLR', mx + 12, legendY + 1);
+        ctx.fillText('ACT', mx + 50, legendY + 1);
+        ctx.fillText('BOSS', mx + 88, legendY + 1);
+        ctx.fillText('FR', mx + 124, legendY + 1);
 
         ctx.restore();
     }

@@ -54,11 +54,13 @@
     - `lighting/`: 像素光影子系统。
       - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。同时每帧收集玩家/敌人/车辆的挡光体并注入阴影构建。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
       - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置；`floor_lamp` 支持多色预设（warm/cool/mint/rose），实例按颜色发出对应光色。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
-      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源 + 动态实体遮挡源）与增量缓存；静态墙体/物体按哈希增量更新，动态实体（玩家/敌人/车辆）每帧刷新。物体与实体遮挡优先使用当前显示帧的像素 mask（支持翻转/旋转）。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源 + 动态实体遮挡源）与增量缓存；静态墙体/物体按哈希增量更新，并同步重建 `OccluderSpatialIndex` 进行半径查询。动态实体（玩家/敌人/车辆）使用条目对象池复用，支持 `maskVersion` 门控 `forceMaskRefresh`，在保证语义不变前提下减少重复像素分析。物体与实体遮挡优先使用当前显示帧的像素 mask（支持翻转/旋转）。
       - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
-      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。全局规则：所有光源至少受墙/门遮挡，不允许穿墙。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。渲染过程引入帧级 scratch 池复用临时数组，并对全向光使用射线方向 LUT（减少每射线三角函数计算）。全局规则：所有光源至少受墙/门遮挡，不允许穿墙。
       - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
       - `EntityLightOccluderResolver.js`: 动态实体遮挡解析器，负责将玩家/敌人/车辆的当前渲染帧转换为光照遮挡描述（像素级 mask + 旋转/翻转信息）。
+      - `FrameScratchPool.js`: 光照帧级临时数组池，供 `LightSystem` 与 `LightBufferRenderer` 复用，降低高频 GC。
+      - `OccluderSpatialIndex.js`: 光照遮挡空间索引，按固定网格存储静态遮挡体并提供半径查询。
     - `shared/`: 跨系统共享缓存。
       - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。新增 Canvas 级弱引用缓存，用于动态实体遮挡复用 mask 分析结果。
     - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角拓扑节点图，visited/frontier 分层、实线/虚线连通、玩家朝向箭头、锁门脉冲高亮、F层+探索进度标签）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。

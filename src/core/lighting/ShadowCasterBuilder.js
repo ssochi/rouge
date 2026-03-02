@@ -1,4 +1,5 @@
 import { spriteMaskCache } from '../shared/SpriteMaskCache.js';
+import { OccluderSpatialIndex } from './OccluderSpatialIndex.js';
 
 function toRect(raw) {
     if (!raw) return null;
@@ -42,12 +43,10 @@ function dist2ToRect(x, y, entry) {
     return dx * dx + dy * dy;
 }
 
-function transformPoint(px, py, pivotX, pivotY, originX, originY, rotation, flipX) {
+function transformPoint(px, py, pivotX, pivotY, originX, originY, cos, sin, flipX) {
     const signX = flipX ? -1 : 1;
     const dx = (px - originX) * signX;
     const dy = py - originY;
-    const cos = Math.cos(rotation);
-    const sin = Math.sin(rotation);
     return {
         x: pivotX + dx * cos - dy * sin,
         y: pivotY + dx * sin + dy * cos
@@ -56,15 +55,17 @@ function transformPoint(px, py, pivotX, pivotY, originX, originY, rotation, flip
 
 function computeSpriteAabb(bounds, pivotX, pivotY, originX, originY, rotation, flipX) {
     if (!bounds) return null;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
     const minX = bounds.minX;
     const minY = bounds.minY;
     const maxX = bounds.maxX + 1;
     const maxY = bounds.maxY + 1;
 
-    const p1 = transformPoint(minX, minY, pivotX, pivotY, originX, originY, rotation, flipX);
-    const p2 = transformPoint(maxX, minY, pivotX, pivotY, originX, originY, rotation, flipX);
-    const p3 = transformPoint(maxX, maxY, pivotX, pivotY, originX, originY, rotation, flipX);
-    const p4 = transformPoint(minX, maxY, pivotX, pivotY, originX, originY, rotation, flipX);
+    const p1 = transformPoint(minX, minY, pivotX, pivotY, originX, originY, cos, sin, flipX);
+    const p2 = transformPoint(maxX, minY, pivotX, pivotY, originX, originY, cos, sin, flipX);
+    const p3 = transformPoint(maxX, maxY, pivotX, pivotY, originX, originY, cos, sin, flipX);
+    const p4 = transformPoint(minX, maxY, pivotX, pivotY, originX, originY, cos, sin, flipX);
 
     const worldMinX = Math.min(p1.x, p2.x, p3.x, p4.x);
     const worldMaxX = Math.max(p1.x, p2.x, p3.x, p4.x);
@@ -83,9 +84,14 @@ export class ShadowCasterBuilder {
         this.entries = [];
         this.staticEntries = [];
         this.dynamicEntries = [];
+        this._dynamicEntryPool = [];
+        this._dynamicEntryCount = 0;
         this._lastHash = null;
         this._ownerIds = new WeakMap();
         this._nextOwnerId = 1;
+        this._staticSpatialIndex = new OccluderSpatialIndex(64);
+        this._staticQueryScratch = [];
+        this._dynamicMaskVersionState = new WeakMap();
     }
 
     _isDoor(obj) {
@@ -139,15 +145,20 @@ export class ShadowCasterBuilder {
         return hash >>> 0;
     }
 
-    _pushRectEntry(target, owner, ownerId, rawRect) {
+    _pushRectEntry(target, owner, ownerId, rawRect, reuseEntry = null) {
         const rect = toRect(rawRect);
-        if (!rect) return;
-        target.push({
-            kind: 'rect',
-            ...rect,
-            owner,
-            ownerId
-        });
+        if (!rect) return null;
+
+        const entry = reuseEntry || {};
+        entry.kind = 'rect';
+        entry.x = rect.x;
+        entry.y = rect.y;
+        entry.w = rect.w;
+        entry.h = rect.h;
+        entry.owner = owner;
+        entry.ownerId = ownerId;
+        target.push(entry);
+        return entry;
     }
 
     _pushSpriteEntry(target, owner, ownerId, {
@@ -161,9 +172,9 @@ export class ShadowCasterBuilder {
         originY = 0,
         rotation = 0,
         flipX = false
-    }) {
-        if (!mask || !Number.isFinite(maskWidth) || !Number.isFinite(maskHeight)) return;
-        if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return;
+    }, reuseEntry = null) {
+        if (!mask || !Number.isFinite(maskWidth) || !Number.isFinite(maskHeight)) return null;
+        if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return null;
 
         const bounds = computeSpriteAabb(
             localBounds,
@@ -174,24 +185,70 @@ export class ShadowCasterBuilder {
             rotation,
             flipX
         );
-        if (!bounds) return;
+        if (!bounds) return null;
 
-        target.push({
-            kind: 'sprite',
-            ...bounds,
-            pivotX,
-            pivotY,
-            originX,
-            originY,
-            rotation,
-            flipX,
-            mask,
-            maskWidth,
-            maskHeight,
-            localBounds,
-            owner,
-            ownerId
-        });
+        const entry = reuseEntry || {};
+        entry.kind = 'sprite';
+        entry.x = bounds.x;
+        entry.y = bounds.y;
+        entry.w = bounds.w;
+        entry.h = bounds.h;
+        entry.pivotX = pivotX;
+        entry.pivotY = pivotY;
+        entry.originX = originX;
+        entry.originY = originY;
+        entry.rotation = rotation;
+        entry.flipX = flipX;
+        entry.mask = mask;
+        entry.maskWidth = maskWidth;
+        entry.maskHeight = maskHeight;
+        entry.localBounds = localBounds;
+        entry.owner = owner;
+        entry.ownerId = ownerId;
+        target.push(entry);
+        return entry;
+    }
+
+    _takeDynamicEntry() {
+        const index = this._dynamicEntryCount++;
+        let entry = this._dynamicEntryPool[index];
+        if (!entry) {
+            entry = {};
+            this._dynamicEntryPool[index] = entry;
+        }
+        return entry;
+    }
+
+    _rollbackDynamicEntry() {
+        if (this._dynamicEntryCount > 0) {
+            this._dynamicEntryCount--;
+        }
+    }
+
+    _resolveMaskRefresh(owner, slotIndex, occluder) {
+        if (occluder.forceMaskRefresh !== true) return false;
+
+        const maskVersion = Number.isFinite(occluder.maskVersion) ? occluder.maskVersion : null;
+        if (maskVersion === null) return true;
+
+        const stateOwner = owner || occluder.sprite;
+        const ownerType = typeof stateOwner;
+        if (!stateOwner || (ownerType !== 'object' && ownerType !== 'function')) {
+            return true;
+        }
+
+        let state = this._dynamicMaskVersionState.get(stateOwner);
+        if (!state) {
+            state = new Map();
+            this._dynamicMaskVersionState.set(stateOwner, state);
+        }
+
+        const slotKey = slotIndex + ':' + (occluder.kind || 'sprite');
+        const lastVersion = state.get(slotKey);
+        if (lastVersion === maskVersion) return false;
+
+        state.set(slotKey, maskVersion);
+        return true;
     }
 
     _rebuildStaticEntries(walls = [], breakableObjects = []) {
@@ -243,10 +300,13 @@ export class ShadowCasterBuilder {
                 this._pushRectEntry(this.staticEntries, obj, ownerId, hb);
             }
         }
+
+        this._staticSpatialIndex.build(this.staticEntries);
     }
 
     _rebuildDynamicEntries(dynamicOccluders = []) {
         this.dynamicEntries.length = 0;
+        this._dynamicEntryCount = 0;
         if (!Array.isArray(dynamicOccluders) || dynamicOccluders.length === 0) return;
 
         for (const group of dynamicOccluders) {
@@ -255,23 +315,28 @@ export class ShadowCasterBuilder {
             if (occluders.length === 0) continue;
 
             const ownerId = this._getOwnerId(owner);
-            for (const occluder of occluders) {
+            for (let i = 0; i < occluders.length; i++) {
+                const occluder = occluders[i];
                 if (!occluder) continue;
 
                 if (occluder.kind === 'rect') {
-                    this._pushRectEntry(this.dynamicEntries, owner, ownerId, occluder);
+                    const entry = this._takeDynamicEntry();
+                    const pushed = this._pushRectEntry(this.dynamicEntries, owner, ownerId, occluder, entry);
+                    if (!pushed) this._rollbackDynamicEntry();
                     continue;
                 }
 
+                const forceRefresh = this._resolveMaskRefresh(owner, i, occluder);
                 const frameData = spriteMaskCache.getFrameDataForCanvas(
                     occluder.sprite,
-                    occluder.forceMaskRefresh === true
+                    forceRefresh
                 );
                 const frame = frameData?.frame || null;
                 const bounds = frame?.bounds || null;
                 if (!frame || !bounds) continue;
 
-                this._pushSpriteEntry(this.dynamicEntries, owner, ownerId, {
+                const entry = this._takeDynamicEntry();
+                const pushed = this._pushSpriteEntry(this.dynamicEntries, owner, ownerId, {
                     mask: frame.mask,
                     maskWidth: frame.width,
                     maskHeight: frame.height,
@@ -282,7 +347,8 @@ export class ShadowCasterBuilder {
                     originY: occluder.originY || 0,
                     rotation: occluder.rotation || 0,
                     flipX: occluder.flipX === true
-                });
+                }, entry);
+                if (!pushed) this._rollbackDynamicEntry();
             }
         }
     }
@@ -298,34 +364,58 @@ export class ShadowCasterBuilder {
         this._rebuildDynamicEntries(dynamicOccluders);
 
         this.entries.length = 0;
-        this.entries.push(...this.staticEntries);
-        this.entries.push(...this.dynamicEntries);
+        for (const entry of this.staticEntries) this.entries.push(entry);
+        for (const entry of this.dynamicEntries) this.entries.push(entry);
 
         return staticChanged;
     }
 
-    query(x, y, radius, maxEntries = Infinity, ignoreOwner = null) {
-        if (Number.isFinite(maxEntries) && maxEntries <= 0) return [];
+    queryStaticBlockersInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
+
+        const candidates = this._staticSpatialIndex.queryCircle(x, y, radius, this._staticQueryScratch);
+        for (const entry of candidates) {
+            if (ignoreOwner && entry.owner === ignoreOwner) continue;
+            out.push(entry);
+        }
+
+        if (Number.isFinite(maxEntries) && out.length > maxEntries) {
+            out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
+            out.length = maxEntries;
+        }
+
+        return out;
+    }
+
+    query(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
 
         const left = x - radius;
         const right = x + radius;
         const top = y - radius;
         const bottom = y + radius;
 
-        const result = [];
-        for (const entry of this.entries) {
+        const staticCandidates = this._staticSpatialIndex.queryCircle(x, y, radius, this._staticQueryScratch);
+        for (const entry of staticCandidates) {
+            if (ignoreOwner && entry.owner === ignoreOwner) continue;
+            out.push(entry);
+        }
+
+        for (const entry of this.dynamicEntries) {
             if (entry.x > right || entry.x + entry.w < left || entry.y > bottom || entry.y + entry.h < top) {
                 continue;
             }
             if (ignoreOwner && entry.owner === ignoreOwner) continue;
-            result.push(entry);
+            out.push(entry);
         }
 
-        if (Number.isFinite(maxEntries) && result.length > maxEntries) {
-            result.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
-            result.length = maxEntries;
+        if (Number.isFinite(maxEntries) && out.length > maxEntries) {
+            out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
+            out.length = maxEntries;
         }
 
-        return result;
+        return out;
     }
 }

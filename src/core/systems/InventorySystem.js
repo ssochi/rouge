@@ -311,6 +311,51 @@ export class InventorySystem {
         });
 
         this.registerItem({
+            id: 'weapon:gale_shotgun',
+            type: 'weapon',
+            name: '疾风散弹',
+            icon: 'gale_shotgun',
+            maxStack: 1,
+            data: { weaponConfigId: 'gale_shotgun' }
+        });
+
+        this.registerItem({
+            id: 'weapon:venom_sprayer',
+            type: 'weapon',
+            name: '毒雾喷射器',
+            icon: 'venom_sprayer',
+            maxStack: 1,
+            data: { weaponConfigId: 'venom_sprayer' }
+        });
+
+        this.registerItem({
+            id: 'weapon:storm_revolver',
+            type: 'weapon',
+            name: '风暴左轮',
+            icon: 'storm_revolver',
+            maxStack: 1,
+            data: { weaponConfigId: 'storm_revolver' }
+        });
+
+        this.registerItem({
+            id: 'weapon:meteor_cannon',
+            type: 'weapon',
+            name: '陨石炮',
+            icon: 'meteor_cannon',
+            maxStack: 1,
+            data: { weaponConfigId: 'meteor_cannon' }
+        });
+
+        this.registerItem({
+            id: 'weapon:phantom_pistol',
+            type: 'weapon',
+            name: '幻影手枪',
+            icon: 'phantom_pistol',
+            maxStack: 1,
+            data: { weaponConfigId: 'phantom_pistol' }
+        });
+
+        this.registerItem({
             id: 'consumable:recovery_needle',
             type: 'consumable',
             name: 'Recovery Needle',

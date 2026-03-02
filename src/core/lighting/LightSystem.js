@@ -2,6 +2,7 @@ import { cloneLightingPreset, DEFAULT_LIGHTING_QUALITY } from './LightingConfig.
 import { LightEmitterRegistry } from './LightEmitterRegistry.js';
 import { ShadowCasterBuilder } from './ShadowCasterBuilder.js';
 import { LightBufferRenderer } from './LightBufferRenderer.js';
+import { FrameScratchPool } from './FrameScratchPool.js';
 import { resolvePlayerLightOccluders, resolveEntityLightOccluders } from './EntityLightOccluderResolver.js';
 
 const QUALITY_ORDER = ['low', 'medium', 'high'];
@@ -47,6 +48,15 @@ export class LightSystem {
         this._frame = 0;
         this._forceStaticRefresh = true;
         this._lastCamera = null;
+        this._scratchPool = new FrameScratchPool();
+        this._occluderGroupPool = [];
+        this._occluderGroupCount = 0;
+        this._lightScoreIndexScratch = [];
+        this._lightScoreValueScratch = [];
+        this._prioritizedDynamicLights = [];
+        this._prioritizedStaticLights = [];
+        this._mergedLights = [];
+        this._mergedCappedLights = [];
 
         this.staticLights = [];
         this.dynamicLights = [];
@@ -86,10 +96,19 @@ export class LightSystem {
     }
 
     _collectDynamicOccluders() {
-        const groups = [];
+        const groups = this._scratchPool.takeArray();
+        this._occluderGroupCount = 0;
         const pushGroup = (owner, occluders) => {
             if (!owner || !Array.isArray(occluders) || occluders.length === 0) return;
-            groups.push({ owner, occluders });
+            const index = this._occluderGroupCount++;
+            let group = this._occluderGroupPool[index];
+            if (!group) {
+                group = { owner: null, occluders: null };
+                this._occluderGroupPool[index] = group;
+            }
+            group.owner = owner;
+            group.occluders = occluders;
+            groups.push(group);
         };
 
         pushGroup(this.player, resolvePlayerLightOccluders(this.player, this.costumeSystem));
@@ -136,36 +155,52 @@ export class LightSystem {
         return (light.priority || 0) * 3 + light.radius * 0.22 + light.intensity * 120 - dist * 0.35;
     }
 
-    _prioritizeLights(lights, maxCount, focusX, focusY) {
-        if (!Array.isArray(lights) || lights.length <= maxCount) return lights.slice();
+    _prioritizeLights(lights, maxCount, focusX, focusY, out = []) {
+        out.length = 0;
+        if (!Array.isArray(lights) || lights.length === 0 || maxCount <= 0) return out;
 
-        return lights
-            .map(light => ({
-                light,
-                score: this._scoreLight(light, focusX, focusY)
-            }))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, maxCount)
-            .map(item => item.light);
+        if (lights.length <= maxCount) {
+            for (const light of lights) out.push(light);
+            return out;
+        }
+
+        const count = lights.length;
+        const indices = this._lightScoreIndexScratch;
+        const scores = this._lightScoreValueScratch;
+        if (indices.length < count) indices.length = count;
+        if (scores.length < count) scores.length = count;
+
+        for (let i = 0; i < count; i++) {
+            indices[i] = i;
+            scores[i] = this._scoreLight(lights[i], focusX, focusY);
+        }
+        indices.length = count;
+        indices.sort((a, b) => scores[b] - scores[a]);
+
+        const limit = Math.min(maxCount, count);
+        for (let i = 0; i < limit; i++) {
+            out.push(lights[indices[i]]);
+        }
+        return out;
     }
 
-    _cullLightsByViewport(lights, camera, viewportWidth, viewportHeight) {
+    _cullLightsByViewport(lights, camera, viewportWidth, viewportHeight, out = []) {
         const pad = 96;
         const left = camera.x - pad;
         const top = camera.y - pad;
         const right = camera.x + viewportWidth + pad;
         const bottom = camera.y + viewportHeight + pad;
 
-        const visible = [];
+        out.length = 0;
         for (const light of lights) {
             if (light.x + light.radius < left) continue;
             if (light.x - light.radius > right) continue;
             if (light.y + light.radius < top) continue;
             if (light.y - light.radius > bottom) continue;
-            visible.push(light);
+            out.push(light);
         }
 
-        return visible;
+        return out;
     }
 
     _rebuildStaticLights(timeMs) {
@@ -266,9 +301,14 @@ export class LightSystem {
 
     update({ camera, viewportWidth, viewportHeight, now = performance.now() }) {
         this._frame++;
+        this._scratchPool.reset();
 
         const walls = this.worldSystem?.walls || [];
-        const shadowObjects = this.breakableObjects.filter(obj => obj && !obj.isBroken);
+        const shadowObjects = this._scratchPool.takeArray();
+        for (const obj of this.breakableObjects) {
+            if (!obj || obj.isBroken) continue;
+            shadowObjects.push(obj);
+        }
         const dynamicOccluders = this._collectDynamicOccluders();
         const castersChanged = this.shadowBuilder.rebuildIfNeeded(walls, shadowObjects, dynamicOccluders);
         if (castersChanged) {
@@ -289,27 +329,35 @@ export class LightSystem {
             this.dynamicLights,
             this.config.maxDynamicLights,
             focusX,
-            focusY
+            focusY,
+            this._prioritizedDynamicLights
         );
 
         const staticLights = this._prioritizeLights(
             this.staticLights,
             this.config.maxStaticLights,
             focusX,
-            focusY
+            focusY,
+            this._prioritizedStaticLights
         );
 
-        let merged = dynamic.concat(staticLights);
+        const merged = this._mergedLights;
+        merged.length = 0;
+        for (const light of dynamic) merged.push(light);
+        for (const light of staticLights) merged.push(light);
+
+        let visibleSource = merged;
         if (merged.length > this.config.maxTotalLights) {
-            merged = this._prioritizeLights(
+            visibleSource = this._prioritizeLights(
                 merged,
                 this.config.maxTotalLights,
                 focusX,
-                focusY
+                focusY,
+                this._mergedCappedLights
             );
         }
 
-        this.visibleLights = this._cullLightsByViewport(merged, camera, viewportWidth, viewportHeight);
+        this._cullLightsByViewport(visibleSource, camera, viewportWidth, viewportHeight, this.visibleLights);
         this._lastCamera = {
             x: camera.x,
             y: camera.y,
