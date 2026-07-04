@@ -1,5 +1,6 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
+import { BossPhaseController } from './bosses/BossPhaseController.js';
 
 export class MechaGolem extends Enemy {
     constructor(x, y) {
@@ -10,8 +11,31 @@ export class MechaGolem extends Enemy {
         this.isBoss = true;
         this.name = '机械魔偶';
 
-        // Phase system (2 phases)
+        // Phase system (2 phases) — 调度走 BossPhaseController，现值照抄
         this.phase = 1;
+        this.phaseController = new BossPhaseController({
+            phases: [{
+                threshold: 0.4,
+                phase: 2,
+                onEnter: () => {
+                    this.speed = 0.6;
+                    this.preferredDistance = 125;
+                    this.isTransitioning = true;
+                    this.transitionTimer = 0;
+                    this.currentAttack = null;
+                    this.attackTimer = 0;
+                }
+            }],
+            attacks: [
+                { id: 'gatling_sweep', weight: (ctx, c) => (c.phase === 1 ? 3 : 2) },
+                { id: 'ring_burst', weight: 2 },
+                { id: 'aimed_triple', weight: (ctx, c) => (c.phase === 1 ? 4 : 3), condition: (ctx) => ctx.dist <= 300 },
+                { id: 'rocket_salvo', weight: 2, condition: (ctx) => ctx.dist >= 100 },
+                { id: 'spiral_storm', weight: 3, minPhase: 2 },
+                { id: 'cross_fire', weight: 2, minPhase: 2 },
+                { id: 'desperation', minPhase: 2, weight: (ctx) => (ctx.hpRatio < 0.15 ? 4 : 0) }
+            ]
+        });
         this.isTransitioning = false;
         this.transitionTimer = 0;
         this.transitionDuration = 60;
@@ -60,15 +84,9 @@ export class MechaGolem extends Enemy {
     }
 
     checkPhaseTransition() {
-        const hpRatio = this.hp / this.maxHp;
-        if (this.phase === 1 && hpRatio <= 0.4) {
-            this.phase = 2;
-            this.speed = 0.6;
-            this.preferredDistance = 125;
-            this.isTransitioning = true;
-            this.transitionTimer = 0;
-            this.currentAttack = null;
-            this.attackTimer = 0;
+        const advanced = this.phaseController.updatePhase(this.hp / this.maxHp);
+        if (advanced !== null) {
+            this.phase = this.phaseController.phase;
             return true;
         }
         return false;
@@ -113,49 +131,19 @@ export class MechaGolem extends Enemy {
         return cooldowns[type] || 40;
     }
 
-    // --- Attack selection ---
-    getAttackPool() {
-        if (this.phase === 1) {
-            return [
-                { type: 'gatling_sweep', weight: 3 },
-                { type: 'ring_burst', weight: 2 },
-                { type: 'aimed_triple', weight: 4 },
-                { type: 'rocket_salvo', weight: 2 }
-            ];
-        }
-        return [
-            { type: 'gatling_sweep', weight: 2 },
-            { type: 'ring_burst', weight: 2 },
-            { type: 'aimed_triple', weight: 3 },
-            { type: 'rocket_salvo', weight: 2 },
-            { type: 'spiral_storm', weight: 3 },
-            { type: 'cross_fire', weight: 2 },
-            { type: 'desperation', weight: this.hp < this.maxHp * 0.15 ? 4 : 0 }
-        ];
-    }
-
+    // --- Attack selection（BossPhaseController 加权池 + 距离条件） ---
     selectNextAttack(player) {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        const hpRatio = this.hp / this.maxHp;
 
-        let pool = this.getAttackPool().filter(atk => {
-            if (atk.weight <= 0) return false;
-            if (atk.type === 'rocket_salvo' && dist < 100) return false;
-            if (atk.type === 'aimed_triple' && dist > 300) return false;
-            return true;
-        });
-
-        if (pool.length === 0) pool = this.getAttackPool().filter(a => a.weight > 0);
-        if (pool.length === 0) return 'aimed_triple';
-
-        const totalWeight = pool.reduce((sum, a) => sum + a.weight, 0);
-        let rand = Math.random() * totalWeight;
-        for (const atk of pool) {
-            rand -= atk.weight;
-            if (rand <= 0) return atk.type;
+        let id = this.phaseController.pickAttack({ dist, hpRatio });
+        if (!id) {
+            // 距离条件全被过滤时放宽兜底（对应原「无候选取全池」逻辑）
+            id = this.phaseController.pickAttack({ dist: 200, hpRatio });
         }
-        return pool[0].type;
+        return id || 'aimed_triple';
     }
 
     startAttack(type, player) {
@@ -199,7 +187,7 @@ export class MechaGolem extends Enemy {
         const angle = sweepAngleStart + sweepProgress * (sweepAngleEnd - sweepAngleStart);
 
         const muzzleOffset = 14;
-        cs.spawnEnemyBullet({
+        cs.spawnEnemyBullet({ owner: this,
             x: this.x + Math.cos(angle) * muzzleOffset,
             y: this.y + Math.sin(angle) * muzzleOffset,
             angle: angle,
@@ -227,7 +215,7 @@ export class MechaGolem extends Enemy {
                 const posInGap = i % gapSpacing;
                 if (posInGap === 0 || posInGap === 1) continue;
                 const angle = i * angleStep + offsetAngle;
-                cs.spawnEnemyBullet({
+                cs.spawnEnemyBullet({ owner: this,
                     x: this.x,
                     y: this.y,
                     angle: angle,
@@ -257,7 +245,7 @@ export class MechaGolem extends Enemy {
         for (let i = 0; i < count; i++) {
             const offset = (i - (count - 1) / 2) * spreadAngle;
             const angle = this.attackTargetAngle + offset;
-            cs.spawnEnemyBullet({
+            cs.spawnEnemyBullet({ owner: this,
                 x: this.x,
                 y: this.y,
                 angle: angle,
@@ -279,7 +267,7 @@ export class MechaGolem extends Enemy {
         // Lead aim at player
         const angle = this.attackTargetAngle + (Math.random() - 0.5) * 0.2;
 
-        cs.spawnEnemyBullet({
+        cs.spawnEnemyBullet({ owner: this,
             x: this.x + Math.cos(angle) * 14,
             y: this.y + Math.sin(angle) * 14,
             angle: angle,
@@ -310,7 +298,7 @@ export class MechaGolem extends Enemy {
         }
 
         for (const armAngle of this.spiralArmAngles) {
-            cs.spawnEnemyBullet({
+            cs.spawnEnemyBullet({ owner: this,
                 x: this.x,
                 y: this.y,
                 angle: armAngle,
@@ -341,7 +329,7 @@ export class MechaGolem extends Enemy {
         for (const baseAngle of baseAngles) {
             for (let i = -1; i <= 1; i++) {
                 const angle = baseAngle + i * 0.1;
-                cs.spawnEnemyBullet({
+                cs.spawnEnemyBullet({ owner: this,
                     x: this.x,
                     y: this.y,
                     angle: angle,
@@ -362,7 +350,7 @@ export class MechaGolem extends Enemy {
             const count = 16;
             const angleStep = (Math.PI * 2) / count;
             for (let i = 0; i < count; i++) {
-                cs.spawnEnemyBullet({
+                cs.spawnEnemyBullet({ owner: this,
                     x: this.x,
                     y: this.y,
                     angle: i * angleStep,
@@ -378,7 +366,7 @@ export class MechaGolem extends Enemy {
         if (timer === 25) {
             // Aimed burst
             for (let i = -1; i <= 1; i++) {
-                cs.spawnEnemyBullet({
+                cs.spawnEnemyBullet({ owner: this,
                     x: this.x,
                     y: this.y,
                     angle: this.attackTargetAngle + i * 0.12,

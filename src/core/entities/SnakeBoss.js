@@ -1,5 +1,6 @@
 import { Enemy } from './Enemy.js';
 import { SnakeSegment } from './SnakeSegment.js';
+import { BossPhaseController } from './bosses/BossPhaseController.js';
 
 /**
  * SnakeBoss — Mechanical Serpent Boss
@@ -32,11 +33,55 @@ export class SnakeBoss extends Enemy {
         this.phaseNames = ['I', 'II', 'III'];
         this.phaseMarkers = [0.65, 0.3]; // 65% and 30% transition markers
 
-        // Phase system
+        // Phase system — 调度走 BossPhaseController（相位随附段体同步，权重随距离动态）
         this.phase = 1;
         this.isTransitioning = false;
         this.transitionTimer = 0;
         this.transitionDuration = 60;
+        this.phaseController = new BossPhaseController({
+            phases: [
+                {
+                    threshold: 0.65,
+                    phase: 2,
+                    onEnter: () => {
+                        this.speed = 1.7;
+                        this.preferredDistance = 140;
+                        this.isTransitioning = true;
+                        this.transitionTimer = 0;
+                        this.currentAttack = null;
+                        this.attackTimer = 0;
+                        this.attackCooldown = 40;
+                        for (const seg of this.segments) {
+                            seg.phase = 2;
+                        }
+                    }
+                },
+                {
+                    threshold: 0.3,
+                    phase: 3,
+                    onEnter: () => {
+                        this.speed = 2.2;
+                        this.preferredDistance = 110;
+                        this.isTransitioning = true;
+                        this.transitionTimer = 0;
+                        this.currentAttack = null;
+                        this.attackTimer = 0;
+                        this.attackCooldown = 25;
+                        for (const seg of this.segments) {
+                            seg.phase = 3;
+                        }
+                    }
+                }
+            ],
+            attacks: [
+                { id: 'venom_spit', weight: 3 },
+                { id: 'charge', weight: 2 },
+                { id: 'constrict', weight: 1, minPhase: 2 },
+                { id: 'tail_whip', minPhase: 2, weight: (ctx) => (ctx.dist < 120 ? 3 : 1) },
+                { id: 'burrow_strike', weight: 3, minPhase: 3 },
+                { id: 'segment_volley', weight: 2, minPhase: 3 }
+            ]
+        });
 
         // Attack state machine
         this.currentAttack = null;
@@ -113,33 +158,9 @@ export class SnakeBoss extends Enemy {
     }
 
     checkPhaseTransition() {
-        const hpRatio = this.hp / this.maxHp;
-        if (this.phase === 1 && hpRatio <= 0.65) {
-            this.phase = 2;
-            this.speed = 1.7;
-            this.preferredDistance = 140;
-            this.isTransitioning = true;
-            this.transitionTimer = 0;
-            this.currentAttack = null;
-            this.attackTimer = 0;
-            this.attackCooldown = 40;
-            for (const seg of this.segments) {
-                seg.phase = 2;
-            }
-            return true;
-        }
-        if (this.phase === 2 && hpRatio <= 0.3) {
-            this.phase = 3;
-            this.speed = 2.2;
-            this.preferredDistance = 110;
-            this.isTransitioning = true;
-            this.transitionTimer = 0;
-            this.currentAttack = null;
-            this.attackTimer = 0;
-            this.attackCooldown = 25;
-            for (const seg of this.segments) {
-                seg.phase = 3;
-            }
+        const advanced = this.phaseController.updatePhase(this.hp / this.maxHp);
+        if (advanced !== null) {
+            this.phase = this.phaseController.phase;
             return true;
         }
         return false;
@@ -293,33 +314,7 @@ export class SnakeBoss extends Enemy {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Weighted random selection — attack pool grows with phase
-        const pool = [];
-
-        // Phase 1: basic attacks only
-        pool.push({ type: 'venom_spit', weight: 3 });
-        pool.push({ type: 'charge', weight: 2 });
-
-        // Phase 2+: add constrict and tail_whip
-        if (this.phase >= 2) {
-            pool.push({ type: 'constrict', weight: 1 });
-            pool.push({ type: 'tail_whip', weight: dist < 120 ? 3 : 1 });
-        }
-
-        // Phase 3: add burrow_strike and segment_volley
-        if (this.phase >= 3) {
-            pool.push({ type: 'burrow_strike', weight: 3 });
-            pool.push({ type: 'segment_volley', weight: 2 });
-        }
-
-        const totalWeight = pool.reduce((sum, a) => sum + a.weight, 0);
-        let rand = Math.random() * totalWeight;
-        for (const entry of pool) {
-            rand -= entry.weight;
-            if (rand <= 0) return entry.type;
-        }
-        return 'venom_spit';
+        return this.phaseController.pickAttack({ dist }) || 'venom_spit';
     }
 
     startAttack(type, player) {
@@ -377,7 +372,7 @@ export class SnakeBoss extends Enemy {
         for (let i = 0; i < count; i++) {
             const offset = (i - (count - 1) / 2) * (spreadAngle / (count - 1));
             const angle = this.attackTargetAngle + offset;
-            cs.spawnEnemyBullet({
+            cs.spawnEnemyBullet({ owner: this,
                 x: this.x + Math.cos(angle) * 16,
                 y: this.y + Math.sin(angle) * 16,
                 angle: angle,
@@ -529,7 +524,7 @@ export class SnakeBoss extends Enemy {
         const count = 4;
         const angleStep = (Math.PI * 2) / count;
         for (let i = 0; i < count; i++) {
-            cs.spawnEnemyBullet({
+            cs.spawnEnemyBullet({ owner: this,
                 x: seg.x,
                 y: seg.y - seg.heightZ,
                 angle: seg.angle + i * angleStep,

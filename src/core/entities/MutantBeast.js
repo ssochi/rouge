@@ -1,5 +1,6 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
+import { BossPhaseController } from './bosses/BossPhaseController.js';
 
 export class MutantBeast extends Enemy {
     constructor(x, y) {
@@ -10,8 +11,44 @@ export class MutantBeast extends Enemy {
         this.isBoss = true;
         this.name = '变异巨兽';
 
-        // Phase system
+        // Phase system — 调度走 BossPhaseController（优先级链表达原 if-else 距离带选招）
         this.phase = 1;
+        this.phaseController = new BossPhaseController({
+            phases: [
+                {
+                    threshold: 0.6,
+                    phase: 2,
+                    onEnter: () => {
+                        this.speed = 0.7;
+                        this.isTransitioning = true;
+                        this.transitionTimer = 0;
+                        this.currentAttack = null;
+                        this.isCharging = false;
+                        this.isAirborne = false;
+                    }
+                },
+                {
+                    threshold: 0.25,
+                    phase: 3,
+                    onEnter: () => {
+                        this.speed = 0.6;
+                        this.isTransitioning = true;
+                        this.transitionTimer = 0;
+                        this.currentAttack = null;
+                        this.isCharging = false;
+                        this.isAirborne = false;
+                    }
+                }
+            ],
+            attacks: [
+                { id: 'summon', priority: 5, minPhase: 3, condition: (ctx) => ctx.summonReady && ctx.minionCount < 8 },
+                { id: 'leap_slam', priority: 4, minPhase: 2, condition: (ctx) => ctx.attackReady && ctx.dist > 150 },
+                { id: 'charge', priority: 3, minPhase: 2, condition: (ctx) => ctx.attackReady && ctx.dist > 80 && ctx.dist < 150 },
+                { id: 'stomp', priority: 2, condition: (ctx) => ctx.attackReady && ctx.dist < 80 && ctx.dist > 50 },
+                { id: 'smash', priority: 1, weight: 1, condition: (ctx) => ctx.attackReady && ctx.dist <= 50 },
+                { id: 'sweep', priority: 1, weight: 1, condition: (ctx) => ctx.attackReady && ctx.dist <= 50 }
+            ]
+        });
         this.isTransitioning = false;
         this.transitionTimer = 0;
         this.transitionDuration = 60;
@@ -75,25 +112,9 @@ export class MutantBeast extends Enemy {
     }
 
     checkPhaseTransition() {
-        const hpRatio = this.hp / this.maxHp;
-        if (this.phase === 1 && hpRatio <= 0.6) {
-            this.phase = 2;
-            this.speed = 0.7;
-            this.isTransitioning = true;
-            this.transitionTimer = 0;
-            this.currentAttack = null;
-            this.isCharging = false;
-            this.isAirborne = false;
-            return true;
-        }
-        if (this.phase === 2 && hpRatio <= 0.25) {
-            this.phase = 3;
-            this.speed = 0.6;
-            this.isTransitioning = true;
-            this.transitionTimer = 0;
-            this.currentAttack = null;
-            this.isCharging = false;
-            this.isAirborne = false;
+        const advanced = this.phaseController.updatePhase(this.hp / this.maxHp);
+        if (advanced !== null) {
+            this.phase = this.phaseController.phase;
             return true;
         }
         return false;
@@ -400,30 +421,15 @@ export class MutantBeast extends Enemy {
         this.facingRight = dx > 0;
 
         if (dist < this.aggroRange) {
-            // Priority-based attack selection
-            if (this.phase >= 3 && this.summonCooldown <= 0 && this.summonedMinions.length < 8) {
-                this.startAttack('summon', player);
-                return;
-            }
-
-            if (dist > 150 && this.phase >= 2 && this.attackCooldown <= 0) {
-                this.startAttack('leap_slam', player);
-                return;
-            }
-
-            if (dist > 80 && dist < 150 && this.phase >= 2 && this.attackCooldown <= 0) {
-                this.startAttack('charge', player);
-                return;
-            }
-
-            if (dist < 80 && dist > 50 && this.attackCooldown <= 0) {
-                this.startAttack('stomp', player);
-                return;
-            }
-
-            if (dist <= 50 && this.attackCooldown <= 0) {
-                const type = Math.random() < 0.5 ? 'smash' : 'sweep';
-                this.startAttack(type, player);
+            // Priority-based attack selection（BossPhaseController 优先级链）
+            const attackId = this.phaseController.pickAttack({
+                dist,
+                attackReady: this.attackCooldown <= 0,
+                summonReady: this.summonCooldown <= 0,
+                minionCount: this.summonedMinions.length
+            });
+            if (attackId) {
+                this.startAttack(attackId, player);
                 return;
             }
 
