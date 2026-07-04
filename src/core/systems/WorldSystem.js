@@ -709,6 +709,7 @@ export class WorldSystem {
             }
         }
         this.buildFloorCanvas();
+        this._stampDungeonDecals(layout);
 
         // Player spawn in start room
         const startRoom = layout.rooms.find(r => r.id === layout.startRoomId);
@@ -878,6 +879,33 @@ export class WorldSystem {
     /**
      * 地图初始化时投放特殊房间内容：宝箱房的分级宝箱（商店房内容由 DungeonShop 负责）。
      */
+    /**
+     * 将生成器输出的地板贴花一次性盖印到 floorCanvas（血迹/苔藓/裂纹/蛛网/Boss 圆环），
+     * 零每帧成本。地牢不启用 chunkCache，floorCanvas 恒存在。
+     */
+    _stampDungeonDecals(layout) {
+        if (!this.floorCanvas || !this.dungeonTheme) return;
+        const decalSet = Assets.dungeonDecals && Assets.dungeonDecals[this.dungeonTheme.id];
+        if (!decalSet) return;
+
+        const ctx = this.floorCanvas.getContext('2d');
+        for (const decal of (layout.decals || [])) {
+            if (decal.kind === 'boss_ring') {
+                const ring = decalSet.bossRing;
+                ctx.drawImage(
+                    ring,
+                    Math.floor(decal.x * TILE_SIZE - ring.width / 2),
+                    Math.floor(decal.y * TILE_SIZE - ring.height / 2)
+                );
+                continue;
+            }
+            const variants = decalSet[decal.kind];
+            if (!variants || variants.length === 0) continue;
+            const sprite = variants[(decal.variant || 0) % variants.length];
+            ctx.drawImage(sprite, Math.floor(decal.x * TILE_SIZE), Math.floor(decal.y * TILE_SIZE));
+        }
+    }
+
     _populateDungeonSpecialRooms(layout) {
         const floor = layout.floor || 1;
         for (const room of layout.rooms) {

@@ -89,6 +89,18 @@ describe('DungeonLayoutGenerator', () => {
         }
     });
 
+    it('贴花：Boss 房保底圆环，楼层配比生效（F3 无苔藓水洼）', () => {
+        const f1 = generateDungeonLayout(130, 130, SEED, 1);
+        const boss = f1.rooms.find(r => r.type === 'boss');
+        const rings = f1.decals.filter(d => d.kind === 'boss_ring');
+        expect(rings.length).toBe(1);
+        expect(rings[0].x).toBeCloseTo(boss.x + boss.w / 2);
+
+        const f3 = generateDungeonLayout(130, 130, SEED, 3);
+        expect(f3.decals.some(d => d.kind === 'moss')).toBe(false);
+        expect(f3.decals.some(d => d.kind === 'puddle')).toBe(false);
+    });
+
     it('F3 Boss 编成含机械魔偶', () => {
         const layout = generateDungeonLayout(130, 130, SEED, 3);
         const boss = layout.rooms.find(r => r.type === 'boss');

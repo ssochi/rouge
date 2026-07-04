@@ -58,6 +58,7 @@ import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
 import { createDungeonWallSet } from '../assets/dungeon/DungeonWallSprites.js';
 import { createDungeonFloorVariants } from '../assets/dungeon/DungeonFloorSprites.js';
 import { createDungeonTorchFrames, createDungeonBrazierFrames } from '../assets/dungeon/DungeonLightSprites.js';
+import { createDungeonDecalSet } from '../assets/dungeon/DungeonDecalSprites.js';
 import { createDungeonPillarSprite } from '../assets/objects/dungeon/DungeonPillarSprite.js';
 import { createDungeonPillarBrokenSprite } from '../assets/objects/dungeon/DungeonPillarBrokenSprite.js';
 import { createDungeonStatueSprite } from '../assets/objects/dungeon/DungeonStatueSprite.js';
@@ -247,11 +248,13 @@ const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
 const floorSprites = createFloorSprites();
-// 地牢楼层主题：墙体贴图集 {f1|f2|f3: {tops, fronts}} 与地板变体（并入 Assets.floors）
+// 地牢楼层主题：墙体贴图集 {f1|f2|f3: {tops, fronts}}、地板变体（并入 Assets.floors）与贴花集
 const dungeonWallSets = {};
+const dungeonDecalSets = {};
 for (const floor of Object.keys(DUNGEON_THEMES)) {
     const theme = DUNGEON_THEMES[floor];
     dungeonWallSets[theme.id] = createDungeonWallSet(theme);
+    dungeonDecalSets[theme.id] = createDungeonDecalSet(theme);
     floorSprites[`dungeon_${theme.id}`] = createDungeonFloorVariants(theme);
 }
 const treeSprite = createTreeSprite();
@@ -604,6 +607,7 @@ export const Assets = {
     relicIcons: relicIconSprites, // 遗物图标 {relicId: 12×12 Canvas}
     dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
     dungeonWalls: dungeonWallSets, // 楼层主题墙体贴图 {f1|f2|f3: {tops: 4×(32×32), fronts: 4×(32×16)}}
+    dungeonDecals: dungeonDecalSets, // 楼层主题地板贴花 {f1|f2|f3: {crack/moss/blood/puddle/web/pages: [...], bossRing}}
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),

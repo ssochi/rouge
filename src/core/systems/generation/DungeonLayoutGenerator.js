@@ -972,6 +972,69 @@ function generateRoomBraziers(room, interiorWallTiles, occupied) {
 }
 
 /**
+ * 房间地板贴花：Boss 房保底圆环刻纹 + 角落蛛网 + 主题加权散布贴花。
+ * 坐标为 tile 浮点（含亚 tile 抖动），WorldSystem 盖印时乘 TILE_SIZE。
+ */
+function generateRoomDecals(room, rng, interiorWallTiles, decalWeights) {
+    const out = [];
+    if (room.type === 'start') return out;
+
+    if (room.type === 'boss') {
+        out.push({ kind: 'boss_ring', x: room.x + room.w / 2, y: room.y + room.h / 2, variant: 0 });
+    }
+
+    // 角落蛛网
+    if ((decalWeights.web || 0) > 0) {
+        const corners = [
+            [room.x + 1, room.y + 1],
+            [room.x + room.w - 2, room.y + 1],
+            [room.x + 1, room.y + room.h - 2],
+            [room.x + room.w - 2, room.y + room.h - 2]
+        ];
+        for (const [cx, cy] of corners) {
+            if (rng() < 0.35 && !interiorWallTiles.has(tileKey(cx, cy))) {
+                out.push({ kind: 'web', x: cx, y: cy, variant: 0 });
+            }
+        }
+    }
+
+    // 散布贴花（血迹/裂纹/苔藓/水洼/散页，主题配比）
+    const count = randomInt(rng, 2, 5);
+    for (let i = 0; i < count; i++) {
+        const kind = pickWeighted(decalWeights, rng);
+        if (!kind || kind === 'web') continue;
+        const tx = randomInt(rng, room.x + 1, room.x + room.w - 3);
+        const ty = randomInt(rng, room.y + 1, room.y + room.h - 3);
+        if (interiorWallTiles.has(tileKey(tx, ty))) continue;
+        out.push({
+            kind,
+            x: tx + rng() * 0.5,
+            y: ty + rng() * 0.5,
+            variant: Math.floor(rng() * 2)
+        });
+    }
+
+    return out;
+}
+
+/**
+ * 走廊稀疏贴花（每条走廊 0-2 个）。
+ */
+function generateCorridorDecals(corridors, rng, decalWeights) {
+    const out = [];
+    for (const corridor of corridors) {
+        const n = Math.floor(rng() * 3);
+        for (let i = 0; i < n && corridor.tiles.length > 0; i++) {
+            const kind = pickWeighted(decalWeights, rng);
+            if (!kind || kind === 'web') continue;
+            const t = corridor.tiles[Math.floor(rng() * corridor.tiles.length)];
+            out.push({ kind, x: t.x, y: t.y, variant: Math.floor(rng() * 2) });
+        }
+    }
+    return out;
+}
+
+/**
  * 壁挂火把布点：所有「南邻为地板」的墙面（房间北墙/走廊北壁/内部结构南面）
  * 按连续墙段等距布置（段长 ≥3，间距 6，段首抖动）。
  */
@@ -1276,6 +1339,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
     const decorObjects = [];
     const coverObjects = [];
     const lightObjects = [];
+    const decals = [];
 
     for (const room of rooms) {
         room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor, room.category);
@@ -1298,10 +1362,15 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
         const roomDecor = generateRoomDecor(room, rng, interiorWallTiles, occupied, theme.decorWeights);
         decorObjects.push(...roomDecor);
+
+        decals.push(...generateRoomDecals(room, rng, interiorWallTiles, theme.decalWeights));
     }
 
     // 壁挂火把（依赖最终 wallTiles/floorTiles，门 tile 已被剔除）
     lightObjects.push(...generateTorchPlacements(wallTiles, floorTiles, rng));
+
+    // 走廊稀疏贴花
+    decals.push(...generateCorridorDecals(corridors, rng, theme.decalWeights));
 
     const graph = buildMinimapGraph(rooms, graphEdges, bounds);
 
@@ -1314,6 +1383,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         coverObjects,
         decorObjects,
         lightObjects,
+        decals,
         startRoomId: rooms[startIdx].id,
         bossRoomId: rooms[bossIdx].id,
         floor,
