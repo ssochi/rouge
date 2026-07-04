@@ -8,6 +8,7 @@ import { MutantBeast } from '../entities/MutantBeast.js';
 import { MechaGolem } from '../entities/MechaGolem.js';
 import { SnakeBoss } from '../entities/SnakeBoss.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
+import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
 import { Enemy } from '../entities/Enemy.js';
@@ -70,6 +71,8 @@ export class WorldSystem {
         this.dungeonRunState = dungeonRunState || null;
         this.portals = [];
         this.carpets = [];
+        // 地牢金币/钥匙拾取物（仅地牢内生成，loadMap 时清空）
+        this.pickups = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -141,6 +144,7 @@ export class WorldSystem {
         this.breakableObjects.length = 0;
         this.portals.length = 0;
         this.carpets.length = 0;
+        this.pickups.length = 0;
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -682,8 +686,80 @@ export class WorldSystem {
     }
 
     updateDungeon() {
-        if (!this.dungeonManager) return;
-        this.dungeonManager.update(this.player);
+        if (this.dungeonManager) {
+            this.dungeonManager.update(this.player);
+        }
+        // 拾取物每帧更新随 Dungeon 分段计入 Profiler（参照 droppedItems 接法）。
+        // 独立于 dungeonManager：拾取物仅在地牢生成，但需保证已散出的金币持续磁吸/收集。
+        this.updatePickups();
+    }
+
+    /**
+     * 更新全部地牢拾取物：散开 → 悬浮 → 磁吸 → 收集，移除已收集项。
+     * 不参与碰撞解析。
+     */
+    updatePickups() {
+        const pickups = this.pickups;
+        if (pickups.length === 0) return;
+        for (let i = pickups.length - 1; i >= 0; i--) {
+            const p = pickups[i];
+            p.update(this.player, this.dungeonRunState);
+            if (p.collected) {
+                pickups.splice(i, 1);
+            }
+        }
+    }
+
+    /**
+     * 入队一枚拾取物，强制维持 ≤200 上限：超限时最旧的直接入账并移除，防止高并发堆积。
+     * @param {DungeonPickup} pickup
+     */
+    _pushPickup(pickup) {
+        if (this.pickups.length >= 200) {
+            const oldest = this.pickups.shift();
+            if (oldest && !oldest.collected) {
+                oldest.collect(this.dungeonRunState);
+            }
+        }
+        this.pickups.push(pickup);
+    }
+
+    /**
+     * 在 (x, y) 处爆发一簇金币。总价值拆成 ≤8 枚（余数并入前几枚），
+     * 各枚以随机方向、1.5~3px/f 初速散开。
+     * @param {number} x
+     * @param {number} y
+     * @param {number} totalValue 本次掉落总金币价值
+     */
+    spawnCoinBurst(x, y, totalValue) {
+        const total = Math.floor(totalValue);
+        if (!Number.isFinite(total) || total <= 0) return;
+        const count = Math.min(8, total);
+        const base = Math.floor(total / count);
+        const remainder = total - base * count;
+        for (let i = 0; i < count; i++) {
+            const value = base + (i < remainder ? 1 : 0);
+            const p = new DungeonPickup(x, y, 'coin', value);
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 1.5; // 1.5~3 px/frame
+            p.vx = Math.cos(angle) * speed;
+            p.vy = Math.sin(angle) * speed;
+            this._pushPickup(p);
+        }
+    }
+
+    /**
+     * 在 (x, y) 处掉落一把钥匙。
+     * @param {number} x
+     * @param {number} y
+     */
+    spawnKeyDrop(x, y) {
+        const p = new DungeonPickup(x, y, 'key', 1);
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 1.5;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = Math.sin(angle) * speed;
+        this._pushPickup(p);
     }
 
     markWorldStaticDirty() {

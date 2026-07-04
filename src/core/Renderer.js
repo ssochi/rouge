@@ -707,6 +707,17 @@ export class Renderer {
              item.draw(this.ctx);
         });
 
+        // Dungeon pickups (coins / keys). Small items — no Y-sort, viewport-culled.
+        if (this.worldSystem && this.worldSystem.pickups) {
+            const pickups = this.worldSystem.pickups;
+            for (let i = 0; i < pickups.length; i++) {
+                const p = pickups[i];
+                if (p.collected) continue;
+                if (!this._isWorldRectVisible(p.x - 8, p.y - 16, 16, 20, 32)) continue;
+                p.draw(this.ctx, this.camera);
+            }
+        }
+
         this.bullets.forEach(b => {
             if (b.type === 'rocket') {
                 const sprite = Assets.rocket_projectile;

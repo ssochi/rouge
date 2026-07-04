@@ -30,6 +30,7 @@
       - `BreakableObject.js`: 可破坏物体通用实体（委托到各 object 定义）。
       - objects/: 物体类型定义与行为实现（每个 object 一个文件，通过注册表接入）。其中 `FishTankObject.js` 包含复杂的程序化动画逻辑（鱼群游动、水草摇曳、气泡上升）。
       - `DroppedItem.js`: 掉落物逻辑与悬浮效果（支持 weapon/placeable/consumable）。
+      - `DungeonPickup.js`: 地牢金币/钥匙拾取物实体。散开（初速+摩擦≈0.4s）→悬浮 bob→玩家<64px 磁吸→<14px 收集入账（coin→`runState.addCoins(value)`，key→`runState.addKeys(1)`）。不参与碰撞解析，美术取自 `assets/dungeon/PickupSprites.js`（`Assets.dungeonCoin` 两帧微闪 / `Assets.dungeonKey`）。
       - `Portal.js`: 传送门逻辑与粒子渲染。
       - `PetDog.js`: 宠物狗实体（跟随玩家、流场寻路、避障，独立于 enemies 数组，不参与战斗，远距离自动传送）。
       - `PetCat.js`: 宠物猫实体（与 PetDog 同架构，速度更快，体型更小，灰白虎斑外观）。
@@ -37,7 +38,7 @@
       - `Turret.js`: 炮塔实体（静态防御设施，HP 80，自动攻击范围内敌人，具有部署动画和破坏效果）。
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。现支持 `resize()` 动态重建网格，以及 `updateLocalFlowField()` 仅对玩家附近窗口做局部流场更新，避免大地图整图 BFS。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。现通过 `MapProfiles` 按地图类型切换世界尺寸/导航网格/地板缓存策略；`construction/game` 会切换到 420×420 的大镇 profile，并同步更新 Camera、ObstacleSpatialIndex 与 NavigationGrid。内部继续使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。现通过 `MapProfiles` 按地图类型切换世界尺寸/导航网格/地板缓存策略；`construction/game` 会切换到 420×420 的大镇 profile，并同步更新 Camera、ObstacleSpatialIndex 与 NavigationGrid。内部继续使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。地牢经济：维护 `pickups` 数组（loadMap 清空、上限 200 超限最旧直接入账移除），`updatePickups()` 随 `updateDungeon()` 计入 Profiler `Dungeon` 分段，`spawnCoinBurst(x,y,totalValue)`（拆 ≤8 枚均分余数、随机方向 1.5~3px/f 初速）与 `spawnKeyDrop(x,y)` 供掉落链调用。
       - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `FloorChunkCache.js`: 超大地图地板分块缓存。对 420×420 小镇地图不再构建单张超大离屏地板，而是按 chunk 懒渲染并做 LRU 缓存。
