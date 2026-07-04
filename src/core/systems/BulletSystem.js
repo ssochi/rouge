@@ -874,7 +874,7 @@ export class BulletSystem {
                 const wallCandidates = this.obstacleIndex.queryRect(wallAABB, { wallsOnly: true });
                 for (const entry of wallCandidates) {
                     if (CollisionUtils.lineIntersectsRect(p1, p2, entry.rect)) {
-                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                        if ((b.type === 'ricochet' || b.relicBounce) && b.bounceCount > 0) {
                             const wallLeft = entry.rect.x;
                             const wallRight = entry.rect.x + entry.rect.width;
                             const wallTop = entry.rect.y;
@@ -916,7 +916,7 @@ export class BulletSystem {
                 // Fallback: brute-force wall iteration
                 for (const wall of this.walls) {
                     if (CollisionUtils.lineIntersectsRect(p1, p2, {x: wall.x, y: wall.y, width: wall.w, height: wall.h})) {
-                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                        if ((b.type === 'ricochet' || b.relicBounce) && b.bounceCount > 0) {
                             const wallLeft = wall.x;
                             const wallRight = wall.x + wall.w;
                             const wallTop = wall.y;
@@ -1059,7 +1059,7 @@ export class BulletSystem {
                     }
 
                     if (intersectedBox) {
-                        if (b.type === 'ricochet' && b.bounceCount > 0) {
+                        if ((b.type === 'ricochet' || b.relicBounce) && b.bounceCount > 0) {
                             const boxLeft = intersectedBox.x;
                             const boxRight = intersectedBox.x + intersectedBox.width;
                             const boxTop = intersectedBox.y;
@@ -1169,8 +1169,8 @@ export class BulletSystem {
                                      e.hp -= finalDamage;
                                 }
 
-                                // Flame: apply burn DOT
-                                if (b.type === 'flame' && b.burnDamage) {
+                                // Burn DOT（flame 武器或遗物余烬弹头）
+                                if (b.burnDamage) {
                                     if (!e.burnTimer || e.burnTimer <= 0) {
                                         e.burnTimer = b.burnDuration;
                                         e.burnDamage = b.burnDamage;
@@ -1208,8 +1208,8 @@ export class BulletSystem {
                                     e._forceWallSlamDamage = b.wallSlamDamage || 15;
                                 }
 
-                                // Ice shard: stackable slow + freeze
-                                if (b.type === 'ice_shard') {
+                                // Ice shard / 遗物霜寒弹头: stackable slow + freeze
+                                if (b.type === 'ice_shard' || b.applyFreezeStack) {
                                     e.freezeStacks = (e.freezeStacks || 0) + 1;
                                     const threshold = b.freezeThreshold || 5;
                                     e.slowTimer = b.slowDuration || 90;
@@ -1323,7 +1323,7 @@ export class BulletSystem {
                                 // Boomerang penetrates through enemies
                                 if (!Array.isArray(b.hitList)) b.hitList = [];
                                 b.hitList.push(e);
-                            } else if (b.type === 'ricochet' && b.bounceCount > 0) {
+                            } else if ((b.type === 'ricochet' || b.relicBounce) && b.bounceCount > 0) {
                                 // Ricochet bounces off enemies
                                 if (!Array.isArray(b.hitList)) b.hitList = [];
                                 b.hitList.push(e);
@@ -1390,7 +1390,7 @@ export class BulletSystem {
                         } else if (b.type === 'boomerang') {
                             if (!Array.isArray(b.hitList)) b.hitList = [];
                             b.hitList.push(p);
-                        } else if (b.type === 'ricochet' && b.bounceCount > 0) {
+                        } else if ((b.type === 'ricochet' || b.relicBounce) && b.bounceCount > 0) {
                             if (!Array.isArray(b.hitList)) b.hitList = [];
                             b.hitList.push(p);
                             const nx = b.x - p.x;

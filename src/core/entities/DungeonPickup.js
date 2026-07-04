@@ -52,7 +52,7 @@ export class DungeonPickup {
      * @param {{x:number,y:number}|null} player
      * @param {import('../dungeon/DungeonRunState.js').DungeonRunState|null} runState
      */
-    update(player, runState) {
+    update(player, runState, magnetMult = 1) {
         if (this.collected) return;
         this.age++;
         this.animTimer++;
@@ -70,8 +70,8 @@ export class DungeonPickup {
                 return;
             }
 
-            // 磁吸：散开结束后，玩家进入磁吸半径则加速飞向玩家
-            if (this.age > SPREAD_FRAMES && dist < MAGNET_RADIUS && dist > 0.0001) {
+            // 磁吸：散开结束后，玩家进入磁吸半径则加速飞向玩家（遗物磁力指环放大半径）
+            if (this.age > SPREAD_FRAMES && dist < MAGNET_RADIUS * magnetMult && dist > 0.0001) {
                 magneting = true;
                 this.magnetSpeed = Math.min(this.magnetSpeed + MAGNET_ACCEL, MAGNET_MAX);
                 const inv = 1 / dist;

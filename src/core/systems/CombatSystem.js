@@ -109,7 +109,9 @@ export class CombatSystem {
     _pushWeaponProjectiles({ weapon, muzzle, source = 'player', owner = null, team = null, aimAngleOverride = null }) {
         if (!weapon || !muzzle) return 0;
 
-        const pellets = weapon.pelletCount || 1;
+        // 遗物弹道改造只作用于玩家子弹
+        const relics = source === 'player' ? this.relicSystem : null;
+        const pellets = (weapon.pelletCount || 1) + (relics ? relics.extraPellets() : 0);
         const spreadRad = (weapon.spread || 0) * Math.PI / 180;
         const isFlame = weapon.bulletType === 'flame';
         const isIceShard = weapon.bulletType === 'ice_shard';
@@ -347,6 +349,7 @@ export class CombatSystem {
                 bullet.grapplePull = weapon.grapplePull || 'player'; // 'player' or 'enemy'
             }
 
+            if (relics) relics.modifyPlayerBullet(bullet);
             this.bullets.push(bullet);
             created++;
         }
@@ -398,7 +401,8 @@ export class CombatSystem {
     tryShoot() {
         const now = Date.now();
         const weapon = this.handSystem.currentWeapon;
-        const FIRE_RATE = weapon.fireRate || 150;
+        const relicFireMult = this.relicSystem ? this.relicSystem.fireIntervalMult() : 1;
+        const FIRE_RATE = (weapon.fireRate || 150) * relicFireMult;
 
         if (now - this.lastShotTime > FIRE_RATE) {
             // M14: Blood cost — check HP instead of ammo

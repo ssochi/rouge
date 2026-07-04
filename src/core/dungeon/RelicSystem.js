@@ -200,11 +200,13 @@ export class RelicSystem {
             bullet.piercing = (bullet.piercing || 0) + pierce;
         }
 
-        // 弹射（沿用 ricochet 的 bounceCount/maxBounces 通用字段）
+        // 弹射（沿用 ricochet 的 bounceCount/maxBounces 通用字段；
+        // relicBounce 标记让 BulletSystem 对非 ricochet 类型也走墙反弹分支）
         const bounce = this.bounceBonus();
         if (bounce > 0) {
             bullet.bounceCount = (bullet.bounceCount || 0) + bounce;
             bullet.maxBounces = (bullet.maxBounces || 0) + bounce;
+            bullet.relicBounce = true;
         }
 
         // 燃烧（泛化 flame 的 burnDamage 字段，不覆盖武器自带更强的燃烧）

@@ -391,10 +391,13 @@ export class PlayerSystem {
 
     getEffectivePlayerSpeed() {
         if (this.player.frozenTimer > 0) return 0;
+        const relicMult = (this.worldSystem && this.worldSystem.relicSystem)
+            ? this.worldSystem.relicSystem.moveSpeedMult()
+            : 1;
         if (this.player.slowTimer > 0) {
-            return this.player.speed * Math.max(0, 1 - (this.player.slowAmount || 0));
+            return this.player.speed * relicMult * Math.max(0, 1 - (this.player.slowAmount || 0));
         }
-        return this.player.speed;
+        return this.player.speed * relicMult;
     }
     
     _spawnRollDust(x, y, isLanding, rollAngle) {

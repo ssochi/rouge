@@ -172,7 +172,8 @@ export class WorldSystem {
                 // 从非地牢进入第一层 → 开新局，记录种子
                 this.dungeonRunState.start(Date.now());
             } else if (prevIsDungeon && !nextIsDungeon) {
-                // 从地牢系离开（回 hub / 通关）→ 结束本局，清零
+                // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
+                if (this.relicSystem) this.relicSystem.clear();
                 this.dungeonRunState.end();
             } else if (prevMapType === 'dungeon' && mapType === 'dungeon_f2') {
                 // 层间下潜，保持种子不变，仅推进楼层
@@ -737,9 +738,10 @@ export class WorldSystem {
     updatePickups() {
         const pickups = this.pickups;
         if (pickups.length === 0) return;
+        const magnetMult = this.relicSystem ? this.relicSystem.magnetMult() : 1;
         for (let i = pickups.length - 1; i >= 0; i--) {
             const p = pickups[i];
-            p.update(this.player, this.dungeonRunState);
+            p.update(this.player, this.dungeonRunState, magnetMult);
             if (p.collected) {
                 pickups.splice(i, 1);
             }
@@ -1992,6 +1994,9 @@ export class WorldSystem {
                         this.spawnCoinBurst(deadEnemy.x, deadEnemy.y, coinValue);
                         if (!deadEnemy.isBoss) {
                             this._dropEnemyWeapon(deadEnemy);
+                        }
+                        if (this.relicSystem) {
+                            this.relicSystem.onKill(deadEnemy.x, deadEnemy.y);
                         }
                     } else if (deadEnemy.isBoss) {
                         this._dropBossLoot(deadEnemy);

@@ -19,6 +19,7 @@ import { PixelOS } from '../pixelOS/PixelOS.js';
 import { LightSystem } from './lighting/LightSystem.js';
 import { getMapProfile } from './maps/MapProfiles.js';
 import { DungeonRunState } from './dungeon/DungeonRunState.js';
+import { RelicSystem } from './dungeon/RelicSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -98,6 +99,7 @@ export class Game {
         this.player.takeDamage = (amount, knockback) => {
             if (this.player.state === 'roll' || this.player.state === 'driving') return;
             this.player.hp -= amount;
+            if (this.relicSystem) this.relicSystem.onPlayerHit();
             if (knockback) {
                 this.player.knockbackX = knockback.x;
                 this.player.knockbackY = knockback.y;
@@ -145,6 +147,41 @@ export class Game {
         this.dungeonRunState = new DungeonRunState();
         this.uiManager.dungeonRunState = this.dungeonRunState;
 
+        // 遗物系统：以 runState.relicIds 为事实源；三挂载点分别注入 CombatSystem（弹道）、
+        // PlayerSystem（移速，经 worldSystem 引用）、WorldSystem（磁吸/击杀事件/清算）。
+        this.relicSystem = new RelicSystem({ runState: this.dungeonRunState, player: this.player });
+        this.combatSystem.relicSystem = this.relicSystem;
+        this.uiManager.relicSystem = this.relicSystem;
+        // 受击冲击波：击退玩家周围敌人 + 冲击环粒子
+        this.relicSystem.setShockwaveHandler((conf) => {
+            for (const e of this.enemies) {
+                const dx = e.x - this.player.x;
+                const dy = e.y - this.player.y;
+                const d = Math.hypot(dx, dy);
+                if (d < conf.radius && d > 0.001) {
+                    e.knockbackX = (e.knockbackX || 0) + (dx / d) * conf.knockback;
+                    e.knockbackY = (e.knockbackY || 0) + (dy / d) * conf.knockback;
+                }
+            }
+            for (let i = 0; i < 16; i++) {
+                const a = (Math.PI * 2 * i) / 16;
+                this.particles.push({
+                    x: this.player.x + Math.cos(a) * 8,
+                    y: this.player.y + Math.sin(a) * 8,
+                    vx: Math.cos(a) * 4,
+                    vy: Math.sin(a) * 4,
+                    life: 18,
+                    color: '#74b9ff',
+                    size: 3,
+                    friction: 0.9
+                });
+            }
+        });
+        // 击杀爆炸（爆裂火药）
+        this.relicSystem.setKillExplosionHandler((x, y, conf) => {
+            this.combatSystem.spawnExplosion(x, y, conf.damage, conf.radius, 4);
+        });
+
         this.worldSystem = new WorldSystem({
             navGrid: this.navGrid,
             walls: this.walls,
@@ -158,6 +195,7 @@ export class Game {
             pets: this.pets,
             dungeonRunState: this.dungeonRunState
         });
+        this.worldSystem.relicSystem = this.relicSystem;
         this.worldSystem.onWorldProfileChanged = ({ worldPixelWidth, worldPixelHeight }) => {
             this.camera.setWorldBounds(worldPixelWidth, worldPixelHeight);
         };
@@ -530,6 +568,7 @@ export class Game {
 
         this.profiler.begin('Dungeon');
         this.worldSystem.updateDungeon();
+        this.relicSystem.tick();
         this.profiler.end('Dungeon');
 
         // --- Lighting ---
