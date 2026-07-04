@@ -17,8 +17,8 @@ export const FLOOR_CONFIGS = {
         eliteAffixCount: [1, 1],
         depthTiers: {
             shallow: { countMin: 4, countMax: 5, weights: { zombie: 6, zombie_female: 4 } },
-            mid: { countMin: 5, countMax: 7, weights: { zombie: 3, zombie_female: 3, zombie_brute: 1.5, hunter: 2.5 } },
-            deep: { countMin: 6, countMax: 8, weights: { zombie_brute: 2.5, hunter: 3.5, soldier: 4 } }
+            mid: { countMin: 5, countMax: 7, weights: { zombie: 3, zombie_female: 3, zombie_brute: 1.5, hunter: 2.5, boomer: 1.5 } },
+            deep: { countMin: 6, countMax: 8, weights: { zombie_brute: 2.5, hunter: 3, soldier: 3.5, warlock: 1.5, boomer: 1 } }
         },
         eliteSquad: { types: [{ type: 'zombie_brute', count: 2 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 2 }] },
         boss: { types: [{ type: 'mutant_beast', count: 1 }, { type: 'zombie', count: 2 }, { type: 'zombie_female', count: 1 }] }
@@ -29,9 +29,9 @@ export const FLOOR_CONFIGS = {
         eliteChance: 0.10,
         eliteAffixCount: [1, 2],
         depthTiers: {
-            shallow: { countMin: 6, countMax: 7, weights: { zombie_female: 3, zombie_brute: 3, hunter: 4 } },
-            mid: { countMin: 7, countMax: 9, weights: { zombie_brute: 2.5, hunter: 3.5, soldier: 4 } },
-            deep: { countMin: 8, countMax: 10, weights: { hunter: 4, soldier: 6 } }
+            shallow: { countMin: 6, countMax: 7, weights: { zombie_female: 3, zombie_brute: 3, hunter: 3, boomer: 2 } },
+            mid: { countMin: 7, countMax: 9, weights: { zombie_brute: 2, hunter: 3, soldier: 3, warlock: 2, boomer: 1.5 } },
+            deep: { countMin: 8, countMax: 10, weights: { hunter: 3, soldier: 4.5, warlock: 2.5 } }
         },
         eliteSquad: { types: [{ type: 'zombie_brute', count: 2 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 3 }] },
         boss: { types: [{ type: 'mecha_golem', count: 1 }, { type: 'soldier', count: 3 }, { type: 'hunter', count: 1 }] }
@@ -42,9 +42,9 @@ export const FLOOR_CONFIGS = {
         eliteChance: 0.14,
         eliteAffixCount: [1, 2],
         depthTiers: {
-            shallow: { countMin: 7, countMax: 8, weights: { zombie_brute: 3, hunter: 3, soldier: 4 } },
-            mid: { countMin: 8, countMax: 10, weights: { zombie_brute: 2, hunter: 4, soldier: 4 } },
-            deep: { countMin: 9, countMax: 11, weights: { hunter: 4.5, soldier: 5.5 } }
+            shallow: { countMin: 7, countMax: 8, weights: { zombie_brute: 3, hunter: 2.5, soldier: 3, boomer: 2.5 } },
+            mid: { countMin: 8, countMax: 10, weights: { zombie_brute: 2, hunter: 3, soldier: 3.5, warlock: 2.5, boomer: 2 } },
+            deep: { countMin: 9, countMax: 11, weights: { hunter: 3.5, soldier: 4.5, warlock: 3 } }
         },
         eliteSquad: { types: [{ type: 'zombie_brute', count: 3 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 3 }] },
         boss: { types: [{ type: 'mecha_golem', count: 1 }, { type: 'soldier', count: 4 }, { type: 'hunter', count: 2 }] }

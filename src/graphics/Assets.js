@@ -8,6 +8,12 @@ import { ENEMY_TEMPLATE } from '../assets/characters/EnemySprite.js';
 import { ZOMBIE_IDLE_FRAMES } from '../assets/characters/enemies/zombie/ZombieIdle.js';
 import { ZOMBIE_RUN_FRAMES } from '../assets/characters/enemies/zombie/ZombieRun.js';
 import { ZOMBIE_ATTACK_FRAMES } from '../assets/characters/enemies/zombie/ZombieAttack.js';
+import { WARLOCK_IDLE_FRAMES } from '../assets/characters/enemies/warlock/WarlockIdle.js';
+import { WARLOCK_RUN_FRAMES } from '../assets/characters/enemies/warlock/WarlockRun.js';
+import { WARLOCK_ATTACK_FRAMES } from '../assets/characters/enemies/warlock/WarlockAttack.js';
+import { BOOMER_IDLE_FRAMES } from '../assets/characters/enemies/boomer/BoomerIdle.js';
+import { BOOMER_RUN_FRAMES } from '../assets/characters/enemies/boomer/BoomerRun.js';
+import { BOOMER_ATTACK_FRAMES } from '../assets/characters/enemies/boomer/BoomerAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
 import { PISTOL_SPRITE } from '../assets/weapons/PistolGenerator.js';
 import { ROCKET_LAUNCHER_SPRITE } from '../assets/weapons/RocketLauncherGenerator.js';
@@ -302,6 +308,16 @@ export const Assets = {
         idle: ZOMBIE_IDLE_FRAMES,
         run: ZOMBIE_RUN_FRAMES,
         attack: ZOMBIE_ATTACK_FRAMES
+    },
+    warlock: {
+        idle: WARLOCK_IDLE_FRAMES,
+        run: WARLOCK_RUN_FRAMES,
+        attack: WARLOCK_ATTACK_FRAMES
+    },
+    boomer: {
+        idle: BOOMER_IDLE_FRAMES,
+        run: BOOMER_RUN_FRAMES,
+        attack: BOOMER_ATTACK_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,
