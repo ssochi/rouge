@@ -1,6 +1,6 @@
 # 地牢 Roguelike 系统重构方案
 
-> 状态：P0-P3、P5 已完成（feature/dungeon-overhaul 分支），P4/P6 待实施（用户指定 P5 先行）
+> 状态：P0-P5 已完成（feature/dungeon-overhaul 分支），P6 待实施；后续追加方案见 `DUNGEON_ROOM_REDESIGN.md`（房间与视觉重设计，P4 后实施）
 > 日期：2026-07-05
 > 范围：`dungeon` / `dungeon_f2` 地图链路（Hub 紫色传送门进入的 Roguelike 关卡）
 
@@ -162,7 +162,7 @@ src/core/entities/ChestObject.js（或 objects/ 注册）  # 宝箱实体
 | ✅P1 经济骨架 | rarity 字段落库、LootTable、金币/钥匙实体与 HUD、DungeonRunState、宝箱实体+四档美术、清房/Boss/可破坏物掉落接入 | 可玩的「杀怪捡钱开箱」循环 | P0 |
 | ✅P2 遗物系统 | RelicData 18 个、RelicSystem 三挂载点、遗物 UI、宝箱/Boss 掉落接入 | 局内 build 成长 | P1 |
 | ✅P3 特殊房间 | 商店房（商人+货架+购买）、宝箱房、精英房接入生成与 DungeonManager | 每层三特殊房 | P1（精英房完整体验依赖 P4 词缀） |
-| P4 敌人 | 行为组件层、6 新敌人（美术+逻辑）、精英词缀、BossPhaseController、巨蛇接入、3 层敌人配置与数值缩放 | 战斗体验质变 | 可与 P2/P3 并行 |
+| ✅P4 敌人 | 行为组件层（6 组件）、6 新敌人（美术+逻辑）、精英词缀 5 种、BossPhaseController 三 Boss 迁移、巨蛇接入 F2、FloorConfigs 数据驱动与数值缩放 | 战斗体验质变 | 可与 P2/P3 并行 |
 | ✅P5 生成与视觉 | 房间模板池 26、主题墙体/地板 sprite、火把/火盆光源+环境光染色、装饰库 13、地板贴花 7 类、楼层主题（DungeonThemes）、F3 地图接入 | 观感质变 + 3 层结构 | 拓扑无依赖，可与 P4 并行 |
 | P6 平衡与收尾 | 全链路数值平衡（金币产出/价格/掉率/难度曲线）、单局时长校准、文档更新（TECH_OVERVIEW 等）、构建验证 | 可发布版本 | P1-P5 |
 

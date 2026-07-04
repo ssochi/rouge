@@ -213,9 +213,12 @@
 - 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 清房奖励（金币必掉 + 15% 钥匙 + 15% 稀有度加权武器 + 8% 过渡木箱 + 50% 消耗品，数值见 `EconomyConfig.ROOM_CLEAR`）。Boss 清除额外生成保底宝箱（F1 秘银 / F2 龙纹，`BOSS_CHEST_TIER`）。小地图可见性模型：`visited + frontier`。
 - 能量屏障门系统：不使用 BreakableObject，而是在 `DungeonManager.gates[]` 中管理。激活时动态往 `worldSystem.walls[]` 添加墙体 rect 阻挡通行，清除时移除。`Renderer._drawEnergyBarrier()` 绘制蓝紫色半透明屏障（竖条纹脉冲+水平能量带+角落光点）。
 - 楼层系统：F1 Boss 清除 → 绿色"FLOOR 2"传送门 → `dungeon_f2` → F2 Boss 清除 → 橙色"FLOOR 3"传送门 → `dungeon_f3` → F3 Boss 清除 → 金色"VICTORY"传送门回 Hub（`DungeonManager._onBossCleared` 按 `FINAL_FLOOR` 泛化）。层间推进钩子 `WorldSystem._dungeonFloorFromMapType` 从地图类型解析楼层并更新 `runState.floor`，种子保持不变（每层种子 = seed + floor）。
-- F1 敌人：depth 1-2 僵尸系、depth 3-4 混合（+brute/hunter）、depth 5+ 精英（brute/hunter/soldier），Boss = mutant_beast。
-- F2 敌人（更强）：depth 1-2 zombie_female/brute/hunter、depth 3-4 brute/hunter/soldier、depth 5+ hunter/soldier 多数，Boss = mecha_golem + 3 soldier + 1 hunter。
-- F3 敌人（临时编成，P4 由 FloorConfigs 数据驱动接管）：全程 brute/hunter/soldier 重编成，Boss = mecha_golem + 4 soldier + 2 hunter（按最终规划 F3=机械魔偶终战；F2 的魔偶将在 P4 换为机械巨蛇）。
+- **敌人配置（P4，`src/core/dungeon/FloorConfigs.js` 数据驱动）**：每层定义深度分档敌人池（shallow ≤2/mid ≤4/deep 5+，权重比例分配数量）、精英预算（eliteChance/eliteAffixCount）、精英小队、Boss 编成与数值缩放（hpMult/dmgMult：F1 ×1.0/F2 ×1.3/F3 ×1.6）。缩放在 `DungeonManager._applyFloorScaling` 应用：HP/接触伤害直接乘算，弹幕与武器伤害经 `enemy.damageMult` 乘区（`spawnEnemyBullet`/`_pushWeaponProjectiles` 按 owner 消费）。
+- Boss 楼层顺序：F1 变异巨兽（近战教学）→ F2 机械巨蛇（机动压迫，P4 正式接入）→ F3 机械魔偶（弹幕终战）。
+- **行为组件层（P4，`src/core/entities/behaviors/`）**：`ChaseBehavior`/`KiteBehavior`（距离带三态+带内漂移）/`StrafeBehavior`/`RangedPatternBehavior`（fan/ring/aimed_burst 弹幕库，数据配置驱动 `spawnEnemyBullet`）/`SummonBehavior`（前摇+批量+上限，onSummon 回调）/`TelegraphedChargeBehavior`（预警线→冲锋→硬直）。组件经 ctx 注入实体 update 依赖，新敌人 = 数值 + 组件组合；现有敌人不强制迁移。
+- **6 种地牢专属新敌人（P4）**：弹幕法师 Warlock（Kite+环形/扇形弹幕+受击积伤闪现）、自爆蜂 Boomer（高速逼近+引信红闪自爆，可提前引爆殉爆减半，可链爆）、召唤师 Summoner（Kite+周期召唤上限 4，召唤物入房间清除判定）、盾卫 Shieldbearer（慢速推进+正面 ±60° 塔盾减伤 90%，判定基于子弹击退向量夹角）、哨戒炮 Sentry（固定点蓄力→持续弹流→冷却，免疫击退）、投弹手 Lobber（Kite+抛物线榴弹落点红圈预警，越掩体）。美术全部走 Generator→Idle16/Run12/Attack8 管线（Sentry 机械体免 Run）。
+- **精英词缀系统（P4，`src/core/dungeon/EnemyAffixSystem.js`）**：迅捷（移速×1.4）/坚韧（50% maxHp 护盾+破盾前减伤半）/灼热（近身灼烧+死亡爆燃）/裂魂（死亡 8 向弹幕）/再生（脱战 3s 每秒回 2%）。实例级包装 takeDamage/update，零基类侵入。精英房全员保底 1 词缀，普通房按层 eliteChance；视觉 = 体型 1.15×+词缀色光环+头顶词缀名（Renderer）；掉落金币 ×3 + 30% 钥匙。
+- **BossPhaseController（P4，`src/core/entities/bosses/`）**：相位阈值（单向推进+onEnter）+ 招式池（动态权重/条件/优先级分层）+ per-招式冷却。三 Boss 已迁移（招式执行函数与数值不变）。
 - **地牢视觉（P5）**：
   - 墙体贴图：`assets/dungeon/DungeonWallSprites.js` 按主题生成墙顶（32×32）+ 前脸（32×16）各 4 变体（完好/裂纹/苔痕/破损），Renderer 按 tile 位置哈希混铺；边界大墙与非地牢地图保持平涂。能量屏障占位墙 `isGateBarrier` 不绘制墙体（保留碰撞/光照遮挡）。
   - 地板：`FLOOR_TYPES.DUNGEON_F1/F2/F3`（6/7/8）主题石板 4 变体（`DungeonFloorSprites.js`），替代原共享 STONE。
