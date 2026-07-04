@@ -1,6 +1,6 @@
 # 地牢 Roguelike 系统重构方案
 
-> 状态：P0-P3 已完成（feature/dungeon-overhaul 分支），P4 起待实施
+> 状态：P0-P3、P5 已完成（feature/dungeon-overhaul 分支），P4/P6 待实施（用户指定 P5 先行）
 > 日期：2026-07-05
 > 范围：`dungeon` / `dungeon_f2` 地图链路（Hub 紫色传送门进入的 Roguelike 关卡）
 
@@ -163,7 +163,7 @@ src/core/entities/ChestObject.js（或 objects/ 注册）  # 宝箱实体
 | ✅P2 遗物系统 | RelicData 18 个、RelicSystem 三挂载点、遗物 UI、宝箱/Boss 掉落接入 | 局内 build 成长 | P1 |
 | ✅P3 特殊房间 | 商店房（商人+货架+购买）、宝箱房、精英房接入生成与 DungeonManager | 每层三特殊房 | P1（精英房完整体验依赖 P4 词缀） |
 | P4 敌人 | 行为组件层、6 新敌人（美术+逻辑）、精英词缀、BossPhaseController、巨蛇接入、3 层敌人配置与数值缩放 | 战斗体验质变 | 可与 P2/P3 并行 |
-| P5 生成与视觉 | 手作房间模板池 ≥24、墙体 sprite、火把/火盆光源、装饰库 12+、地板贴花、楼层光色微差异、F3 地图接入 | 观感质变 + 3 层结构 | 拓扑无依赖，可与 P4 并行 |
+| ✅P5 生成与视觉 | 房间模板池 26、主题墙体/地板 sprite、火把/火盆光源+环境光染色、装饰库 13、地板贴花 7 类、楼层主题（DungeonThemes）、F3 地图接入 | 观感质变 + 3 层结构 | 拓扑无依赖，可与 P4 并行 |
 | P6 平衡与收尾 | 全链路数值平衡（金币产出/价格/掉率/难度曲线）、单局时长校准、文档更新（TECH_OVERVIEW 等）、构建验证 | 可发布版本 | P1-P5 |
 
 每阶段完成标准：`npm run build` 通过 + 阶段功能可在游戏内验证 + 对应文档段落更新。

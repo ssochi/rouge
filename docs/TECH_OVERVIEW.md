@@ -39,7 +39,7 @@
     - `systems/`: 核心子系统。
       - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。现支持 `resize()` 动态重建网格，以及 `updateLocalFlowField()` 仅对玩家附近窗口做局部流场更新，避免大地图整图 BFS。
       - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。现通过 `MapProfiles` 按地图类型切换世界尺寸/导航网格/地板缓存策略；`construction/game` 会切换到 420×420 的大镇 profile，并同步更新 Camera、ObstacleSpatialIndex 与 NavigationGrid。内部继续使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。地牢经济：维护 `pickups` 数组（loadMap 清空、上限 200 超限最旧直接入账移除），`updatePickups()` 随 `updateDungeon()` 计入 Profiler `Dungeon` 分段，`spawnCoinBurst(x,y,totalValue)`（拆 ≤8 枚均分余数、随机方向 1.5~3px/f 初速）与 `spawnKeyDrop(x,y)` 供掉落链调用。
-      - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
+      - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2→F3，`FINAL_FLOOR` 泛化）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `FloorChunkCache.js`: 超大地图地板分块缓存。对 420×420 小镇地图不再构建单张超大离屏地板，而是按 chunk 懒渲染并做 LRU 缓存。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
@@ -52,7 +52,7 @@
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable/costume）。
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
-      - `generation/`: 场景生成子模块。Build/Game 场景现拆分为两条管线：旧 `ConstructionLayoutGenerator.js`（随机建筑外框 + BSP 切房，保留兼容）和新 `TownLayoutGenerator.js`（中心广场型聚落骨架 + 建筑模板装配）。新增 `TownDistrictPlanner.js`（广场/主街/街区规划）、`TownBlockAllocator.js`（按 block/density/strategy 分配建筑簇）、`BuildingTemplateLibrary.js`（建筑级模板库）、`RoomTemplateLibrary.js`（房间模板语义库）、`BuildingTemplateAssembler.js`（模板旋转、门位/墙体/家具装配）。地牢场景仍由 `DungeonLayoutGenerator.js` 负责：中心工作区 BSP 切分→紧凑房间筛选→近邻约束 MST + 短环路→房间分类（open/cover/maze/trapline/reward/boss）→内部模板→gate 放置→掩体与装饰生成→楼层敌人配置；`RoomInteriorTemplates.js` 提供 12 种房间内部布局模板与按分类加权选择。
+      - `generation/`: 场景生成子模块。Build/Game 场景现拆分为两条管线：旧 `ConstructionLayoutGenerator.js`（随机建筑外框 + BSP 切房，保留兼容）和新 `TownLayoutGenerator.js`（中心广场型聚落骨架 + 建筑模板装配）。新增 `TownDistrictPlanner.js`（广场/主街/街区规划）、`TownBlockAllocator.js`（按 block/density/strategy 分配建筑簇）、`BuildingTemplateLibrary.js`（建筑级模板库）、`RoomTemplateLibrary.js`（房间模板语义库）、`BuildingTemplateAssembler.js`（模板旋转、门位/墙体/家具装配）。地牢场景仍由 `DungeonLayoutGenerator.js` 负责：中心工作区 BSP 切分→紧凑房间筛选→近邻约束 MST + 短环路→房间分类（open/cover/maze/trapline + treasure/elite/shop/boss）→内部模板→gate 放置→掩体/装饰/火盆/壁挂火把/地板贴花生成（楼层主题配比）→楼层敌人配置；`RoomInteriorTemplates.js` 提供 26 种房间内部布局模板（含特殊房专属与 Boss 三款）与按分类加权选择、`coverSpots` 建议掩体位。
     - `lighting/`: 像素光影子系统。
       - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。同时每帧收集玩家/敌人/车辆的挡光体并注入阴影构建，并在进入渲染前为每盏灯分配 `none / walls / all` 三档阴影模式：高优先级关键灯保留完整阴影，中档灯仅做墙体遮挡，低优先级瞬时战斗光走 cheap 无阴影路径。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
       - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置；`floor_lamp` 支持多色预设（warm/cool/mint/rose），实例按颜色发出对应光色。注册表现在同时声明发光体的阴影偏好（`preferredShadowMode`）、生命周期类别（`persistent/transient`）和 cheap 渲染意图，用于战斗场景下的预算裁剪。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯继续保留 70% 墙体环境层 + 30% 全遮挡点光层。
@@ -174,7 +174,7 @@
 ### 建筑生成场景（construction + game）
 - `construction` 与 `game` 现优先使用 `generation/TownLayoutGenerator.js` 生成大规模聚落型小镇；旧 `ConstructionLayoutGenerator.js` 保留兼容与回退用途。
 - 地图 profile：
-  - `hub/test/dungeon/dungeon_f2` 继续使用 130×130 tile 世界。
+  - `hub/test/dungeon/dungeon_f2/dungeon_f3` 继续使用 130×130 tile 世界。
   - `construction/game` 切换到 420×420 tile 世界，约为旧世界面积的 10 倍，并启用更粗粒度导航网格（32px cell）+ 局部流场 + 地板 chunk cache。
 - 新 town 生成流水线：
   - `MapProfiles`: 选择 `town_large` preset，并把世界尺寸、导航网格和地板缓存模式传给 `WorldSystem`。
@@ -204,18 +204,26 @@
   - 树/灌木/草丛类户外装饰不再参与光照遮挡，减少 `LightSystem -> ShadowCasterBuilder` 的静态 hash 与遮挡构建成本。
 - `game` 场景仍基于生成器输出的 `meta.indoorSpawnTiles` 与 `meta.indoorRooms` 管理室内刷怪与房间掉落。
 
-### 地牢模式（dungeon / dungeon_f2）
-- 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 2 层楼层。
-- 生成流水线（`DungeonLayoutGenerator.js`）：中心 `80x80` 工作区 BSP 切分（minRegion 14）→ 紧凑房间筛选（10~14 间，普通房 10~16 tiles）→ 近邻约束 MST（K近邻 + 短边阈值）+ 1~2 条短环路 → 房间分类（`combat_open/combat_cover/combat_maze/challenge_trapline/boss_arena` + 特殊房 `treasure/elite/shop` 每层各 1：最深普通房=宝箱房、次深=精英房、深度约 50% 处=商店房）→ 房间内部模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间掩体（box/barrel/explosive_barrel）与装饰（`dungeon_rubble/dungeon_iron_cage/dungeon_bone_pile`）生成 → BFS 深度计算 → 按深度/分类/楼层分配敌人配置。生成带质量门限与自动重试，约束走廊均长与极值。
-- 房间内部布局模板（`RoomInteriorTemplates.js`）：为非起始房间按“类型+分类”选择布局模板，生成永久墙体结构作为掩体。当前 12 种模板：`pillars`、`center_divide`、`l_alcoves`、`cross`、`corridors`、`offset_pillars`、`checker_blocks`、`broken_ring`、`zigzag_walls`、`gate_channels`、`arena`、`boss_spokes`。模板选择采用加权随机，已使用模板权重减半以促进多样性。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。
+### 地牢模式（dungeon / dungeon_f2 / dungeon_f3）
+- 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 3 层楼层（`FINAL_FLOOR=3`）。
+- **楼层主题（P5，`src/core/dungeon/DungeonThemes.js`）**：F1 冷狱（冷蓝灰）→ F2 苔窟（暗绿）→ F3 燔狱（暗红）。每主题定义墙体/地板色板、环境光 `{r,g,b}`、火把/火盆火光色、装饰与贴花配比权重。`WorldSystem.dungeonTheme` 为当层主题，驱动 Renderer 墙体贴图选集、`LightBufferRenderer.ambientOverride` 环境光染色（非地牢为默认灰度 115）与生成器配比。
+- 生成流水线（`DungeonLayoutGenerator.js`）：中心 `80x80` 工作区 BSP 切分（minRegion 14）→ 紧凑房间筛选（10~14 间，普通房 10~16 tiles）→ 近邻约束 MST（K近邻 + 短边阈值）+ 1~2 条短环路 → 房间分类（`combat_open/combat_cover/combat_maze/challenge_trapline/boss_arena` + 特殊房 `treasure/elite/shop` 每层各 1：最深普通房=宝箱房、次深=精英房、深度约 50% 处=商店房）→ 房间内部模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间掩体（box/barrel/explosive_barrel，模板 `coverSpots` 建议位优先）与装饰（主题 `decorWeights` 加权 + 特殊房固定件：Boss 对称雕像/精英旗帜/宝箱房祭坛）+ 火盆布点（Boss 四角/精英对角/宝箱商店中轴侧）→ 壁挂火把布点（「南邻为地板」的墙面连续段等距，间距 6）→ 地板贴花列表（房间散布 + 角落蛛网 + Boss 圆环 + 走廊稀疏）→ BFS 深度计算 → 按深度/分类/楼层分配敌人配置。产物含 `lightObjects`/`decals`。生成带质量门限与自动重试，约束走廊均长与极值。
+- 房间内部布局模板（`RoomInteriorTemplates.js`）：为非起始房间按“类型+分类”选择布局模板，生成永久墙体结构作为掩体。当前 26 种：普通房 18（`pillars/center_divide/l_alcoves/cross/corridors/offset_pillars/checker_blocks/broken_ring/zigzag_walls/gate_channels` + P5 新增 `corner_cuts/alcove_niches/twin_chambers/funnel_throat/hex_pillars/side_gallery/diamond_core/parallel_fins`）、特殊房专属 5（`treasure_vault/treasure_pockets/shop_stalls/elite_pit/elite_gauntlet`）、Boss 3（`arena/boss_spokes/boss_quadrants`）。模板可返回 `coverSpots` 建议掩体位；选择加权随机、已使用模板权重减半。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。健全性由 `tests/room-templates.test.js` 保证（墙不越界、边缘 2 tile 通带干净、BFS 无封死区域）。
 - 房间类型：`start`（起始安全区+返回传送门）、`normal`（战斗房+内部墙体结构+掩体物品）、`boss`（距起始房最远的房间，Boss + 小怪+竞技场布局+掩体）。特殊房：**宝箱房**（不锁门不刷怪，初始化投放分级宝箱 `TREASURE_ROOM_CHESTS`，F1 铁+木/F2 秘银+铁）、**精英房**（精锐小队，清除保底钥匙+铁箱+金币×1.5，`ELITE_CLEAR`；P4 词缀接入后叠加强化）、**商店房**（安全区，商人 NPC + 5 件货品：1 稀有度加权武器+2 遗物+钥匙+medkit，价格 `SHOP` 配置、F2 ×1.4；`DungeonShop.generateShopInventory` 生成，`ShopItem` 实体 E 键购买，武器/medkit 落地拾取、遗物即时生效、钥匙入账，余额不足红字 NEED GOLD）。
 - 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 清房奖励（金币必掉 + 15% 钥匙 + 15% 稀有度加权武器 + 8% 过渡木箱 + 50% 消耗品，数值见 `EconomyConfig.ROOM_CLEAR`）。Boss 清除额外生成保底宝箱（F1 秘银 / F2 龙纹，`BOSS_CHEST_TIER`）。小地图可见性模型：`visited + frontier`。
 - 能量屏障门系统：不使用 BreakableObject，而是在 `DungeonManager.gates[]` 中管理。激活时动态往 `worldSystem.walls[]` 添加墙体 rect 阻挡通行，清除时移除。`Renderer._drawEnergyBarrier()` 绘制蓝紫色半透明屏障（竖条纹脉冲+水平能量带+角落光点）。
-- 楼层系统：F1 Boss 清除后在房间中心生成绿色"FLOOR 2"传送门 → 进入 `dungeon_f2` 地图 → F2 Boss 清除后生成金色"VICTORY"传送门回 Hub。
+- 楼层系统：F1 Boss 清除 → 绿色"FLOOR 2"传送门 → `dungeon_f2` → F2 Boss 清除 → 橙色"FLOOR 3"传送门 → `dungeon_f3` → F3 Boss 清除 → 金色"VICTORY"传送门回 Hub（`DungeonManager._onBossCleared` 按 `FINAL_FLOOR` 泛化）。层间推进钩子 `WorldSystem._dungeonFloorFromMapType` 从地图类型解析楼层并更新 `runState.floor`，种子保持不变（每层种子 = seed + floor）。
 - F1 敌人：depth 1-2 僵尸系、depth 3-4 混合（+brute/hunter）、depth 5+ 精英（brute/hunter/soldier），Boss = mutant_beast。
 - F2 敌人（更强）：depth 1-2 zombie_female/brute/hunter、depth 3-4 brute/hunter/soldier、depth 5+ hunter/soldier 多数，Boss = mecha_golem + 3 soldier + 1 hunter。
+- F3 敌人（临时编成，P4 由 FloorConfigs 数据驱动接管）：全程 brute/hunter/soldier 重编成，Boss = mecha_golem + 4 soldier + 2 hunter（按最终规划 F3=机械魔偶终战；F2 的魔偶将在 P4 换为机械巨蛇）。
+- **地牢视觉（P5）**：
+  - 墙体贴图：`assets/dungeon/DungeonWallSprites.js` 按主题生成墙顶（32×32）+ 前脸（32×16）各 4 变体（完好/裂纹/苔痕/破损），Renderer 按 tile 位置哈希混铺；边界大墙与非地牢地图保持平涂。能量屏障占位墙 `isGateBarrier` 不绘制墙体（保留碰撞/光照遮挡）。
+  - 地板：`FLOOR_TYPES.DUNGEON_F1/F2/F3`（6/7/8）主题石板 4 变体（`DungeonFloorSprites.js`），替代原共享 STONE。
+  - 贴花：`DungeonDecalSprites.js` 7 类（裂纹/苔藓/血迹/水洼/角落蛛网/散页/Boss 160×160 圆环刻纹），`WorldSystem._stampDungeonDecals` 在 buildFloorCanvas 后一次性盖印，零每帧成本。配比随主题（F1 裂纹蛛网/F2 苔藓水洼/F3 血迹）。
+  - 光源：壁挂火把（`dungeon_torch`，不阻挡/不吃子弹 `noBulletCollision`/不可破坏，光心下移至墙南侧地板防自遮蔽）+ 落地火盆（`dungeon_brazier`，可破坏）。`OBJECT_LIGHTS` 注册，火光色按主题经实例 `lightColor` 覆盖，2 帧火焰动画走 BreakableObject 数组帧。
+  - 装饰库 13 种：碎石/骨堆/铁笼 + P5 新增石柱/断柱/石雕像/烛台祭坛（暖微光）/旗帜架/牢栏残段/木刑架/荧光蘑菇（冷微光，不阻挡）。柱/雕像为 `isLocked` 永久结构。
 - 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制拓扑节点图（约 158×158 区域），采用“邻接预览 + 动态探索”：已探索房间实心、前沿房间半透明轮廓、已探索连线实线、前沿连线虚线；当前房间高亮，锁门状态脉冲描边，玩家标记为朝向箭头，标题显示 `F层 + 已探索/总房间`，底部附状态图例（CLR/ACT/BOSS/FR）。特殊房节点带专属色与字母标记：宝箱房青色 `+`、商店房金色 `$`、精英房紫红 `!`。
-- 地板使用 STONE(5) 石砖瓦片，石砖纹理通过 `FloorSprites.js` 的 `createStoneVariant()` 程序化生成。
+- 地板使用主题石板瓦片 `DUNGEON_F1/F2/F3`（`DungeonFloorSprites.js` 按主题色板程序化生成，4 变体位置哈希混铺）。
 - **地牢经济系统（P1，详见 `docs/feature/DUNGEON_ROGUELIKE_OVERHAUL.md`）**：
   - `src/core/dungeon/` 子系统：`RarityConfig.js`（五档稀有度+颜色）、`EconomyConfig.js`（全部经济数值单一来源：敌人金币值/可破坏物掉落/清房奖励/宝箱档位/掉落黑名单）、`LootTable.js`（`pickRarity` 加权抽档 + `pickWeaponByRarity` 档内均匀空档降级 + `rollChest` 开箱模拟）、`DungeonRunState.js`（单局金币/钥匙/遗物/楼层/种子；进地牢 `start(seed)`、回 Hub `end()` 清零；种子驱动生成可复现）。
   - 全部 37 把战斗武器在 `WeaponData.js` 带 `rarity` 字段（common 6 / uncommon 9 / rare 10 / epic 8 / legendary 4）。
@@ -233,7 +241,7 @@
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
-- 5 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5，地牢石砖)，NONE(0) 使用棋盘格 fallback。
+- 8 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5)、DUNGEON_F1/F2/F3(6/7/8，地牢楼层主题石板)，NONE(0) 使用棋盘格 fallback。`FLOOR_TYPE_KEYS` 为索引数组，只允许尾部追加。
 - 数据存储：`WorldSystem.floorMap`（Uint8Array，尺寸由当前 map profile 决定）+ `floorCanvas` 或 `floorChunkCache`。
 - 渲染：小地图或中小型地图继续使用整张 `floorCanvas`；420×420 小镇地图使用 `FloorChunkCache` 按 chunk 懒渲染并裁剪绘制，无地板缓存时才回退棋盘格。
 - 类型边界目前无过渡效果，直接拼接。
