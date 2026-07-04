@@ -101,11 +101,14 @@ describe('DungeonLayoutGenerator', () => {
         expect(f3.decals.some(d => d.kind === 'puddle')).toBe(false);
     });
 
-    it('F3 Boss 编成含机械魔偶', () => {
-        const layout = generateDungeonLayout(130, 130, SEED, 3);
-        const boss = layout.rooms.find(r => r.type === 'boss');
-        const types = boss.enemyConfig.types.map(t => t.type);
-        expect(types).toContain('mecha_golem');
+    it('Boss 楼层顺序：F1 巨兽 → F2 巨蛇 → F3 魔偶', () => {
+        const bossTypes = (floor) => {
+            const layout = generateDungeonLayout(130, 130, SEED, floor);
+            return layout.rooms.find(r => r.type === 'boss').enemyConfig.types.map(t => t.type);
+        };
+        expect(bossTypes(1)).toContain('mutant_beast');
+        expect(bossTypes(2)).toContain('snake_boss');
+        expect(bossTypes(3)).toContain('mecha_golem');
     });
 
     it('同种子同楼层几何可复现', () => {

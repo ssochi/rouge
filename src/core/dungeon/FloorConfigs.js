@@ -34,7 +34,8 @@ export const FLOOR_CONFIGS = {
             deep: { countMin: 8, countMax: 10, weights: { hunter: 2, soldier: 3.5, warlock: 2.5, shieldbearer: 2, summoner: 1.5, lobber: 1.5, sentry: 1.5 } }
         },
         eliteSquad: { types: [{ type: 'shieldbearer', count: 2 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 3 }] },
-        boss: { types: [{ type: 'mecha_golem', count: 1 }, { type: 'soldier', count: 3 }, { type: 'hunter', count: 1 }] }
+        // F2 Boss = 机械巨蛇（P4-T8 正式接入；全场机动压迫，护卫从简）
+        boss: { types: [{ type: 'snake_boss', count: 1 }, { type: 'soldier', count: 2 }] }
     },
     3: {
         hpMult: 1.6,
