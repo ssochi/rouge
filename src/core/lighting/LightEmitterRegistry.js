@@ -114,26 +114,26 @@ const OBJECT_LIGHTS = {
 };
 
 const BULLET_LIGHTS = {
-    rocket: { radius: 82, color: '#ff9f43', intensity: 0.95, castsShadows: false, priority: 95 },
-    grenade: { radius: 46, color: '#c8d6e5', intensity: 0.35, castsShadows: false, priority: 28 },
-    flame: { radius: 72, color: '#ffb347', intensity: 0.8, castsShadows: false, priority: 98 },
-    black_hole_projectile: { radius: 66, color: '#a66bff', intensity: 0.76, castsShadows: false, priority: 94 },
-    teleport: { radius: 70, color: '#71c7ff', intensity: 0.78, castsShadows: false, priority: 92 },
-    lightning: { radius: 68, color: '#fff27a', intensity: 0.84, castsShadows: false, priority: 98 },
-    ice_shard: { radius: 54, color: '#b8e9ff', intensity: 0.55, castsShadows: false, priority: 60 },
-    ricochet: { radius: 58, color: '#7eff96', intensity: 0.62, castsShadows: false, priority: 66 },
-    boomerang: { radius: 34, color: '#f0cd8c', intensity: 0.3, castsShadows: false, priority: 18 },
-    plasma: { radius: 64, color: '#59ffd0', intensity: 0.78, castsShadows: false, priority: 90 },
-    homing: { radius: 62, color: '#ff8a80', intensity: 0.74, castsShadows: false, priority: 86 },
-    acid: { radius: 62, color: '#9dff5f', intensity: 0.74, castsShadows: false, priority: 86 },
-    cluster: { radius: 56, color: '#ffbd59', intensity: 0.68, castsShadows: false, priority: 80 },
-    force: { radius: 52, color: '#90cfff', intensity: 0.62, castsShadows: false, priority: 72 },
-    vampyre: { radius: 58, color: '#ff6e6e', intensity: 0.7, castsShadows: false, priority: 84 },
-    needle: { radius: 34, color: '#dde6ee', intensity: 0.26, castsShadows: false, priority: 12 },
-    railgun: { radius: 70, color: '#67f0ff', intensity: 0.88, castsShadows: false, priority: 96 },
-    laser_bolt: { radius: 60, color: '#00e5ff', intensity: 0.72, castsShadows: false, priority: 92 },
-    standard: { radius: 36, color: '#ffe082', intensity: 0.22, castsShadows: false, priority: 10 },
-    bolt: { radius: 40, color: '#cfd8dc', intensity: 0.28, castsShadows: false, priority: 14 }
+    rocket: { radius: 82, color: '#ff9f43', intensity: 0.95, castsShadows: false, priority: 95, preferredShadowMode: 'walls', minQualityForWallsShadow: 'medium', lifetimeClass: 'transient', allowCheapRender: true },
+    grenade: { radius: 46, color: '#c8d6e5', intensity: 0.35, castsShadows: false, priority: 28, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    flame: { radius: 72, color: '#ffb347', intensity: 0.8, castsShadows: false, priority: 98, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    black_hole_projectile: { radius: 66, color: '#a66bff', intensity: 0.76, castsShadows: false, priority: 94, preferredShadowMode: 'walls', minQualityForWallsShadow: 'high', lifetimeClass: 'transient', allowCheapRender: true },
+    teleport: { radius: 70, color: '#71c7ff', intensity: 0.78, castsShadows: false, priority: 92, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    lightning: { radius: 68, color: '#fff27a', intensity: 0.84, castsShadows: false, priority: 98, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    ice_shard: { radius: 54, color: '#b8e9ff', intensity: 0.55, castsShadows: false, priority: 60, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    ricochet: { radius: 58, color: '#7eff96', intensity: 0.62, castsShadows: false, priority: 66, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    boomerang: { radius: 34, color: '#f0cd8c', intensity: 0.3, castsShadows: false, priority: 18, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    plasma: { radius: 64, color: '#59ffd0', intensity: 0.78, castsShadows: false, priority: 90, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    homing: { radius: 62, color: '#ff8a80', intensity: 0.74, castsShadows: false, priority: 86, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    acid: { radius: 62, color: '#9dff5f', intensity: 0.74, castsShadows: false, priority: 86, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    cluster: { radius: 56, color: '#ffbd59', intensity: 0.68, castsShadows: false, priority: 80, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    force: { radius: 52, color: '#90cfff', intensity: 0.62, castsShadows: false, priority: 72, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    vampyre: { radius: 58, color: '#ff6e6e', intensity: 0.7, castsShadows: false, priority: 84, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    needle: { radius: 34, color: '#dde6ee', intensity: 0.26, castsShadows: false, priority: 12, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    railgun: { radius: 70, color: '#67f0ff', intensity: 0.88, castsShadows: false, priority: 96, preferredShadowMode: 'walls', minQualityForWallsShadow: 'high', lifetimeClass: 'transient', allowCheapRender: true },
+    laser_bolt: { radius: 60, color: '#00e5ff', intensity: 0.72, castsShadows: false, priority: 92, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    standard: { radius: 36, color: '#ffe082', intensity: 0.22, castsShadows: false, priority: 10, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true },
+    bolt: { radius: 40, color: '#cfd8dc', intensity: 0.28, castsShadows: false, priority: 14, preferredShadowMode: 'none', lifetimeClass: 'transient', allowCheapRender: true }
 };
 
 const VEHICLE_HEADLIGHT_CONFIG = {
@@ -198,6 +198,10 @@ function createEmitter({
     seed = 0,
     shadowMask = 'all',
     disableAmbientPointSplit = false,
+    preferredShadowMode = null,
+    minQualityForWallsShadow = null,
+    lifetimeClass = 'persistent',
+    allowCheapRender = false,
     coneAngle = 0,
     coneDirection = 0
 }, timeMs = 0) {
@@ -216,11 +220,19 @@ function createEmitter({
         kind
     };
 
+    const shadowMode = preferredShadowMode || (emitter.castsShadows ? (shadowMask === 'walls' ? 'walls' : 'all') : 'none');
+    emitter.preferredShadowMode = shadowMode;
+    emitter.lifetimeClass = lifetimeClass === 'transient' ? 'transient' : 'persistent';
+    emitter.allowCheapRender = allowCheapRender === true;
+
     if (shadowMask === 'walls') {
         emitter.shadowMask = 'walls';
     }
     if (disableAmbientPointSplit === true) {
         emitter.disableAmbientPointSplit = true;
+    }
+    if (minQualityForWallsShadow) {
+        emitter.minQualityForWallsShadow = minQualityForWallsShadow;
     }
 
     if (coneAngle > 0) {
@@ -232,6 +244,10 @@ function createEmitter({
 }
 
 export class LightEmitterRegistry {
+    hasObjectEmitter(type) {
+        return !!OBJECT_LIGHTS[type];
+    }
+
     getObjectEmitters(obj, timeMs = 0) {
         if (!obj || obj.isBroken) return [];
 
@@ -253,6 +269,8 @@ export class LightEmitterRegistry {
             ignoreSelfShadow: def.ignoreSelfShadow,
             priority: def.priority,
             kind: 'object',
+            preferredShadowMode: 'all',
+            lifetimeClass: 'persistent',
             seed: (obj.x * 13.37 + obj.y * 3.17) * 0.01
         }, timeMs);
 
@@ -274,6 +292,8 @@ export class LightEmitterRegistry {
             castsShadows: true,
             priority: 86,
             kind: 'portal',
+            preferredShadowMode: 'all',
+            lifetimeClass: 'persistent',
             seed: 0.31 + cx * 0.001
         }, timeMs);
 
@@ -286,7 +306,9 @@ export class LightEmitterRegistry {
             flicker: 0.03,
             castsShadows: true,
             priority: 72,
-            kind: 'portal'
+            kind: 'portal',
+            preferredShadowMode: 'all',
+            lifetimeClass: 'persistent'
         }, timeMs);
 
         return [core, rim].filter(Boolean);
@@ -382,6 +404,8 @@ export class LightEmitterRegistry {
             ignoreSelfShadow: true,
             priority: profile.priority,
             kind: 'vehicle',
+            preferredShadowMode: 'walls',
+            lifetimeClass: 'persistent',
             seed: vehicle.x * 0.021 + vehicle.y * 0.013 + seedOffset,
             coneAngle: profile.coneAngle * 0.82,
             coneDirection: angle
@@ -399,6 +423,9 @@ export class LightEmitterRegistry {
             ignoreSelfShadow: true,
             priority: profile.priority - 4,
             kind: 'vehicle',
+            preferredShadowMode: 'none',
+            lifetimeClass: 'persistent',
+            allowCheapRender: true,
             seed: vehicle.x * 0.019 + vehicle.y * 0.017 + seedOffset + 0.7,
             coneAngle: profile.coneAngle * 1.38,
             coneDirection: angle
@@ -415,6 +442,9 @@ export class LightEmitterRegistry {
             ignoreSelfShadow: true,
             priority: profile.priority - 8,
             kind: 'vehicle',
+            preferredShadowMode: 'none',
+            lifetimeClass: 'persistent',
+            allowCheapRender: true,
             seed: vehicle.x * 0.015 + vehicle.y * 0.011 + seedOffset + 1.3
         }, timeMs);
 
@@ -456,7 +486,9 @@ export class LightEmitterRegistry {
             kind: 'vehicle',
             seed: vehicle.x * 0.031 + vehicle.y * 0.023 + 3.33,
             shadowMask: 'walls',
-            disableAmbientPointSplit: true
+            disableAmbientPointSplit: true,
+            preferredShadowMode: 'walls',
+            lifetimeClass: 'persistent'
         }, timeMs);
 
         const redPoint = createEmitter({
@@ -473,7 +505,9 @@ export class LightEmitterRegistry {
             kind: 'vehicle',
             seed: vehicle.x * 0.033 + vehicle.y * 0.021 + 3.88,
             shadowMask: 'all',
-            disableAmbientPointSplit: true
+            disableAmbientPointSplit: true,
+            preferredShadowMode: 'all',
+            lifetimeClass: 'persistent'
         }, timeMs);
 
         const blueAmbient = createEmitter({
@@ -490,7 +524,9 @@ export class LightEmitterRegistry {
             kind: 'vehicle',
             seed: vehicle.x * 0.029 + vehicle.y * 0.027 + 4.44,
             shadowMask: 'walls',
-            disableAmbientPointSplit: true
+            disableAmbientPointSplit: true,
+            preferredShadowMode: 'walls',
+            lifetimeClass: 'persistent'
         }, timeMs);
 
         const bluePoint = createEmitter({
@@ -507,7 +543,9 @@ export class LightEmitterRegistry {
             kind: 'vehicle',
             seed: vehicle.x * 0.027 + vehicle.y * 0.029 + 4.99,
             shadowMask: 'all',
-            disableAmbientPointSplit: true
+            disableAmbientPointSplit: true,
+            preferredShadowMode: 'all',
+            lifetimeClass: 'persistent'
         }, timeMs);
 
         return [redAmbient, redPoint, blueAmbient, bluePoint].filter(Boolean);
@@ -525,7 +563,10 @@ export class LightEmitterRegistry {
             flicker: 0.06,
             castsShadows: false,
             priority: 88,
-            kind: 'black_hole'
+            kind: 'black_hole',
+            preferredShadowMode: 'none',
+            lifetimeClass: 'persistent',
+            allowCheapRender: true
         }, timeMs);
     }
 
@@ -541,7 +582,10 @@ export class LightEmitterRegistry {
             flicker: 0.04,
             castsShadows: false,
             priority: 65,
-            kind: 'puddle'
+            kind: 'puddle',
+            preferredShadowMode: 'none',
+            lifetimeClass: 'persistent',
+            allowCheapRender: true
         }, timeMs);
     }
 
@@ -565,7 +609,10 @@ export class LightEmitterRegistry {
             castsShadows: true,
             priority: 100,
             owner,
-            kind: 'muzzle'
+            kind: 'muzzle',
+            preferredShadowMode: 'none',
+            lifetimeClass: 'transient',
+            allowCheapRender: true
         }, timeMs);
     }
 
@@ -587,7 +634,11 @@ export class LightEmitterRegistry {
             intensity: (profile.intensity || 0.4) * lifeRatio,
             castsShadows: profile.castsShadows,
             priority: profile.priority || 0,
-            kind: 'bullet'
+            kind: 'bullet',
+            preferredShadowMode: profile.preferredShadowMode || null,
+            minQualityForWallsShadow: profile.minQualityForWallsShadow || null,
+            lifetimeClass: profile.lifetimeClass || 'transient',
+            allowCheapRender: profile.allowCheapRender === true
         }, timeMs);
     }
 
@@ -603,7 +654,10 @@ export class LightEmitterRegistry {
                 intensity: Math.max(0.35, particle.alpha || 0.6),
                 castsShadows: false,
                 priority: 92,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             return e ? [e] : [];
         }
@@ -618,7 +672,10 @@ export class LightEmitterRegistry {
                 flicker: 0.08,
                 castsShadows: false,
                 priority: 52,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             return e ? [e] : [];
         }
@@ -634,7 +691,10 @@ export class LightEmitterRegistry {
                 intensity: 0.38,
                 castsShadows: false,
                 priority: 84,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             const impact = createEmitter({
                 x: particle.x2,
@@ -644,7 +704,10 @@ export class LightEmitterRegistry {
                 intensity: 0.56,
                 castsShadows: false,
                 priority: 88,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             return [mid, impact].filter(Boolean);
         }
@@ -658,7 +721,10 @@ export class LightEmitterRegistry {
                 intensity: 0.44,
                 castsShadows: false,
                 priority: 86,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             const e2 = createEmitter({
                 x: particle.x2,
@@ -668,7 +734,10 @@ export class LightEmitterRegistry {
                 intensity: 0.44,
                 castsShadows: false,
                 priority: 86,
-                kind: 'particle'
+                kind: 'particle',
+                preferredShadowMode: 'none',
+                lifetimeClass: 'transient',
+                allowCheapRender: true
             }, timeMs);
             return [e1, e2].filter(Boolean);
         }

@@ -36,10 +36,11 @@
       - `Pet2B.js`: 尼尔机械纪元 2B 宠物实体（人形角色，scale 0.65，白蓝科技风传送特效）。
       - `Turret.js`: 炮塔实体（静态防御设施，HP 80，自动攻击范围内敌人，具有部署动画和破坏效果）。
     - `systems/`: 核心子系统。
-      - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。
-      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。内部使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。
+      - `NavigationGrid.js`: 空间网格、流场导航与邻域查询。现支持 `resize()` 动态重建网格，以及 `updateLocalFlowField()` 仅对玩家附近窗口做局部流场更新，避免大地图整图 BFS。
+      - `WorldSystem.js`: 多地图管理(Hub/Game/Test/Construction/Dungeon)、地图生成编排、流场更新、敌人调度、宠物更新（`updatePets()`）、房间随机枪支掉落、敌人死亡掉落（武器+恢复针）、统一移动碰撞解析（玩家/怪物/宠物）、门/障碍阻挡查询与自动脱困，以及路径不可达时的敌人破障（优先门）策略。现通过 `MapProfiles` 按地图类型切换世界尺寸/导航网格/地板缓存策略；`construction/game` 会切换到 420×420 的大镇 profile，并同步更新 Camera、ObstacleSpatialIndex 与 NavigationGrid。内部继续使用静态世界 dirty 标记，仅在障碍状态变更时重建缓存。地牢模式（`initDungeonMap()`）采用紧凑化地牢生成（中心工作区 + 短走廊约束），并接入 `decorObjects`（碎石堆/铁笼/骨堆）投放。
       - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
+      - `FloorChunkCache.js`: 超大地图地板分块缓存。对 420×420 小镇地图不再构建单张超大离屏地板，而是按 chunk 懒渲染并做 LRU 缓存。
       - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
@@ -50,23 +51,24 @@
       - `InventorySystem.js`: 物品数据管理、背包槽位与快捷栏逻辑（weapon/placeable/consumable/costume）。
       - `CostumeSystem.js`: 服装系统——管理玩家换装状态（发型/帽子/衣服/眼镜 4个部位）、帧缓存与按需生成。详见 `docs/feature/COSTUME_SYSTEM.md`。
       - `BuildSystem.js`: 蓝图预览、放置判定与物体生成。
-      - `generation/`: 场景生成子模块。含 Build 场景（建筑外框规划、房间切分、门连通、语义分配、语义修复/全局配额、家具摆放、布局校验、布局编译、地板生成）和地牢场景（`DungeonLayoutGenerator.js`：中心工作区 BSP 切分→紧凑房间筛选→近邻约束 MST + 短环路→房间分类（open/cover/maze/trapline/reward/boss）→内部模板→gate 放置→掩体与装饰生成→楼层敌人配置；`RoomInteriorTemplates.js`：12 种房间内部布局模板与按分类加权选择）。
+      - `generation/`: 场景生成子模块。Build/Game 场景现拆分为两条管线：旧 `ConstructionLayoutGenerator.js`（随机建筑外框 + BSP 切房，保留兼容）和新 `TownLayoutGenerator.js`（中心广场型聚落骨架 + 建筑模板装配）。新增 `TownDistrictPlanner.js`（广场/主街/街区规划）、`TownBlockAllocator.js`（按 block/density/strategy 分配建筑簇）、`BuildingTemplateLibrary.js`（建筑级模板库）、`RoomTemplateLibrary.js`（房间模板语义库）、`BuildingTemplateAssembler.js`（模板旋转、门位/墙体/家具装配）。地牢场景仍由 `DungeonLayoutGenerator.js` 负责：中心工作区 BSP 切分→紧凑房间筛选→近邻约束 MST + 短环路→房间分类（open/cover/maze/trapline/reward/boss）→内部模板→gate 放置→掩体与装饰生成→楼层敌人配置；`RoomInteriorTemplates.js` 提供 12 种房间内部布局模板与按分类加权选择。
     - `lighting/`: 像素光影子系统。
-      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。同时每帧收集玩家/敌人/车辆的挡光体并注入阴影构建。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
-      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置；`floor_lamp` 支持多色预设（warm/cool/mint/rose），实例按颜色发出对应光色。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯采用与台灯一致的 70% 环境层 + 30% 点光层。
-      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源 + 动态实体遮挡源）与增量缓存；静态墙体/物体按哈希增量更新，并同步重建 `OccluderSpatialIndex` 进行半径查询。动态实体（玩家/敌人/车辆）使用条目对象池复用，支持 `maskVersion` 门控 `forceMaskRefresh`，在保证语义不变前提下减少重复像素分析。物体与实体遮挡优先使用当前显示帧的像素 mask（支持翻转/旋转）。
-      - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。
-      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。渲染过程引入帧级 scratch 池复用临时数组，并对全向光使用射线方向 LUT（减少每射线三角函数计算）。全局规则：所有光源至少受墙/门遮挡，不允许穿墙。
-      - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。
+      - `LightSystem.js`: 光照主协调器（静态/动态发光体收集、可见性裁剪、预算与质量自适应）。动态光收集包含玩家/敌人枪口火光、子弹、粒子、黑洞、酸液地面与车辆灯光（前灯光锥 + 警车警灯）。同时每帧收集玩家/敌人/车辆的挡光体并注入阴影构建，并在进入渲染前为每盏灯分配 `none / walls / all` 三档阴影模式：高优先级关键灯保留完整阴影，中档灯仅做墙体遮挡，低优先级瞬时战斗光走 cheap 无阴影路径。支持运行时参数覆盖（当前已开放 `ambientBrightness` 背景亮度调节，0~255）。
+      - `LightEmitterRegistry.js`: 发光规则注册（按 object / bullet / particle / portal / vehicle 类型映射光源参数）。静态物体内置 `floor_lamp/fish_tank/explosive_barrel/stove/tv_stand/computer_desk` 光源配置；`floor_lamp` 支持多色预设（warm/cool/mint/rose），实例按颜色发出对应光色。注册表现在同时声明发光体的阴影偏好（`preferredShadowMode`）、生命周期类别（`persistent/transient`）和 cheap 渲染意图，用于战斗场景下的预算裁剪。车辆发光体支持多车型参数化分层前灯光束（核心锥 + 柔光锥 + 近场泛光，含 spider）与警车车顶红蓝交替警灯；警灯继续保留 70% 墙体环境层 + 30% 全遮挡点光层。
+      - `ShadowCasterBuilder.js`: 遮挡体构建（墙体矩形 + 物体精灵 alpha 遮挡源 + 动态实体遮挡源）与增量缓存；静态墙体/物体按哈希增量更新，并同步重建 `OccluderSpatialIndex` 进行半径查询。静态遮挡现拆分为“墙/门索引”和“普通物体索引”，渲染器可按需查询 `queryWallsInRadius()`、`queryObjectsInRadius()`、`queryDynamicInRadius()`，避免每灯重复分类筛选。动态实体（玩家/敌人/车辆）使用条目对象池复用，支持 `maskVersion` 门控 `forceMaskRefresh`，在保证语义不变前提下减少重复像素分析。物体与实体遮挡优先使用当前显示帧的像素 mask（支持翻转/旋转）。
+      - `PixelOcclusionField.js`: 光照缓冲分辨率下的像素遮挡场（遮挡光栅化 + 连续遮挡区射线步进求交）。新增 `copyFrom()` 能力，用于“墙体基础场 -> 全遮挡工作场”的快速拷贝，避免每个关键光源都重复栅格化整张墙体场。
+      - `LightBufferRenderer.js`: 低分辨率离屏光照缓冲渲染与合成（`multiply + lighter`），使用逐像素射线；轮廓补光为可选项（默认关闭）。渲染器已改为三条路径：`none` 直接绘制发光（锥形灯使用 cheap 扇形裁切）、`walls` 复用每帧一次构建的墙体遮挡场、`all` 在墙体场基础上叠加附近物体/动态遮挡。渲染过程继续复用帧级 scratch 池，并对全向光使用射线方向 LUT（减少每射线三角函数计算）。全局规则：关键光源至少受墙/门遮挡，不允许穿墙。
+      - `LightingConfig.js`: 质量档配置（high/medium/low，含射线数、光源预算、缓冲缩放与 `enableContourGlow` 开关）。除 `maxTotalLights/maxDynamicLights/maxStaticLights` 外，现额外限制 `maxAllShadowLights/maxWallShadowLights/maxCheapLights` 与 `allowShadowedTransientLights`，使自动降档不仅降低射线和分辨率，也直接减少高成本阴影光数量。
       - `EntityLightOccluderResolver.js`: 动态实体遮挡解析器，负责将玩家/敌人/车辆的当前渲染帧转换为光照遮挡描述（像素级 mask + 旋转/翻转信息）。
       - `FrameScratchPool.js`: 光照帧级临时数组池，供 `LightSystem` 与 `LightBufferRenderer` 复用，降低高频 GC。
       - `OccluderSpatialIndex.js`: 光照遮挡空间索引，按固定网格存储静态遮挡体并提供半径查询。
     - `shared/`: 跨系统共享缓存。
       - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。新增 Canvas 级弱引用缓存，用于动态实体遮挡复用 mask 分析结果。
-    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角拓扑节点图，visited/frontier 分层、实线/虚线连通、玩家朝向箭头、锁门脉冲高亮、F层+探索进度标签）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。
-    - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。
-    - `Camera.js`: 摄像机跟随与视口计算。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角拓扑节点图，visited/frontier 分层、实线/虚线连通、玩家朝向箭头、锁门脉冲高亮、F层+探索进度标签）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。地板渲染现优先走 `floorChunkCache`，没有 chunk cache 时再回退到整张 `floorCanvas`。
+    - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。启动时按 `MapProfiles` 初始化默认导航网格，并在地图切换后把世界边界同步给 Camera。
+    - `Camera.js`: 摄像机跟随与视口计算。新增 `setWorldBounds()`，不再固定依赖全局 `MAP_WIDTH/MAP_HEIGHT`。
     - `Input.js`: 统一的键鼠输入处理。
+    - `maps/MapProfiles.js`: 各地图 profile 配置。定义 tile 尺寸、导航网格粒度、局部流场半径、是否启用地板 chunk cache，以及采用哪条生成 preset。
   - `graphics/`: **渲染系统**。
     - `SpriteGenerator.js`: 将字符模板转换为 Canvas/Image 的核心工具。
     - `Assets.js`: 负责调用生成器并缓存生成的游戏资源。
@@ -169,25 +171,37 @@
 - **宠物系统**: 宠物存储在独立的 `pets` 数组（不在 `enemies` 中），不参与战斗碰撞。宠物作为消耗品道具注册（`consumable:pet_dog`/`consumable:pet_cat`），从快捷栏左键使用后召唤。`WorldSystem.updatePets()` 复用流场寻路实现跟随。宠物超过 600px 距离时自动传送到玩家身边（带消散/出现粒子特效）。猫（`PetCat`）比狗（`PetDog`）速度更快、体型更小。
 
 ### 建筑生成场景（construction + game）
-- `construction` 与 `game` 地图都通过 `generation/ConstructionLayoutGenerator.js` 进行流程化生成，不再依赖 `game` 旧随机墙逻辑。
-- 生成流水线：
-  - `BuildingFootprintPlanner`: 规划多栋建筑外框（避免重叠/越界）。
-  - `RoomPartitioner`: BSP 切分房间并生成内部墙分割线。
-  - `DoorConnector`: 放置内部门与入口门，并将门位从墙集合中扣除。
-  - `RoomSemanticAssigner`: 根据输入策略分配 `requiredRoles + preferredRoles` 语义（不再写死每栋三件套）。支持的房间语义：`living_room`、`bedroom`、`study`、`bathroom`、`storage`、`corridor`、`foyer`。
-  - `RoomSemanticRepair`: 建筑 tier 语义策略（small/medium/large）+ 全图语义配额修复（优先提升 `storage/corridor/foyer`）。`bathroom` 作为 medium/large 建筑的 preferredRole，不设全局配额。
-  - `FurniturePlacer`: 按语义模板做家具硬约束摆放（含门前通行带）。客厅可选：扶手椅(40%) + 落地灯(35%,偏墙) + 盆栽(30%) + 矮柜(30%,靠墙) + 钢琴(20%,靠墙) + 鱼缸(25%)。卧室可选：落地灯(25%,偏墙) + 梳妆台(50%,靠墙)。书房必需：电脑桌(靠墙)+书架；可选：椅子(60%,近桌) + 扶手椅(30%) + 盆栽(25%)。门厅可选：盆栽(35%) + 衣帽架(40%,靠墙) + 落地钟(30%,靠墙)。走廊可选：矮柜(20%,靠墙) + 落地钟(20%,靠墙)。卫浴：马桶(必需,靠墙) + 浴缸(50%,靠墙) + 洗手台(60%,靠墙) + 洗衣机(35%,靠墙)。厨房可选：酒架(25%,靠墙) + 椅子(30%)。储藏室可选：工作台(40%,靠墙) + 洗衣机(30%,靠墙)。
-  - `LayoutValidator`: 校验连通性、入口门数量、家具约束。
-  - `LayoutCompiler`: 编译为 `BreakableObject` 可实例化的对象列表。
-  - `FloorMapGenerator`: 生成 100×100 地板子格地图（草地/木地板/水泥/泥土），含建筑路径连通与泥土过渡带。
-  - `OutdoorPlacer`: 在建筑外空地概率放置户外植被（大树/小树/灌木/草丛）与少量户外杂物（箱子/木桶/罐子）。植被遵守建筑缓冲区与最小间距，并基于 `floorMap` 仅在 `GRASS`/`DIRT` 子格对应地块生成；杂物仅在建筑外侧近墙环带的草地上低概率生成，避免出现在水泥路、木地板或建筑内部。
+- `construction` 与 `game` 现优先使用 `generation/TownLayoutGenerator.js` 生成大规模聚落型小镇；旧 `ConstructionLayoutGenerator.js` 保留兼容与回退用途。
+- 地图 profile：
+  - `hub/test/dungeon/dungeon_f2` 继续使用 130×130 tile 世界。
+  - `construction/game` 切换到 420×420 tile 世界，约为旧世界面积的 10 倍，并启用更粗粒度导航网格（32px cell）+ 局部流场 + 地板 chunk cache。
+- 新 town 生成流水线：
+  - `MapProfiles`: 选择 `town_large` preset，并把世界尺寸、导航网格和地板缓存模式传给 `WorldSystem`。
+  - `TownDistrictPlanner`: 规划中心广场、十字主街、次级道路与 4 类 block（商业、混合住宅、外圈住宅、服务边缘）。
+  - `TownBlockAllocator`: 按 `street_row / mixed_row / paired_houses / courtyard_cluster` 四种策略把 block 转成建筑簇位。
+  - `BuildingTemplateLibrary`: 提供 24 套建筑模板（住宅 10、商业 8、服务 6），每套模板由多个房间模板组合而成。
+  - `RoomTemplateLibrary`: 提供房间语义模板（`foyer/living_room/bedroom/kitchen/bathroom/study/office/retail/workshop/clinic/storage/corridor`），建筑模板只需声明房间槽位大小和引用的房间模板。
+  - `BuildingTemplateAssembler`: 负责模板旋转（支持四向朝向）、房间/门/墙 tile 转换、家具摆放与布局校验。
+  - `LayoutCompiler`: 编译为 `BreakableObject` 定义列表。
+  - `FloorMapGenerator`: 生成 420×420 对应的地板子格地图，并额外绘制广场、主街/次街硬质地面，以及建筑入口到道路的连通步道。
+  - `OutdoorPlacer`: 在未被道路/广场/建筑占用的自然地表上补植被与杂物，保证边缘区仍有留白和自然感。
+- 家具语义模板在原有 `living_room/bedroom/study/bathroom/storage/corridor/foyer/kitchen` 基础上新增 `office/retail/workshop/clinic`，用于商业和服务建筑内部。
 - `WorldSystem.initConstructionMap()` 负责：
   - 建立地图边界墙。
   - 调用生成器并实例化对象。
-  - 存储地板数据并预渲染离屏 Canvas（当前 100x100 地图下约为 3200×3200，`buildFloorCanvas()`）。
+  - 根据 profile 决定使用整张 `floorCanvas` 还是 `FloorChunkCache`。420×420 小镇地图默认走分块懒渲染，不再创建单张超大离屏地板。
+  - 依据生成元数据把 Hub 返回传送门放到广场南侧主路，而不是固定左上角。
   - 生成失败时使用 fallback 布局，保证场景可进入；fallback 同样会初始化草地地板，避免出现“无地面”。
-- `WorldSystem.initGameMap()` 复用同一套生成与地板流程，然后叠加房间随机枪支、敌人与击杀掉落生成。
-- 地图全局尺寸已扩展为 `100x100`，并将建筑目标数量提升到 `6~12`，`game` 场景会基于生成器输出的 `meta.indoorSpawnTiles` 与 `meta.indoorRooms` 管理室内刷怪与房间掉落。
+- `WorldSystem.initGameMap()` 复用同一套大镇生成与地板流程，然后叠加房间随机枪支、敌人与击杀掉落生成。
+- 性能策略：
+  - `NavigationGrid.updateLocalFlowField()` 只维护玩家附近窗口，避免 420×420 世界整图流场。
+  - `ObstacleSpatialIndex` 与 Camera 边界按当前地图 profile 动态重建。
+  - `FloorChunkCache` 只缓存可见区域附近的地板 chunk，Renderer 直接裁剪绘制可见块。
+  - 建筑模板总数控制在约 33~36 栋量级，兼顾大地图密度和运行时对象数量。
+  - `OutdoorPlacer` 对大镇启用稀疏植被与数量上限，避免按全图概率铺出数万 `breakableObjects`。
+  - `Game.update()` 与 `Renderer.draw()` 现在都会先做视口附近裁剪，`breakableObjects`/墙体/敌人/载具/传送门不再默认全量进入逐帧更新和排序。
+  - 树/灌木/草丛类户外装饰不再参与光照遮挡，减少 `LightSystem -> ShadowCasterBuilder` 的静态 hash 与遮挡构建成本。
+- `game` 场景仍基于生成器输出的 `meta.indoorSpawnTiles` 与 `meta.indoorRooms` 管理室内刷怪与房间掉落。
 
 ### 地牢模式（dungeon / dungeon_f2）
 - 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 2 层楼层。
@@ -205,10 +219,11 @@
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
 - 5 种地面类型：GRASS(1)、WOOD(2)、CONCRETE(3)、DIRT(4)、STONE(5，地牢石砖)，NONE(0) 使用棋盘格 fallback。
-- 数据存储：`WorldSystem.floorMap`（Uint8Array 100×100）+ `WorldSystem.floorCanvas`（预渲染离屏 Canvas）。
-- 渲染：Renderer 对有 `floorCanvas` 的地图做单次 `drawImage` 裁剪，无 `floorCanvas` 时保留棋盘格。
+- 数据存储：`WorldSystem.floorMap`（Uint8Array，尺寸由当前 map profile 决定）+ `floorCanvas` 或 `floorChunkCache`。
+- 渲染：小地图或中小型地图继续使用整张 `floorCanvas`；420×420 小镇地图使用 `FloorChunkCache` 按 chunk 懒渲染并裁剪绘制，无地板缓存时才回退棋盘格。
 - 类型边界目前无过渡效果，直接拼接。
 - 外围墙体子格按内外分裂：内侧 WOOD、外侧 CONCRETE，确保墙两侧地面不同。
+- 大镇模式下，`FloorMapGenerator` 会额外绘制广场、道路和建筑入口连通步道，形成明确的聚落骨架。
 - 详见 `docs/feature/FLOOR_TILE_SYSTEM.md`。
 
 ### 规范

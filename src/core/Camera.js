@@ -7,6 +7,15 @@ export class Camera {
         this.width = width;
         this.height = height;
         this.lerp = 0.3; // Increased from 0.1 to reduce aim drift when moving
+        this.worldWidth = MAP_WIDTH * TILE_SIZE;
+        this.worldHeight = MAP_HEIGHT * TILE_SIZE;
+    }
+
+    setWorldBounds(width, height) {
+        this.worldWidth = Math.max(this.width, Number.isFinite(width) ? width : this.width);
+        this.worldHeight = Math.max(this.height, Number.isFinite(height) ? height : this.height);
+        this.x = Math.max(0, Math.min(this.x, this.worldWidth - this.width));
+        this.y = Math.max(0, Math.min(this.y, this.worldHeight - this.height));
     }
 
     follow(target) {
@@ -17,7 +26,7 @@ export class Camera {
         this.y += (targetY - this.y) * this.lerp;
 
         // Clamp
-        this.x = Math.max(0, Math.min(this.x, MAP_WIDTH * TILE_SIZE - this.width));
-        this.y = Math.max(0, Math.min(this.y, MAP_HEIGHT * TILE_SIZE - this.height));
+        this.x = Math.max(0, Math.min(this.x, this.worldWidth - this.width));
+        this.y = Math.max(0, Math.min(this.y, this.worldHeight - this.height));
     }
 }

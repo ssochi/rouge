@@ -31,6 +31,50 @@ export class Renderer {
         this.pPressed = false;
     }
 
+    _isWorldRectVisible(x, y, width, height, pad = 0) {
+        const left = this.camera.x - pad;
+        const top = this.camera.y - pad;
+        const right = this.camera.x + this.canvas.width / this.scale + pad;
+        const bottom = this.camera.y + this.canvas.height / this.scale + pad;
+        return (
+            x < right &&
+            x + width > left &&
+            y < bottom &&
+            y + height > top
+        );
+    }
+
+    _isEntityVisible(entity, pad = 64) {
+        if (!entity) return false;
+        const width = entity.width || TILE_SIZE;
+        const height = entity.height || TILE_SIZE;
+        return this._isWorldRectVisible(
+            entity.x - width * 0.5,
+            entity.y - height,
+            width,
+            height,
+            pad
+        );
+    }
+
+    _isBreakableVisible(obj, pad = 64) {
+        if (!obj || obj.isBroken) return false;
+        const boxes = obj.getHurtboxes
+            ? obj.getHurtboxes()
+            : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()].filter(Boolean);
+        if (boxes.length === 0) {
+            return this._isWorldRectVisible(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, pad);
+        }
+        for (const box of boxes) {
+            const width = box.width ?? box.w ?? 0;
+            const height = box.height ?? box.h ?? 0;
+            if (this._isWorldRectVisible(box.x, box.y, width, height, pad)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     drawPixelCircle(ctx, cx, cy, radius, color, pixelSize = 4) {
         ctx.fillStyle = color;
         const centerX = Math.floor(cx / pixelSize) * pixelSize;
@@ -106,7 +150,15 @@ export class Renderer {
         const viewportW = this.canvas.width / this.scale;
         const viewportH = this.canvas.height / this.scale;
 
-        if (this.worldSystem && this.worldSystem.floorCanvas) {
+        if (this.worldSystem && this.worldSystem.floorChunkCache) {
+            this.worldSystem.floorChunkCache.draw(
+                this.ctx,
+                this.camera.x,
+                this.camera.y,
+                viewportW,
+                viewportH
+            );
+        } else if (this.worldSystem && this.worldSystem.floorCanvas) {
             // Draw pre-rendered floor canvas (single drawImage)
             const fc = this.worldSystem.floorCanvas;
             const sx = Math.max(0, Math.floor(this.camera.x));
@@ -134,12 +186,16 @@ export class Renderer {
 
         // Draw Carpets (Below everything else, on top of floor)
         if (this.worldSystem && this.worldSystem.carpets) {
-             this.worldSystem.carpets.forEach(c => c.draw(this.ctx));
+             this.worldSystem.carpets.forEach(c => {
+                 if (!this._isWorldRectVisible(c.x, c.y, c.width || TILE_SIZE, c.height || TILE_SIZE, 48)) return;
+                 c.draw(this.ctx);
+             });
         }
 
         const renderList = [];
 
         this.walls.forEach(w => {
+            if (!this._isWorldRectVisible(w.x, w.y - 16, w.w, w.h + 26, 48)) return;
             renderList.push({
                 y: w.y + w.h,
                 draw: () => {
@@ -158,8 +214,15 @@ export class Renderer {
             const dm = this.worldSystem.dungeonManager;
             for (const gate of dm.gates) {
                 if (gate.alpha <= 0) continue;
+                const firstTile = gate.tiles[0];
+                if (!firstTile) continue;
+                const gateX = firstTile.x * TILE_SIZE;
+                const gateY = firstTile.y * TILE_SIZE;
+                const gateW = gate.isHorizontal ? gate.tiles.length * TILE_SIZE : TILE_SIZE;
+                const gateH = gate.isHorizontal ? TILE_SIZE : gate.tiles.length * TILE_SIZE;
+                if (!this._isWorldRectVisible(gateX, gateY, gateW, gateH, 64)) continue;
                 // Use the first tile's y for sort order
-                const sortY = gate.tiles[0].y * TILE_SIZE + TILE_SIZE;
+                const sortY = firstTile.y * TILE_SIZE + TILE_SIZE;
                 renderList.push({
                     y: sortY,
                     draw: () => this._drawEnergyBarrier(gate)
@@ -168,7 +231,7 @@ export class Renderer {
         }
 
         this.breakableObjects.forEach(obj => {
-            if (!obj.isBroken) {
+            if (!obj.isBroken && this._isBreakableVisible(obj, 96)) {
                 let sortY = obj.y + obj.height;
 
                 const occlusionHitboxes = obj.getOcclusionHitboxes
@@ -199,6 +262,7 @@ export class Renderer {
         });
 
         this.enemies.forEach(e => {
+            if (!this._isEntityVisible(e, 96)) return;
             renderList.push({
                 y: e.y + e.height/2,
                 draw: () => {
@@ -319,6 +383,7 @@ export class Renderer {
 
         // Vehicles
         this.vehicles.forEach(v => {
+            if (!this._isEntityVisible(v, 128)) return;
             renderList.push({
                 y: v.y + v.height/2,
                 draw: () => v.draw(this.ctx)
@@ -328,6 +393,7 @@ export class Renderer {
         // Draw Portals
         if (this.worldSystem && this.worldSystem.portals) {
             this.worldSystem.portals.forEach(p => {
+                if (!this._isWorldRectVisible(p.x, p.y, p.width || TILE_SIZE * 2, p.height || TILE_SIZE * 2, 64)) return;
                 renderList.push({
                     y: p.y + p.height, // Sort by bottom
                     draw: () => p.draw(this.ctx)
@@ -337,6 +403,7 @@ export class Renderer {
 
         // Draw Pets
         this.pets.forEach(pet => {
+            if (!this._isEntityVisible(pet, 96)) return;
             renderList.push({
                 y: pet.y + pet.height / 2,
                 draw: () => pet.draw(this.ctx)

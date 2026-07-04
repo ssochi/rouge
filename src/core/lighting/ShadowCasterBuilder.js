@@ -83,6 +83,8 @@ export class ShadowCasterBuilder {
     constructor() {
         this.entries = [];
         this.staticEntries = [];
+        this.staticWallEntries = [];
+        this.staticObjectEntries = [];
         this.dynamicEntries = [];
         this._dynamicEntryPool = [];
         this._dynamicEntryCount = 0;
@@ -90,7 +92,11 @@ export class ShadowCasterBuilder {
         this._ownerIds = new WeakMap();
         this._nextOwnerId = 1;
         this._staticSpatialIndex = new OccluderSpatialIndex(64);
+        this._wallSpatialIndex = new OccluderSpatialIndex(64);
+        this._objectSpatialIndex = new OccluderSpatialIndex(64);
         this._staticQueryScratch = [];
+        this._wallQueryScratch = [];
+        this._objectQueryScratch = [];
         this._dynamicMaskVersionState = new WeakMap();
     }
 
@@ -131,12 +137,11 @@ export class ShadowCasterBuilder {
         }
 
         for (const obj of breakableObjects) {
-            if (!obj) continue;
+            if (!this._shouldBlock(obj)) continue;
             hash = mix(hash, obj.x | 0);
             hash = mix(hash, obj.y | 0);
             hash = mix(hash, obj.isBroken ? 1 : 0);
             hash = mix(hash, obj.isOpen ? 1 : 0);
-            hash = mix(hash, obj.blocksLight === false ? 0 : 1);
             hash = mix(hash, obj.wallMask | 0);
             hash = mix(hash, obj.frameIndex | 0);
             hash = mix(hash, hashString(obj.type || ''));
@@ -253,9 +258,11 @@ export class ShadowCasterBuilder {
 
     _rebuildStaticEntries(walls = [], breakableObjects = []) {
         this.staticEntries.length = 0;
+        this.staticWallEntries.length = 0;
+        this.staticObjectEntries.length = 0;
 
         for (const wall of walls) {
-            this._pushRectEntry(this.staticEntries, null, 0, {
+            this._pushRectEntry(this.staticWallEntries, null, 0, {
                 x: wall.x,
                 y: wall.y,
                 width: wall.w,
@@ -268,6 +275,9 @@ export class ShadowCasterBuilder {
 
             const ownerId = this._getOwnerId(obj);
             const isDoor = this._isDoor(obj);
+            const staticTarget = isDoor || (obj.type || '').startsWith('wall')
+                ? this.staticWallEntries
+                : this.staticObjectEntries;
             if (!isDoor) {
                 const frameData = spriteMaskCache.getFrameDataForObject(obj);
                 const frame = frameData?.frame || null;
@@ -277,7 +287,7 @@ export class ShadowCasterBuilder {
                     const drawOffsetY = obj.drawOffset?.y || 0;
                     const pivotX = obj.x + drawOffsetX;
                     const pivotY = obj.y + drawOffsetY;
-                    this._pushSpriteEntry(this.staticEntries, obj, ownerId, {
+                    this._pushSpriteEntry(staticTarget, obj, ownerId, {
                         mask: frame.mask,
                         maskWidth: frame.width,
                         maskHeight: frame.height,
@@ -297,11 +307,17 @@ export class ShadowCasterBuilder {
                 ? obj.getHurtboxes()
                 : [obj.getHurtbox?.(), obj.getHitbox?.()].filter(Boolean);
             for (const hb of hurtboxes) {
-                this._pushRectEntry(this.staticEntries, obj, ownerId, hb);
+                this._pushRectEntry(staticTarget, obj, ownerId, hb);
             }
         }
 
+        this.staticEntries.length = 0;
+        for (const entry of this.staticWallEntries) this.staticEntries.push(entry);
+        for (const entry of this.staticObjectEntries) this.staticEntries.push(entry);
+
         this._staticSpatialIndex.build(this.staticEntries);
+        this._wallSpatialIndex.build(this.staticWallEntries);
+        this._objectSpatialIndex.build(this.staticObjectEntries);
     }
 
     _rebuildDynamicEntries(dynamicOccluders = []) {
@@ -370,15 +386,79 @@ export class ShadowCasterBuilder {
         return staticChanged;
     }
 
-    queryStaticBlockersInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
-        out.length = 0;
-        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
-
-        const candidates = this._staticSpatialIndex.queryCircle(x, y, radius, this._staticQueryScratch);
+    _appendSpatialQuery(index, scratch, x, y, radius, ignoreOwner, out) {
+        const candidates = index.queryCircle(x, y, radius, scratch);
         for (const entry of candidates) {
             if (ignoreOwner && entry.owner === ignoreOwner) continue;
             out.push(entry);
         }
+        return out;
+    }
+
+    _appendDynamicQuery(x, y, radius, ignoreOwner, out) {
+        const left = x - radius;
+        const right = x + radius;
+        const top = y - radius;
+        const bottom = y + radius;
+
+        for (const entry of this.dynamicEntries) {
+            if (entry.x > right || entry.x + entry.w < left || entry.y > bottom || entry.y + entry.h < top) {
+                continue;
+            }
+            if (ignoreOwner && entry.owner === ignoreOwner) continue;
+            out.push(entry);
+        }
+        return out;
+    }
+
+    queryStaticBlockersInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
+
+        this._appendSpatialQuery(this._wallSpatialIndex, this._wallQueryScratch, x, y, radius, ignoreOwner, out);
+        this._appendSpatialQuery(this._objectSpatialIndex, this._objectQueryScratch, x, y, radius, ignoreOwner, out);
+
+        if (Number.isFinite(maxEntries) && out.length > maxEntries) {
+            out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
+            out.length = maxEntries;
+        }
+
+        return out;
+    }
+
+    queryWallsInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
+
+        this._appendSpatialQuery(this._wallSpatialIndex, this._wallQueryScratch, x, y, radius, ignoreOwner, out);
+
+        if (Number.isFinite(maxEntries) && out.length > maxEntries) {
+            out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
+            out.length = maxEntries;
+        }
+
+        return out;
+    }
+
+    queryObjectsInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
+
+        this._appendSpatialQuery(this._objectSpatialIndex, this._objectQueryScratch, x, y, radius, ignoreOwner, out);
+
+        if (Number.isFinite(maxEntries) && out.length > maxEntries) {
+            out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
+            out.length = maxEntries;
+        }
+
+        return out;
+    }
+
+    queryDynamicInRadius(x, y, radius, maxEntries = Infinity, ignoreOwner = null, out = []) {
+        out.length = 0;
+        if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
+
+        this._appendDynamicQuery(x, y, radius, ignoreOwner, out);
 
         if (Number.isFinite(maxEntries) && out.length > maxEntries) {
             out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));
@@ -392,24 +472,8 @@ export class ShadowCasterBuilder {
         out.length = 0;
         if (Number.isFinite(maxEntries) && maxEntries <= 0) return out;
 
-        const left = x - radius;
-        const right = x + radius;
-        const top = y - radius;
-        const bottom = y + radius;
-
-        const staticCandidates = this._staticSpatialIndex.queryCircle(x, y, radius, this._staticQueryScratch);
-        for (const entry of staticCandidates) {
-            if (ignoreOwner && entry.owner === ignoreOwner) continue;
-            out.push(entry);
-        }
-
-        for (const entry of this.dynamicEntries) {
-            if (entry.x > right || entry.x + entry.w < left || entry.y > bottom || entry.y + entry.h < top) {
-                continue;
-            }
-            if (ignoreOwner && entry.owner === ignoreOwner) continue;
-            out.push(entry);
-        }
+        this._appendSpatialQuery(this._staticSpatialIndex, this._staticQueryScratch, x, y, radius, ignoreOwner, out);
+        this._appendDynamicQuery(x, y, radius, ignoreOwner, out);
 
         if (Number.isFinite(maxEntries) && out.length > maxEntries) {
             out.sort((a, b) => dist2ToRect(x, y, a) - dist2ToRect(x, y, b));

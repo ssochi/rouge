@@ -100,6 +100,10 @@ export const ROOM_TEMPLATE_REQUIREMENTS = Object.freeze({
     living_room: { minW: 5, minH: 4 },
     bedroom: { minW: 4, minH: 4 },
     study: { minW: 3, minH: 3 },
+    office: { minW: 3, minH: 3 },
+    retail: { minW: 4, minH: 4 },
+    workshop: { minW: 4, minH: 3 },
+    clinic: { minW: 4, minH: 3 },
     bathroom: { minW: 3, minH: 3 },
     kitchen: { minW: 3, minH: 3 },
     storage: { minW: 3, minH: 3 },
@@ -146,6 +150,51 @@ export const ROOM_FURNITURE_TEMPLATES = Object.freeze({
             { item: 'nightstand', chance: 0.25, requireWall: true },
             { item: 'armchair', chance: 0.3 },
             { item: 'potted_plant', chance: 0.25, nearTag: 'desk' }
+        ]
+    },
+    office: {
+        required: [
+            { item: 'computer_desk', requireWall: true, tag: 'desk' }
+        ],
+        optional: [
+            { item: 'chair', chance: 0.65, nearTag: 'desk' },
+            { item: 'bookshelf', chance: 0.5, requireWall: true },
+            { item: 'cabinet', chance: 0.45, requireWall: true },
+            { item: 'potted_plant', chance: 0.25 }
+        ]
+    },
+    retail: {
+        required: [
+            { item: 'cabinet', requireWall: true, tag: 'counter' }
+        ],
+        optional: [
+            { item: 'bookshelf', chance: 0.45, requireWall: true },
+            { item: 'table', chance: 0.35, preferCenter: true },
+            { item: 'chair', chance: 0.3, nearTag: 'counter' },
+            { item: 'potted_plant', chance: 0.25 }
+        ]
+    },
+    workshop: {
+        required: [
+            { item: 'workbench', requireWall: true, tag: 'bench' }
+        ],
+        optional: [
+            { item: 'cabinet', chance: 0.5, requireWall: true },
+            { item: 'washing_machine', chance: 0.35, requireWall: true },
+            { item: 'bookshelf', chance: 0.35, requireWall: true },
+            { item: 'chair', chance: 0.2, nearTag: 'bench' }
+        ]
+    },
+    clinic: {
+        required: [
+            { item: 'bed', requireWall: true, tag: 'bed' },
+            { item: 'cabinet', chance: 1, requireWall: true }
+        ],
+        optional: [
+            { item: 'nightstand', chance: 0.55, nearTag: 'bed' },
+            { item: 'sink', chance: 0.45, requireWall: true },
+            { item: 'chair', chance: 0.35 },
+            { item: 'potted_plant', chance: 0.2 }
         ]
     },
     storage: {

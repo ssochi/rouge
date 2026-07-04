@@ -4,10 +4,17 @@ import { parseTileKey } from './GenerationUtils.js';
 /**
  * Generate a floor tile map for the construction scene.
  *
- * @param {{ buildingPlans: Array, mapWidth: number, mapHeight: number, rng: Function }} opts
+ * @param {{ buildingPlans: Array, mapWidth: number, mapHeight: number, rng: Function, roadRects?: Array, plazaRects?: Array }} opts
  * @returns {{ floorMap: Uint8Array, width: number, height: number }}
  */
-export function generateFloorMap({ buildingPlans, mapWidth, mapHeight, rng }) {
+export function generateFloorMap({
+    buildingPlans,
+    mapWidth,
+    mapHeight,
+    rng,
+    roadRects = [],
+    plazaRects = []
+}) {
     const S = FLOOR_TILES_PER_CELL; // 2 sub-tiles per tile axis
     const fw = mapWidth * S;
     const fh = mapHeight * S;
@@ -84,7 +91,13 @@ export function generateFloorMap({ buildingPlans, mapWidth, mapHeight, rng }) {
         }
     }
 
-    // Step 5: Create CONCRETE paths between building entrances
+    // Step 5: Paint road/plaza hardscape for town-scale layouts.
+    for (const rect of [...plazaRects, ...roadRects]) {
+        if (!rect || rect.w <= 0 || rect.h <= 0) continue;
+        paintRect(floorMap, fw, fh, rect.x * S, rect.y * S, rect.w * S, rect.h * S, FLOOR_TYPES.CONCRETE);
+    }
+
+    // Step 6: Create entrance connectors.
     const entrances = [];
     for (const building of buildingPlans) {
         if (building.entranceDoor && building.entranceDoor.outside) {
@@ -96,11 +109,20 @@ export function generateFloorMap({ buildingPlans, mapWidth, mapHeight, rng }) {
         }
     }
 
-    for (let i = 0; i < entrances.length - 1; i++) {
-        paintLPath(floorMap, fw, fh, entrances[i], entrances[i + 1], 2);
+    const hardscapeTargets = [...plazaRects, ...roadRects].filter((rect) => rect && rect.w > 0 && rect.h > 0);
+    if (hardscapeTargets.length > 0) {
+        for (const entrance of entrances) {
+            const target = findNearestHardscapePoint(entrance, hardscapeTargets, S);
+            if (!target) continue;
+            paintLPath(floorMap, fw, fh, entrance, target, 2);
+        }
+    } else {
+        for (let i = 0; i < entrances.length - 1; i++) {
+            paintLPath(floorMap, fw, fh, entrances[i], entrances[i + 1], 2);
+        }
     }
 
-    // Step 6: Add DIRT transition band between GRASS and CONCRETE
+    // Step 7: Add DIRT transition band between GRASS and CONCRETE
     addDirtTransitions(floorMap, fw, fh, rng);
 
     // Clear map boundary row/col (walls occupy tile 0 and tile max-1)
@@ -142,6 +164,27 @@ function paintRect(floorMap, fw, fh, sx0, sy0, sw, sh, type) {
             }
         }
     }
+}
+
+function findNearestHardscapePoint(entrance, rects, S) {
+    let best = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+
+    for (const rect of rects) {
+        const left = rect.x * S;
+        const top = rect.y * S;
+        const right = (rect.x + rect.w) * S - 1;
+        const bottom = (rect.y + rect.h) * S - 1;
+        const sx = Math.max(left, Math.min(entrance.sx, right));
+        const sy = Math.max(top, Math.min(entrance.sy, bottom));
+        const dist = Math.abs(entrance.sx - sx) + Math.abs(entrance.sy - sy);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = { sx, sy };
+        }
+    }
+
+    return best;
 }
 
 /** Paint an L-shaped concrete path between two sub-tile points */

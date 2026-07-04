@@ -38,6 +38,17 @@ export class PixelOcclusionField {
         this.ownerIds.fill(0);
     }
 
+    copyFrom(otherField) {
+        if (!otherField) {
+            this.clear();
+            return;
+        }
+
+        this.ensureSize(otherField.width, otherField.height);
+        this.solid.set(otherField.solid);
+        this.ownerIds.set(otherField.ownerIds);
+    }
+
     rasterizeWorldRect(rawRect, viewX, viewY, scale, ownerId = 0) {
         const rect = toRect(rawRect);
         if (!rect) return;

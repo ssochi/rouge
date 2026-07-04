@@ -8,6 +8,13 @@ export class ObstacleSpatialIndex {
         this._queryToken = 1;
     }
 
+    resize({ gridSize = this.gridSize, gridCols = this.gridCols, gridRows = this.gridRows } = {}) {
+        this.gridSize = Math.max(1, gridSize | 0);
+        this.gridCols = Math.max(1, gridCols | 0);
+        this.gridRows = Math.max(1, gridRows | 0);
+        this.clear();
+    }
+
     clear() {
         this.cells.clear();
         this.entries.length = 0;

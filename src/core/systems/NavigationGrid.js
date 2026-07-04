@@ -1,5 +1,10 @@
 export class NavigationGrid {
     constructor(gridCols, gridRows, gridSize) {
+        this.walls = [];
+        this._initStorage(gridCols, gridRows, gridSize);
+    }
+
+    _initStorage(gridCols, gridRows, gridSize) {
         this.gridCols = gridCols;
         this.gridRows = gridRows;
         this.gridSize = gridSize;
@@ -14,6 +19,22 @@ export class NavigationGrid {
         // Pre-allocate BFS queue to avoid per-frame allocation
         this._queueX = new Int16Array(this.gridCols * this.gridRows);
         this._queueY = new Int16Array(this.gridCols * this.gridRows);
+    }
+
+    resize(gridCols, gridRows, gridSize = this.gridSize) {
+        const nextCols = Math.max(1, Math.floor(gridCols));
+        const nextRows = Math.max(1, Math.floor(gridRows));
+        const nextSize = Math.max(1, Math.floor(gridSize));
+        if (nextCols === this.gridCols && nextRows === this.gridRows && nextSize === this.gridSize) {
+            return;
+        }
+
+        const walls = this.walls || [];
+        this._initStorage(nextCols, nextRows, nextSize);
+        this.walls = walls;
+        if (walls.length > 0) {
+            this.buildWallGrid();
+        }
     }
 
     getCell(x, y) {
@@ -88,8 +109,14 @@ export class NavigationGrid {
     }
 
     updateFlowField(playerX, playerY) {
+        this.updateLocalFlowField(playerX, playerY, null);
+    }
+
+    updateLocalFlowField(playerX, playerY, radiusCells = null) {
         const total = this.gridCols * this.gridRows;
         this.flowDist.fill(-1);
+        this.flowDirX.fill(0);
+        this.flowDirY.fill(0);
         const queueX = this._queueX;
         const queueY = this._queueY;
         let head = 0;
@@ -108,6 +135,10 @@ export class NavigationGrid {
 
         const dirsX = [1, -1, 0, 0];
         const dirsY = [0, 0, 1, -1];
+        const minX = radiusCells == null ? 0 : Math.max(0, cell.x - radiusCells);
+        const maxX = radiusCells == null ? this.gridCols - 1 : Math.min(this.gridCols - 1, cell.x + radiusCells);
+        const minY = radiusCells == null ? 0 : Math.max(0, cell.y - radiusCells);
+        const maxY = radiusCells == null ? this.gridRows - 1 : Math.min(this.gridRows - 1, cell.y + radiusCells);
 
         while (head < tail) {
             const x = queueX[head];
@@ -119,6 +150,7 @@ export class NavigationGrid {
                 const nx = x + dirsX[i];
                 const ny = y + dirsY[i];
                 if (nx < 0 || ny < 0 || nx >= this.gridCols || ny >= this.gridRows) continue;
+                if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
                 const nIndex = ny * this.gridCols + nx;
                 if (this.wallBlocked[nIndex] === 1) continue;
                 if (this.flowDist[nIndex] === -1) {
@@ -133,8 +165,8 @@ export class NavigationGrid {
         const neighX = [1, -1, 0, 0, 1, 1, -1, -1];
         const neighY = [0, 0, 1, -1, 1, -1, 1, -1];
 
-        for (let y = 0; y < this.gridRows; y++) {
-            for (let x = 0; x < this.gridCols; x++) {
+        for (let y = minY; y <= maxY; y++) {
+            for (let x = minX; x <= maxX; x++) {
                 const idx = y * this.gridCols + x;
                 if (this.wallBlocked[idx] === 1 || this.flowDist[idx] < 0) {
                     this.flowDirX[idx] = 0;

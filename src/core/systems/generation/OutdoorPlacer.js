@@ -76,6 +76,12 @@ export function placeOutdoorObjects({
     const outdoor = config.outdoor || {};
     const vegetationBuffer = outdoor.buildingBuffer ?? 4;
     const minSpacing = outdoor.minSpacing ?? 1;
+    const vegetationSampleStep = Math.max(1, outdoor.vegetationSampleStep ?? 1);
+    const maxTreeCount = Number.isFinite(outdoor.maxTreeCount) ? outdoor.maxTreeCount : Infinity;
+    const maxSmallTreeCount = Number.isFinite(outdoor.maxSmallTreeCount) ? outdoor.maxSmallTreeCount : Infinity;
+    const maxBushCount = Number.isFinite(outdoor.maxBushCount) ? outdoor.maxBushCount : Infinity;
+    const maxGrassCount = Number.isFinite(outdoor.maxGrassCount) ? outdoor.maxGrassCount : Infinity;
+    const maxOutdoorTotal = Number.isFinite(outdoor.maxOutdoorTotal) ? outdoor.maxOutdoorTotal : Infinity;
 
     // Occupied for all outdoor objects: building footprint + reserved rects.
     const occupiedBase = new Set();
@@ -129,6 +135,37 @@ export function placeOutdoorObjects({
     // Track placed object positions for spacing check
     const placed = new Set();
     const placements = [];
+    const vegetationCounts = {
+        tree: 0,
+        tree_small: 0,
+        bush: 0,
+        grass: 0
+    };
+
+    function vegetationBucket(type) {
+        if (type === 'tree') return 'tree';
+        if (type === 'tree_small') return 'tree_small';
+        if (type === 'bush') return 'bush';
+        if (type === 'grass_tuft' || type === 'grass_tall' || type === 'grass_flower') return 'grass';
+        return null;
+    }
+
+    function canPlaceVegetation(type) {
+        const bucket = vegetationBucket(type);
+        if (!bucket) return true;
+        if (placements.length >= maxOutdoorTotal) return false;
+        if (bucket === 'tree') return vegetationCounts.tree < maxTreeCount;
+        if (bucket === 'tree_small') return vegetationCounts.tree_small < maxSmallTreeCount;
+        if (bucket === 'bush') return vegetationCounts.bush < maxBushCount;
+        if (bucket === 'grass') return vegetationCounts.grass < maxGrassCount;
+        return true;
+    }
+
+    function markVegetationPlaced(type) {
+        const bucket = vegetationBucket(type);
+        if (!bucket) return;
+        vegetationCounts[bucket]++;
+    }
 
     function isSpacingOk(tx, ty, spacing) {
         for (let dy = -spacing; dy <= spacing; dy++) {
@@ -264,8 +301,8 @@ export function placeOutdoorObjects({
     }
 
     // Iterate all tiles (skip boundary walls: 2 tiles margin)
-    for (let ty = 2; ty < mapHeight - 2; ty++) {
-        for (let tx = 2; tx < mapWidth - 2; tx++) {
+    for (let ty = 2; ty < mapHeight - 2; ty += vegetationSampleStep) {
+        for (let tx = 2; tx < mapWidth - 2; tx += vegetationSampleStep) {
             const key = ty * mapWidth + tx;
             if (occupiedVegetation.has(key)) continue;
             if (!isNaturalGround(tx, ty)) continue;
@@ -294,12 +331,14 @@ export function placeOutdoorObjects({
             }
 
             if (type) {
+                if (!canPlaceVegetation(type)) continue;
                 placements.push({
                     x: tx * TILE_SIZE,
                     y: ty * TILE_SIZE,
                     type
                 });
                 placed.add(key);
+                markVegetationPlaced(type);
             }
         }
     }

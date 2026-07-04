@@ -6,9 +6,14 @@ import { FrameScratchPool } from './FrameScratchPool.js';
 import { resolvePlayerLightOccluders, resolveEntityLightOccluders } from './EntityLightOccluderResolver.js';
 
 const QUALITY_ORDER = ['low', 'medium', 'high'];
+const SHADOW_MODE_ORDER = ['none', 'walls', 'all'];
 
 function isAliveEnemy(enemy) {
     return enemy && Number.isFinite(enemy.hp) && enemy.hp > 0;
+}
+
+function clampShadowMode(mode) {
+    return SHADOW_MODE_ORDER.includes(mode) ? mode : 'none';
 }
 
 export class LightSystem {
@@ -57,6 +62,7 @@ export class LightSystem {
         this._prioritizedStaticLights = [];
         this._mergedLights = [];
         this._mergedCappedLights = [];
+        this._sortedVisibleLights = [];
 
         this.staticLights = [];
         this.dynamicLights = [];
@@ -65,6 +71,7 @@ export class LightSystem {
         this.lastRenderMs = 0;
         this._overBudgetFrames = 0;
         this._underBudgetFrames = 0;
+        this._shadowModeCounts = { all: 0, walls: 0, none: 0 };
     }
 
     _toFallbackOccluders(entity) {
@@ -184,6 +191,32 @@ export class LightSystem {
         return out;
     }
 
+    _sortLightsByScore(lights, focusX, focusY, out = []) {
+        out.length = 0;
+        if (!Array.isArray(lights) || lights.length === 0) return out;
+
+        const count = lights.length;
+        const indices = this._lightScoreIndexScratch;
+        const scores = this._lightScoreValueScratch;
+        if (indices.length < count) indices.length = count;
+        if (scores.length < count) scores.length = count;
+
+        for (let i = 0; i < count; i++) {
+            const score = this._scoreLight(lights[i], focusX, focusY);
+            indices[i] = i;
+            scores[i] = score;
+            lights[i].renderCostScore = score;
+        }
+        indices.length = count;
+        indices.sort((a, b) => scores[b] - scores[a]);
+
+        for (let i = 0; i < count; i++) {
+            out.push(lights[indices[i]]);
+        }
+
+        return out;
+    }
+
     _cullLightsByViewport(lights, camera, viewportWidth, viewportHeight, out = []) {
         const pad = 96;
         const left = camera.x - pad;
@@ -207,6 +240,7 @@ export class LightSystem {
         this.staticLights.length = 0;
 
         for (const obj of this.breakableObjects) {
+            if (!this.emitterRegistry.hasObjectEmitter(obj?.type)) continue;
             this._pushEmitter(this.staticLights, this.emitterRegistry.getObjectEmitters(obj, timeMs));
         }
 
@@ -241,9 +275,9 @@ export class LightSystem {
             if (particleLightCount >= maxParticleLights) break;
             const emitters = this.emitterRegistry.getParticleEmitters(particle, timeMs);
             if (emitters.length === 0) continue;
-            for (const e of emitters) {
+            for (const emitter of emitters) {
                 if (particleLightCount >= maxParticleLights) break;
-                this._pushEmitter(this.dynamicLights, e);
+                this._pushEmitter(this.dynamicLights, emitter);
                 particleLightCount++;
             }
         }
@@ -255,6 +289,93 @@ export class LightSystem {
         for (const puddle of this.acidPuddles) {
             this._pushEmitter(this.dynamicLights, this.emitterRegistry.getAcidPuddleEmitter(puddle, timeMs));
         }
+    }
+
+    _qualityRank(quality = this.quality) {
+        const index = QUALITY_ORDER.indexOf(quality);
+        return index >= 0 ? index : 0;
+    }
+
+    _degradeShadowMode(mode) {
+        const current = SHADOW_MODE_ORDER.indexOf(clampShadowMode(mode));
+        if (current <= 0) return 'none';
+        return SHADOW_MODE_ORDER[current - 1];
+    }
+
+    _resolveShadowMode(light) {
+        let mode = clampShadowMode(light.preferredShadowMode || (light.castsShadows ? 'all' : 'none'));
+
+        if (mode !== 'none' && light.lifetimeClass === 'transient' && this.config.allowShadowedTransientLights !== true) {
+            mode = 'none';
+        }
+
+        if (mode !== 'none' && light.minQualityForWallsShadow) {
+            const currentRank = this._qualityRank(this.quality);
+            const requiredRank = this._qualityRank(light.minQualityForWallsShadow);
+            if (currentRank < requiredRank) {
+                mode = 'none';
+            }
+        }
+
+        return mode;
+    }
+
+    _assignVisibleLights(lights, focusX, focusY, out = []) {
+        out.length = 0;
+
+        const sortedLights = this._sortLightsByScore(lights, focusX, focusY, this._sortedVisibleLights);
+        const maxAll = Number.isFinite(this.config.maxAllShadowLights) ? this.config.maxAllShadowLights : 0;
+        const maxWalls = Number.isFinite(this.config.maxWallShadowLights) ? this.config.maxWallShadowLights : 0;
+        const maxCheap = Number.isFinite(this.config.maxCheapLights) ? this.config.maxCheapLights : this.config.maxTotalLights;
+
+        let allCount = 0;
+        let wallCount = 0;
+        let cheapCount = 0;
+
+        for (const light of sortedLights) {
+            let mode = this._resolveShadowMode(light);
+            let accepted = false;
+
+            while (!accepted) {
+                if (mode === 'all') {
+                    if (allCount < maxAll) {
+                        allCount++;
+                        accepted = true;
+                    } else {
+                        mode = this._degradeShadowMode(mode);
+                    }
+                    continue;
+                }
+
+                if (mode === 'walls') {
+                    if (wallCount < maxWalls) {
+                        wallCount++;
+                        accepted = true;
+                    } else {
+                        mode = this._degradeShadowMode(mode);
+                    }
+                    continue;
+                }
+
+                if (mode === 'none') {
+                    if (light.preferredShadowMode === 'none' && light.allowCheapRender !== true) break;
+                    if (cheapCount >= maxCheap) break;
+                    cheapCount++;
+                    accepted = true;
+                }
+            }
+
+            if (!accepted) continue;
+
+            light.shadowMode = mode;
+            light.renderTier = mode === 'all' ? 'hero' : (mode === 'walls' ? 'standard' : 'cheap');
+            out.push(light);
+        }
+
+        this._shadowModeCounts.all = allCount;
+        this._shadowModeCounts.walls = wallCount;
+        this._shadowModeCounts.none = cheapCount;
+        return out;
     }
 
     _setQuality(nextQuality) {
@@ -306,7 +427,7 @@ export class LightSystem {
         const walls = this.worldSystem?.walls || [];
         const shadowObjects = this._scratchPool.takeArray();
         for (const obj of this.breakableObjects) {
-            if (!obj || obj.isBroken) continue;
+            if (!obj || obj.isBroken || obj.blocksLight === false) continue;
             shadowObjects.push(obj);
         }
         const dynamicOccluders = this._collectDynamicOccluders();
@@ -357,7 +478,10 @@ export class LightSystem {
             );
         }
 
-        this._cullLightsByViewport(visibleSource, camera, viewportWidth, viewportHeight, this.visibleLights);
+        const viewportLights = this._scratchPool.takeArray();
+        this._cullLightsByViewport(visibleSource, camera, viewportWidth, viewportHeight, viewportLights);
+        this._assignVisibleLights(viewportLights, focusX, focusY, this.visibleLights);
+
         this._lastCamera = {
             x: camera.x,
             y: camera.y,
@@ -387,7 +511,10 @@ export class LightSystem {
             visibleLights: this.visibleLights.length,
             staticLights: this.staticLights.length,
             dynamicLights: this.dynamicLights.length,
-            renderMs: this.lastRenderMs
+            renderMs: this.lastRenderMs,
+            allShadowLights: this._shadowModeCounts.all,
+            wallShadowLights: this._shadowModeCounts.walls,
+            cheapLights: this._shadowModeCounts.none
         };
     }
 }

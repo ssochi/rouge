@@ -1,4 +1,4 @@
-import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../../utils/Constants.js';
+import { TILE_SIZE } from '../../utils/Constants.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
@@ -20,8 +20,8 @@ export class DungeonManager {
         this.currentFloor = layout.floor || 1;
 
         // Build room grid for O(1) position lookups
-        this.gridW = MAP_WIDTH;
-        this.gridH = MAP_HEIGHT;
+        this.gridW = worldSystem?.getWorldTileWidth ? worldSystem.getWorldTileWidth() : 130;
+        this.gridH = worldSystem?.getWorldTileHeight ? worldSystem.getWorldTileHeight() : 130;
         this.roomGrid = new Array(this.gridW * this.gridH).fill(null);
 
         for (const room of layout.rooms) {

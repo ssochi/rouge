@@ -2,6 +2,7 @@ import { PixelOcclusionField } from './PixelOcclusionField.js';
 import { FrameScratchPool } from './FrameScratchPool.js';
 
 const TWO_PI = Math.PI * 2;
+const CHEAP_CONE_SEGMENTS = 14;
 
 function clampByte(v) {
     return Math.max(0, Math.min(255, Math.round(v)));
@@ -38,7 +39,8 @@ export class LightBufferRenderer {
 
         this.bufferWidth = 0;
         this.bufferHeight = 0;
-        this.occlusionField = new PixelOcclusionField();
+        this.wallOcclusionField = new PixelOcclusionField();
+        this.workOcclusionField = new PixelOcclusionField();
         this._scratchPool = new FrameScratchPool();
         this._fullCircleRayLut = {
             rayCount: 0,
@@ -74,9 +76,9 @@ export class LightBufferRenderer {
                 };
             }
         } else {
-            const m = color.match(/rgba?\(([^)]+)\)/i);
-            if (m) {
-                const parts = m[1].split(',').map(v => Number.parseFloat(v.trim()));
+            const match = color.match(/rgba?\(([^)]+)\)/i);
+            if (match) {
+                const parts = match[1].split(',').map(v => Number.parseFloat(v.trim()));
                 rgb = {
                     r: clampByte(parts[0] || 0),
                     g: clampByte(parts[1] || 0),
@@ -91,37 +93,42 @@ export class LightBufferRenderer {
 
     _ensureBufferSize(viewportWidth, viewportHeight) {
         const scale = this.config.bufferScale;
-        const w = Math.max(1, Math.ceil(viewportWidth * scale));
-        const h = Math.max(1, Math.ceil(viewportHeight * scale));
+        const width = Math.max(1, Math.ceil(viewportWidth * scale));
+        const height = Math.max(1, Math.ceil(viewportHeight * scale));
 
-        if (w === this.bufferWidth && h === this.bufferHeight) return;
+        if (width === this.bufferWidth && height === this.bufferHeight) return;
 
-        this.bufferWidth = w;
-        this.bufferHeight = h;
+        this.bufferWidth = width;
+        this.bufferHeight = height;
 
-        this.lightCanvas.width = w;
-        this.lightCanvas.height = h;
-        this.glowCanvas.width = w;
-        this.glowCanvas.height = h;
+        this.lightCanvas.width = width;
+        this.lightCanvas.height = height;
+        this.glowCanvas.width = width;
+        this.glowCanvas.height = height;
 
         this.lightCtx.imageSmoothingEnabled = false;
         this.glowCtx.imageSmoothingEnabled = false;
-        this.occlusionField.ensureSize(w, h);
+        this.wallOcclusionField.ensureSize(width, height);
+        this.workOcclusionField.ensureSize(width, height);
     }
 
-    _buildOcclusionField(blockers, viewX, viewY, scale) {
-        this.occlusionField.clear();
+    _rasterizeBlockers(field, blockers, viewX, viewY, scale) {
         for (const blocker of blockers) {
             if (!blocker) continue;
             if (blocker.kind === 'sprite') {
-                this.occlusionField.rasterizeSpriteMask(blocker, viewX, viewY, scale, blocker.ownerId | 0);
+                field.rasterizeSpriteMask(blocker, viewX, viewY, scale, blocker.ownerId | 0);
                 continue;
             }
 
             const rect = toBufferRect(blocker);
             if (!rect) continue;
-            this.occlusionField.rasterizeWorldRect(rect, viewX, viewY, scale, blocker.ownerId | 0);
+            field.rasterizeWorldRect(rect, viewX, viewY, scale, blocker.ownerId | 0);
         }
+    }
+
+    _buildOcclusionField(field, blockers, viewX, viewY, scale) {
+        field.clear();
+        this._rasterizeBlockers(field, blockers, viewX, viewY, scale);
     }
 
     _ensureFullCircleRayLut(rayCount) {
@@ -143,7 +150,7 @@ export class LightBufferRenderer {
         return this._fullCircleRayLut;
     }
 
-    _computeVisibilityPolygon(light, rayCount, viewX, viewY, scale, includeContourPoints = false, fullCircleRayLut = null) {
+    _computeVisibilityPolygon(field, light, rayCount, viewX, viewY, scale, includeContourPoints = false, fullCircleRayLut = null) {
         const contourPoints = includeContourPoints ? [] : null;
         const contourSeen = includeContourPoints ? new Set() : null;
 
@@ -152,7 +159,9 @@ export class LightBufferRenderer {
         const maxDist = Math.max(1, light.radius * scale);
 
         const isCone = light.coneAngle > 0 && Number.isFinite(light.coneDirection);
-        let startAngle, totalAngle;
+        let startAngle;
+        let totalAngle;
+
         if (isCone) {
             startAngle = light.coneDirection - light.coneAngle * 0.5;
             totalAngle = light.coneAngle;
@@ -179,7 +188,7 @@ export class LightBufferRenderer {
                 const dx = baseCos * startCos - baseSin * startSin;
                 const dy = baseSin * startCos + baseCos * startSin;
 
-                const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
+                const result = field.traceRay(ox, oy, dx, dy, maxDist);
                 points.push({ x: result.x, y: result.y });
 
                 if (includeContourPoints && result.hit && result.ownerId > 0) {
@@ -198,7 +207,7 @@ export class LightBufferRenderer {
                 const dx = Math.cos(angle);
                 const dy = Math.sin(angle);
 
-                const result = this.occlusionField.traceRay(ox, oy, dx, dy, maxDist);
+                const result = field.traceRay(ox, oy, dx, dy, maxDist);
                 points.push({ x: result.x, y: result.y });
 
                 if (includeContourPoints && result.hit && result.ownerId > 0) {
@@ -220,6 +229,32 @@ export class LightBufferRenderer {
         return { points, contourPoints };
     }
 
+    _computeCheapConePolygon(light, viewX, viewY, scale, segmentCount = CHEAP_CONE_SEGMENTS) {
+        if (!(light.coneAngle > 0) || !Number.isFinite(light.coneDirection)) return null;
+
+        const ox = (light.x - viewX) * scale;
+        const oy = (light.y - viewY) * scale;
+        const radius = Math.max(1, light.radius * scale);
+        const startAngle = light.coneDirection - light.coneAngle * 0.5;
+        const step = light.coneAngle / Math.max(1, segmentCount);
+        const points = [{ x: ox, y: oy }];
+
+        for (let i = 0; i <= segmentCount; i++) {
+            const angle = startAngle + step * i;
+            points.push({
+                x: ox + Math.cos(angle) * radius,
+                y: oy + Math.sin(angle) * radius
+            });
+        }
+
+        points.push({ x: ox, y: oy });
+        return points;
+    }
+
+    _getUnshadowedPolygon(light, viewX, viewY, scale) {
+        return light.coneAngle > 0 ? this._computeCheapConePolygon(light, viewX, viewY, scale) : null;
+    }
+
     _clipByPolygon(ctx, points) {
         if (!points || points.length < 3) return false;
 
@@ -227,8 +262,8 @@ export class LightBufferRenderer {
         const first = points[0];
         ctx.moveTo(first.x, first.y);
         for (let i = 1; i < points.length; i++) {
-            const p = points[i];
-            ctx.lineTo(p.x, p.y);
+            const point = points[i];
+            ctx.lineTo(point.x, point.y);
         }
         ctx.closePath();
         ctx.clip();
@@ -238,11 +273,11 @@ export class LightBufferRenderer {
     _drawLightBands(ctx, x, y, radius, color, intensity, _steps) {
         const rgb = this._parseColor(color);
         const r = Math.max(1, Math.round(radius));
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${intensity.toFixed(4)})`);
-        grad.addColorStop(0.4, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.55).toFixed(4)})`);
-        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
-        ctx.fillStyle = grad;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${intensity.toFixed(4)})`);
+        gradient.addColorStop(0.4, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.55).toFixed(4)})`);
+        gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(x, y, r, 0, TWO_PI);
         ctx.fill();
@@ -251,11 +286,11 @@ export class LightBufferRenderer {
     _drawGlowBands(ctx, x, y, radius, color, intensity, _steps) {
         const rgb = this._parseColor(color);
         const r = Math.max(1, Math.round(radius * 1.1));
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.3).toFixed(4)})`);
-        grad.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.12).toFixed(4)})`);
-        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
-        ctx.fillStyle = grad;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.3).toFixed(4)})`);
+        gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${(intensity * 0.12).toFixed(4)})`);
+        gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(x, y, r, 0, TWO_PI);
         ctx.fill();
@@ -272,35 +307,77 @@ export class LightBufferRenderer {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(4)})`;
-        for (const p of points) {
-            const px = Math.round(p.x) - half;
-            const py = Math.round(p.y) - half;
+        for (const point of points) {
+            const px = Math.round(point.x) - half;
+            const py = Math.round(point.y) - half;
             ctx.fillRect(px, py, localSize, localSize);
         }
         ctx.restore();
     }
 
+    _drawSinglePass({ lctx, gctx, polygon, contourPoints, lx, ly, radius, light, intensity, gradientSteps, glowSteps, enableContourGlow }) {
+        lctx.save();
+        if (polygon) this._clipByPolygon(lctx, polygon);
+        lctx.globalCompositeOperation = 'lighter';
+        this._drawLightBands(lctx, lx, ly, radius, light.color, intensity, gradientSteps);
+        lctx.restore();
+
+        gctx.save();
+        if (polygon) this._clipByPolygon(gctx, polygon);
+        gctx.globalCompositeOperation = 'lighter';
+        this._drawGlowBands(gctx, lx, ly, radius, light.color, intensity, glowSteps);
+        gctx.restore();
+
+        if (enableContourGlow) {
+            this._drawContourGlow(gctx, contourPoints, radius, light.color, intensity);
+        }
+    }
+
+    _prepareWallField(shadowBuilder, centerX, centerY, radius, viewX, viewY, scale) {
+        const wallBlockers = this._scratchPool.takeArray();
+        shadowBuilder.queryWallsInRadius(centerX, centerY, radius, Infinity, null, wallBlockers);
+        this._buildOcclusionField(this.wallOcclusionField, wallBlockers, viewX, viewY, scale);
+        return wallBlockers.length > 0;
+    }
+
+    _buildCombinedField(shadowBuilder, light, viewX, viewY, scale, out = []) {
+        out.length = 0;
+        const ignoreOwner = light.ignoreSelfShadow ? light.owner : null;
+        const maxBlockers = this.config.maxBlockersPerLight;
+
+        shadowBuilder.queryObjectsInRadius(light.x, light.y, light.radius, maxBlockers, ignoreOwner, out);
+
+        const remaining = Number.isFinite(maxBlockers)
+            ? Math.max(0, maxBlockers - out.length)
+            : Infinity;
+        if (remaining > 0) {
+            const dynamicBlockers = this._scratchPool.takeArray();
+            shadowBuilder.queryDynamicInRadius(light.x, light.y, light.radius, remaining, ignoreOwner, dynamicBlockers);
+            for (const blocker of dynamicBlockers) out.push(blocker);
+        }
+
+        this.workOcclusionField.copyFrom(this.wallOcclusionField);
+        this._rasterizeBlockers(this.workOcclusionField, out, viewX, viewY, scale);
+        return out.length > 0;
+    }
+
     render({ ctx, camera, viewportWidth, viewportHeight, lights, shadowBuilder, screenScale }) {
         const begin = performance.now();
 
-        const PADDING = 128;
+        const padding = 128;
         const bufferScale = this.config.bufferScale;
         const ss = screenScale || 1;
 
-        // Snap view origin to buffer-pixel grid for internal consistency.
-        // This ensures world-to-buffer transforms only shift by whole buffer pixels,
-        // eliminating sub-pixel jitter in shadow rasterization and ray tracing.
         const bufferSnapX = Math.floor(camera.x * bufferScale) / bufferScale;
         const bufferSnapY = Math.floor(camera.y * bufferScale) / bufferScale;
-        const viewX = bufferSnapX - PADDING;
-        const viewY = bufferSnapY - PADDING;
+        const viewX = bufferSnapX - padding;
+        const viewY = bufferSnapY - padding;
 
-        // Screen-aligned camera (same formula as main Renderer.js).
         const screenSnapX = Math.floor(camera.x * ss) / ss;
         const screenSnapY = Math.floor(camera.y * ss) / ss;
 
-        const viewW = Math.ceil(viewportWidth) + 1 + PADDING * 2;
-        const viewH = Math.ceil(viewportHeight) + 1 + PADDING * 2;
+        const viewW = Math.ceil(viewportWidth) + 1 + padding * 2;
+        const viewH = Math.ceil(viewportHeight) + 1 + padding * 2;
 
         this._ensureBufferSize(viewW, viewH);
         this._scratchPool.reset();
@@ -324,160 +401,204 @@ export class LightBufferRenderer {
         gctx.globalAlpha = 1;
         gctx.clearRect(0, 0, this.bufferWidth, this.bufferHeight);
 
+        const hasShadowedLights = !!shadowBuilder && lights.some(light => light.shadowMode && light.shadowMode !== 'none');
+        const shadowQueryRadius = Math.hypot(viewW, viewH) * 0.5 + 64;
+        const shadowCenterX = viewX + viewW * 0.5;
+        const shadowCenterY = viewY + viewH * 0.5;
+        const wallFieldHasBlockers = hasShadowedLights
+            ? this._prepareWallField(shadowBuilder, shadowCenterX, shadowCenterY, shadowQueryRadius, viewX, viewY, bufferScale)
+            : false;
+
         for (const light of lights) {
             const lx = (light.x - viewX) * bufferScale;
             const ly = (light.y - viewY) * bufferScale;
-            const rr = Math.max(1, light.radius * bufferScale);
+            const radius = Math.max(1, light.radius * bufferScale);
 
-            if (lx + rr < 0 || lx - rr > this.bufferWidth || ly + rr < 0 || ly - rr > this.bufferHeight) {
+            if (lx + radius < 0 || lx - radius > this.bufferWidth || ly + radius < 0 || ly - radius > this.bufferHeight) {
                 continue;
             }
 
-            const isCone = light.coneAngle > 0;
-            const shadowMask = light.shadowMask === 'walls' ? 'walls' : 'all';
-            const disableAmbientPointSplit = light.disableAmbientPointSplit === true;
-            const blockWalls = light.blockWalls !== false;
-            const needsObjectShadows = light.castsShadows === true && shadowMask === 'all';
-            const needsShadowQuery = !!shadowBuilder && (blockWalls || needsObjectShadows);
+            const shadowMode = light.shadowMode || 'none';
+            const wantsCone = light.coneAngle > 0 && Number.isFinite(light.coneDirection);
 
-            // Query all blockers once.
-            const allBlockers = this._scratchPool.takeArray();
-            if (needsShadowQuery) {
-                shadowBuilder.query(
-                    light.x,
-                    light.y,
-                    light.radius,
-                    this.config.maxBlockersPerLight,
-                    light.ignoreSelfShadow ? light.owner : null,
-                    allBlockers
-                );
+            if (!shadowBuilder || shadowMode === 'none') {
+                const polygon = this._getUnshadowedPolygon(light, viewX, viewY, bufferScale);
+                this._drawSinglePass({
+                    lctx,
+                    gctx,
+                    polygon,
+                    contourPoints: null,
+                    lx,
+                    ly,
+                    radius,
+                    light,
+                    intensity: light.intensity,
+                    gradientSteps,
+                    glowSteps,
+                    enableContourGlow: false
+                });
+                continue;
             }
 
-            // Separate wall/door blockers from furniture/object blockers.
-            // ownerId === 0 = world geometry walls; breakable walls/doors have ownerId > 0
-            // but their owner.type starts with 'wall' or 'door'.
-            const wallBlockers = this._scratchPool.takeArray();
-            for (const blocker of allBlockers) {
-                if (!blocker) continue;
-                if (blocker.ownerId === 0) {
-                    wallBlockers.push(blocker);
-                    continue;
-                }
-                const type = blocker.owner?.type || '';
-                if (type.startsWith('wall') || type.startsWith('door')) {
-                    wallBlockers.push(blocker);
-                }
-            }
-
-            if (!blockWalls) {
-                wallBlockers.length = 0;
-            }
-
-            const pointBlockers = (shadowMask === 'walls' || !needsObjectShadows)
-                ? wallBlockers
-                : allBlockers;
-            const hasObjectBlockers =
-                !disableAmbientPointSplit &&
-                needsObjectShadows &&
-                (pointBlockers.length > wallBlockers.length);
-            const singlePassBlockers = (needsObjectShadows && shadowMask === 'all') ? pointBlockers : wallBlockers;
-
-            if (!hasObjectBlockers) {
-                // No object blockers nearby — ambient and point polygons are identical.
-                // Render once at full intensity (70% + 30% = 100%).
+            if (shadowMode === 'walls') {
                 let polygon = null;
                 let contourPoints = null;
-                const hasBlockers = singlePassBlockers.length > 0;
 
-                if (hasBlockers || isCone) {
-                    if (hasBlockers) {
-                        this._buildOcclusionField(singlePassBlockers, viewX, viewY, bufferScale);
-                    } else {
-                        this.occlusionField.clear();
-                    }
+                if (wallFieldHasBlockers) {
                     const result = this._computeVisibilityPolygon(
-                        light, rayCount, viewX, viewY, bufferScale, enableContourGlow, fullCircleRayLut
+                        this.wallOcclusionField,
+                        light,
+                        rayCount,
+                        viewX,
+                        viewY,
+                        bufferScale,
+                        enableContourGlow,
+                        fullCircleRayLut
                     );
                     polygon = result.points;
                     contourPoints = result.contourPoints;
+                } else if (wantsCone) {
+                    polygon = this._getUnshadowedPolygon(light, viewX, viewY, bufferScale);
                 }
 
-                lctx.save();
-                if (polygon) this._clipByPolygon(lctx, polygon);
-                lctx.globalCompositeOperation = 'lighter';
-                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity, gradientSteps);
-                lctx.restore();
+                this._drawSinglePass({
+                    lctx,
+                    gctx,
+                    polygon,
+                    contourPoints,
+                    lx,
+                    ly,
+                    radius,
+                    light,
+                    intensity: light.intensity,
+                    gradientSteps,
+                    glowSteps,
+                    enableContourGlow
+                });
+                continue;
+            }
 
-                gctx.save();
-                if (polygon) this._clipByPolygon(gctx, polygon);
-                gctx.globalCompositeOperation = 'lighter';
-                this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
-                gctx.restore();
+            const extraBlockers = this._scratchPool.takeArray();
+            const hasExtraBlockers = this._buildCombinedField(shadowBuilder, light, viewX, viewY, bufferScale, extraBlockers);
 
-                if (enableContourGlow) {
-                    this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
-                }
-            } else {
-                // Object blockers present — two-pass rendering.
-
-                // --- Ambient pass (70%): only walls block ---
-                let ambientPoly = null;
-                const hasWalls = wallBlockers.length > 0;
-
-                if (hasWalls || isCone) {
-                    if (hasWalls) {
-                        this._buildOcclusionField(wallBlockers, viewX, viewY, bufferScale);
-                    } else {
-                        this.occlusionField.clear();
-                    }
-                    ambientPoly = this._computeVisibilityPolygon(
-                        light, rayCount, viewX, viewY, bufferScale, false, fullCircleRayLut
-                    ).points;
-                }
-
-                lctx.save();
-                if (ambientPoly) this._clipByPolygon(lctx, ambientPoly);
-                lctx.globalCompositeOperation = 'lighter';
-                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity * 0.7, gradientSteps);
-                lctx.restore();
-
-                // --- Point pass (30%): walls + objects block ---
-                let pointPoly = null;
+            if (!hasExtraBlockers) {
+                let polygon = null;
                 let contourPoints = null;
 
-                this._buildOcclusionField(pointBlockers, viewX, viewY, bufferScale);
-                const result = this._computeVisibilityPolygon(
-                    light, rayCount, viewX, viewY, bufferScale, enableContourGlow, fullCircleRayLut
-                );
-                pointPoly = result.points;
-                contourPoints = result.contourPoints;
-
-                lctx.save();
-                if (pointPoly) this._clipByPolygon(lctx, pointPoly);
-                lctx.globalCompositeOperation = 'lighter';
-                this._drawLightBands(lctx, lx, ly, rr, light.color, light.intensity * 0.3, gradientSteps);
-                lctx.restore();
-
-                // Glow follows point light (all blockers).
-                gctx.save();
-                if (pointPoly) this._clipByPolygon(gctx, pointPoly);
-                gctx.globalCompositeOperation = 'lighter';
-                this._drawGlowBands(gctx, lx, ly, rr, light.color, light.intensity, glowSteps);
-                gctx.restore();
-
-                if (enableContourGlow) {
-                    this._drawContourGlow(gctx, contourPoints, rr, light.color, light.intensity);
+                if (wallFieldHasBlockers) {
+                    const result = this._computeVisibilityPolygon(
+                        this.wallOcclusionField,
+                        light,
+                        rayCount,
+                        viewX,
+                        viewY,
+                        bufferScale,
+                        enableContourGlow,
+                        fullCircleRayLut
+                    );
+                    polygon = result.points;
+                    contourPoints = result.contourPoints;
+                } else if (wantsCone) {
+                    polygon = this._getUnshadowedPolygon(light, viewX, viewY, bufferScale);
                 }
+
+                this._drawSinglePass({
+                    lctx,
+                    gctx,
+                    polygon,
+                    contourPoints,
+                    lx,
+                    ly,
+                    radius,
+                    light,
+                    intensity: light.intensity,
+                    gradientSteps,
+                    glowSteps,
+                    enableContourGlow
+                });
+                continue;
+            }
+
+            if (light.disableAmbientPointSplit === true) {
+                const result = this._computeVisibilityPolygon(
+                    this.workOcclusionField,
+                    light,
+                    rayCount,
+                    viewX,
+                    viewY,
+                    bufferScale,
+                    enableContourGlow,
+                    fullCircleRayLut
+                );
+
+                this._drawSinglePass({
+                    lctx,
+                    gctx,
+                    polygon: result.points,
+                    contourPoints: result.contourPoints,
+                    lx,
+                    ly,
+                    radius,
+                    light,
+                    intensity: light.intensity,
+                    gradientSteps,
+                    glowSteps,
+                    enableContourGlow
+                });
+                continue;
+            }
+
+            let ambientPolygon = null;
+            if (wallFieldHasBlockers) {
+                ambientPolygon = this._computeVisibilityPolygon(
+                    this.wallOcclusionField,
+                    light,
+                    rayCount,
+                    viewX,
+                    viewY,
+                    bufferScale,
+                    false,
+                    fullCircleRayLut
+                ).points;
+            } else if (wantsCone) {
+                ambientPolygon = this._getUnshadowedPolygon(light, viewX, viewY, bufferScale);
+            }
+
+            const pointResult = this._computeVisibilityPolygon(
+                this.workOcclusionField,
+                light,
+                rayCount,
+                viewX,
+                viewY,
+                bufferScale,
+                enableContourGlow,
+                fullCircleRayLut
+            );
+
+            lctx.save();
+            if (ambientPolygon) this._clipByPolygon(lctx, ambientPolygon);
+            lctx.globalCompositeOperation = 'lighter';
+            this._drawLightBands(lctx, lx, ly, radius, light.color, light.intensity * 0.7, gradientSteps);
+            lctx.restore();
+
+            lctx.save();
+            if (pointResult.points) this._clipByPolygon(lctx, pointResult.points);
+            lctx.globalCompositeOperation = 'lighter';
+            this._drawLightBands(lctx, lx, ly, radius, light.color, light.intensity * 0.3, gradientSteps);
+            lctx.restore();
+
+            gctx.save();
+            if (pointResult.points) this._clipByPolygon(gctx, pointResult.points);
+            gctx.globalCompositeOperation = 'lighter';
+            this._drawGlowBands(gctx, lx, ly, radius, light.color, light.intensity, glowSteps);
+            gctx.restore();
+
+            if (enableContourGlow) {
+                this._drawContourGlow(gctx, pointResult.contourPoints, radius, light.color, light.intensity);
             }
         }
 
-        // Composite light buffer back to main canvas.
-        // Compensate for offset between buffer-pixel-snapped and screen-snapped camera
-        // so the light layer aligns perfectly with the scene.
-        const padBuf = Math.ceil(PADDING * bufferScale);
-        // Convert from screen-snap world space to buffer source pixels.
-        // Sign must be (screen - buffer): we sample a later source region when
-        // destination starts from a later snapped world origin.
+        const padBuf = Math.ceil(padding * bufferScale);
         const snapOffsetX = (screenSnapX - bufferSnapX) * bufferScale;
         const snapOffsetY = (screenSnapY - bufferSnapY) * bufferScale;
 
@@ -487,12 +608,10 @@ export class LightBufferRenderer {
         const srcH = this.bufferHeight - padBuf * 2;
         const dstX = screenSnapX;
         const dstY = screenSnapY;
-        const dstW = viewW - PADDING * 2;
-        const dstH = viewH - PADDING * 2;
+        const dstW = viewW - padding * 2;
+        const dstH = viewH - padding * 2;
 
         ctx.save();
-        // Use bilinear filtering to smooth sub-buffer-pixel offset from snap compensation.
-        // The light buffer content is soft gradients, so interpolation is imperceptible.
         ctx.imageSmoothingEnabled = true;
 
         ctx.globalCompositeOperation = 'multiply';

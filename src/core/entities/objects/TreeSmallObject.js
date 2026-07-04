@@ -6,6 +6,8 @@ export const TreeSmallObject = {
         obj.hp = 40;
         obj.shadow = { rx: 10, ry: 3, y: 29 };
         obj.drawOffset = { x: -4, y: -24 };
+        obj.blocksLight = false;
+        obj.isDecorativeOutdoor = true;
     },
     getHurtbox(obj) {
         return {

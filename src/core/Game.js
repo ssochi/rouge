@@ -17,6 +17,7 @@ import { Renderer } from './Renderer.js';
 import { TestPanel } from '../ui/TestPanel.js';
 import { PixelOS } from '../pixelOS/PixelOS.js';
 import { LightSystem } from './lighting/LightSystem.js';
+import { getMapProfile } from './maps/MapProfiles.js';
 
 export class Game {
     constructor(canvas) {
@@ -45,10 +46,11 @@ export class Game {
         this.pets = [];
         // Portals are managed by WorldSystem but need to be passed to Renderer via Game reference or directly
 
-        const NAV_GRID_SIZE = 8;
+        const initialProfile = getMapProfile('hub');
+        const NAV_GRID_SIZE = initialProfile.navGridSize || 8;
         this.navGrid = new NavigationGrid(
-            MAP_WIDTH * TILE_SIZE / NAV_GRID_SIZE,
-            MAP_HEIGHT * TILE_SIZE / NAV_GRID_SIZE,
+            Math.ceil((initialProfile.tileWidth * TILE_SIZE) / NAV_GRID_SIZE),
+            Math.ceil((initialProfile.tileHeight * TILE_SIZE) / NAV_GRID_SIZE),
             NAV_GRID_SIZE
         );
         this.flowPlayerCellX = -1;
@@ -149,6 +151,9 @@ export class Game {
             inventorySystem: this.inventorySystem,
             pets: this.pets
         });
+        this.worldSystem.onWorldProfileChanged = ({ worldPixelWidth, worldPixelHeight }) => {
+            this.camera.setWorldBounds(worldPixelWidth, worldPixelHeight);
+        };
 
         // Inject spatial index into CombatSystem for broad-phase bullet collision
         this.combatSystem.setObstacleIndex(this.worldSystem.obstacleIndex);
@@ -334,7 +339,35 @@ export class Game {
         if (this.camera) {
             this.camera.width = this.canvas.width / this.scale;
             this.camera.height = this.canvas.height / this.scale;
+            this.camera.setWorldBounds(
+                this.worldSystem?.getWorldPixelWidth?.() || (MAP_WIDTH * TILE_SIZE),
+                this.worldSystem?.getWorldPixelHeight?.() || (MAP_HEIGHT * TILE_SIZE)
+            );
         }
+    }
+
+    _isWorldRectNearCamera(x, y, width, height, pad = 0) {
+        const left = this.camera.x - pad;
+        const top = this.camera.y - pad;
+        const right = this.camera.x + this.camera.width + pad;
+        const bottom = this.camera.y + this.camera.height + pad;
+        return (
+            x < right &&
+            x + width > left &&
+            y < bottom &&
+            y + height > top
+        );
+    }
+
+    _isBreakableNearCamera(obj, pad = 0) {
+        if (!obj || obj.isBroken) return false;
+        const drawOffsetX = obj.drawOffset?.x || 0;
+        const drawOffsetY = obj.drawOffset?.y || 0;
+        const minX = obj.x + Math.min(0, drawOffsetX);
+        const minY = obj.y + Math.min(0, drawOffsetY);
+        const width = (obj.width || TILE_SIZE) + Math.abs(drawOffsetX);
+        const height = (obj.height || TILE_SIZE) + Math.abs(drawOffsetY);
+        return this._isWorldRectNearCamera(minX, minY, width, height, pad);
     }
 
     update() {
@@ -470,6 +503,7 @@ export class Game {
         // --- World Objects ---
         this.profiler.begin('Breakables');
         for (const obj of this.breakableObjects) {
+            if (!this._isBreakableNearCamera(obj, 192)) continue;
             obj.update(this.player);
         }
         this.profiler.end('Breakables');

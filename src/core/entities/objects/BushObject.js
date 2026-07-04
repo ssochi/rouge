@@ -5,6 +5,8 @@ export const BushObject = {
         obj.hp = 15;
         obj.shadow = { rx: 9, ry: 3, y: 30 };
         obj.drawOffset = { x: 4, y: 12 };
+        obj.blocksLight = false;
+        obj.isDecorativeOutdoor = true;
     },
     getHurtbox(obj) {
         // Full visual shape: x+4, y+12, w24, h20

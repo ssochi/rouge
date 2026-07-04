@@ -5,6 +5,8 @@ export const GrassTuftObject = {
         obj.hp = 8;
         obj.shadow = null;
         obj.drawOffset = { x: 8, y: 18 };
+        obj.blocksLight = false;
+        obj.isDecorativeOutdoor = true;
     },
     getHurtbox(obj) {
         // Visual Position: x+8, y+18. Size 16x16
@@ -24,6 +26,8 @@ export const GrassTallObject = {
         obj.hp = 8;
         obj.shadow = null;
         obj.drawOffset = { x: 8, y: 14 }; // Taller sprite 16x20
+        obj.blocksLight = false;
+        obj.isDecorativeOutdoor = true;
     },
     getHurtbox(obj) {
         // Visual Position: x+8, y+14. Size 16x20
@@ -42,6 +46,8 @@ export const GrassFlowerObject = {
         obj.hp = 8;
         obj.shadow = null;
         obj.drawOffset = { x: 8, y: 18 };
+        obj.blocksLight = false;
+        obj.isDecorativeOutdoor = true;
     },
     getHurtbox(obj) {
         // Visual Position: x+8, y+18. Size 16x16

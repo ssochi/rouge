@@ -16,11 +16,14 @@ import { Vehicle } from '../entities/Vehicle.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { Assets } from '../../graphics/Assets.js';
 import { generateConstructionLayout } from './generation/ConstructionLayoutGenerator.js';
+import { generateTownLayout } from './generation/TownLayoutGenerator.js';
 import { generateDungeonLayout } from './generation/DungeonLayoutGenerator.js';
 import { DungeonManager } from './DungeonManager.js';
 import { FLOOR_TYPES, FLOOR_TILE_SIZE, FLOOR_TILES_PER_CELL, FLOOR_TYPE_KEYS } from '../../utils/FloorTypes.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
 import { ObstacleSpatialIndex } from './ObstacleSpatialIndex.js';
+import { FloorChunkCache } from './FloorChunkCache.js';
+import { getMapProfile } from '../maps/MapProfiles.js';
 import {
     cloneWeaponInstanceData,
     createWeaponInstanceData,
@@ -71,13 +74,21 @@ export class WorldSystem {
         this.floorMapWidth = 0;
         this.floorMapHeight = 0;
         this.floorCanvas = null;
+        this.floorChunkCache = null;
         this.generatedLayoutMeta = null;
         this.soldierWeaponPool = null;
         this.roomWeaponPool = null;
+        this.currentMapProfile = getMapProfile('hub');
+        this.worldTileWidth = this.currentMapProfile.tileWidth || MAP_WIDTH;
+        this.worldTileHeight = this.currentMapProfile.tileHeight || MAP_HEIGHT;
+        this.worldPixelWidth = this.worldTileWidth * TILE_SIZE;
+        this.worldPixelHeight = this.worldTileHeight * TILE_SIZE;
+        this.localFlowFieldRadiusCells = this.currentMapProfile.localFlowFieldRadiusCells || null;
+        this.onWorldProfileChanged = null;
         this.obstacleIndex = new ObstacleSpatialIndex({
             gridSize: this.navGrid?.gridSize || TILE_SIZE,
-            gridCols: this.navGrid?.gridCols || MAP_WIDTH,
-            gridRows: this.navGrid?.gridRows || MAP_HEIGHT
+            gridCols: this.navGrid?.gridCols || this.worldTileWidth,
+            gridRows: this.navGrid?.gridRows || this.worldTileHeight
         });
         this.worldStaticDirty = true;
         this.wallConnectivityDirty = true;
@@ -87,7 +98,38 @@ export class WorldSystem {
         this.currentMapType = 'hub';
     }
 
+    _applyMapProfile(mapType) {
+        this.currentMapProfile = getMapProfile(mapType);
+        this.worldTileWidth = this.currentMapProfile.tileWidth || MAP_WIDTH;
+        this.worldTileHeight = this.currentMapProfile.tileHeight || MAP_HEIGHT;
+        this.worldPixelWidth = this.worldTileWidth * TILE_SIZE;
+        this.worldPixelHeight = this.worldTileHeight * TILE_SIZE;
+        this.localFlowFieldRadiusCells = this.currentMapProfile.localFlowFieldRadiusCells || null;
+
+        const navGridSize = this.currentMapProfile.navGridSize || this.navGrid.gridSize || TILE_SIZE;
+        const gridCols = Math.ceil(this.worldPixelWidth / navGridSize);
+        const gridRows = Math.ceil(this.worldPixelHeight / navGridSize);
+        this.navGrid.resize(gridCols, gridRows, navGridSize);
+        this.obstacleIndex.resize({
+            gridSize: navGridSize,
+            gridCols,
+            gridRows
+        });
+
+        if (typeof this.onWorldProfileChanged === 'function') {
+            this.onWorldProfileChanged({
+                profile: this.currentMapProfile,
+                worldTileWidth: this.worldTileWidth,
+                worldTileHeight: this.worldTileHeight,
+                worldPixelWidth: this.worldPixelWidth,
+                worldPixelHeight: this.worldPixelHeight
+            });
+        }
+    }
+
     loadMap(mapType) {
+        this._applyMapProfile(mapType);
+
         // Clear existing entities
         this.walls.length = 0;
         this.enemies.length = 0;
@@ -100,6 +142,7 @@ export class WorldSystem {
         this.floorMapWidth = 0;
         this.floorMapHeight = 0;
         this.floorCanvas = null;
+        this.floorChunkCache = null;
         this.generatedLayoutMeta = null;
         this.markWorldStaticDirty();
         if (this.obstacleIndex) {
@@ -139,6 +182,22 @@ export class WorldSystem {
         this._trackedObstacleStates = new WeakMap();
         this._trackedObstacleCount = 0;
         this.rebuildStaticCachesIfNeeded();
+    }
+
+    getWorldTileWidth() {
+        return this.worldTileWidth || MAP_WIDTH;
+    }
+
+    getWorldTileHeight() {
+        return this.worldTileHeight || MAP_HEIGHT;
+    }
+
+    getWorldPixelWidth() {
+        return this.worldPixelWidth || (this.getWorldTileWidth() * TILE_SIZE);
+    }
+
+    getWorldPixelHeight() {
+        return this.worldPixelHeight || (this.getWorldTileHeight() * TILE_SIZE);
     }
 
     initHubMap() {
@@ -204,18 +263,26 @@ export class WorldSystem {
     }
 
     addBoundaryWalls() {
-        this.walls.push({x: 0, y: 0, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: (MAP_HEIGHT - 1) * TILE_SIZE, w: MAP_WIDTH * TILE_SIZE, h: TILE_SIZE});
-        this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
-        this.walls.push({x: (MAP_WIDTH - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: MAP_HEIGHT * TILE_SIZE});
+        const mapWidth = this.getWorldTileWidth();
+        const mapHeight = this.getWorldTileHeight();
+        this.walls.push({x: 0, y: 0, w: mapWidth * TILE_SIZE, h: TILE_SIZE});
+        this.walls.push({x: 0, y: (mapHeight - 1) * TILE_SIZE, w: mapWidth * TILE_SIZE, h: TILE_SIZE});
+        this.walls.push({x: 0, y: 0, w: TILE_SIZE, h: mapHeight * TILE_SIZE});
+        this.walls.push({x: (mapWidth - 1) * TILE_SIZE, y: 0, w: TILE_SIZE, h: mapHeight * TILE_SIZE});
     }
 
     applyGeneratedLayout(configOverrides = null) {
         this.addBoundaryWalls();
 
-        const layout = generateConstructionLayout({
-            mapWidth: MAP_WIDTH,
-            mapHeight: MAP_HEIGHT,
+        const mapWidth = this.getWorldTileWidth();
+        const mapHeight = this.getWorldTileHeight();
+        const generator = this.currentMapProfile?.generationPreset === 'town_large'
+            ? generateTownLayout
+            : generateConstructionLayout;
+
+        const layout = generator({
+            mapWidth,
+            mapHeight,
             config: configOverrides
         });
 
@@ -287,20 +354,24 @@ export class WorldSystem {
     initConstructionMap() {
         this.applyGeneratedLayout();
 
+        const hubPortalTile = this.generatedLayoutMeta?.hubPortalTile;
+        const portalX = Number.isFinite(hubPortalTile?.x) ? hubPortalTile.x * TILE_SIZE : 100;
+        const portalY = Number.isFinite(hubPortalTile?.y) ? hubPortalTile.y * TILE_SIZE : 100;
+
         // Return Portal
         this.portals.push(new Portal(
-            100, 
-            100, 
-            'hub', 
-            'HUB', 
+            portalX,
+            portalY,
+            'hub',
+            'HUB',
             '#9b59b6'
         ));
     }
 
     initConstructionFallbackLayout() {
         const S = FLOOR_TILES_PER_CELL;
-        this.floorMapWidth = MAP_WIDTH * S;
-        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMapWidth = this.getWorldTileWidth() * S;
+        this.floorMapHeight = this.getWorldTileHeight() * S;
         this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
         this.floorMap.fill(FLOOR_TYPES.GRASS);
         this.buildFloorCanvas();
@@ -344,7 +415,7 @@ export class WorldSystem {
         ];
         const clutterTypes = ['box', 'barrel', 'vase'];
         for (const tile of clutterCandidates) {
-            if (tile.x < 2 || tile.x > MAP_WIDTH - 3 || tile.y < 2 || tile.y > MAP_HEIGHT - 3) continue;
+            if (tile.x < 2 || tile.x > this.getWorldTileWidth() - 3 || tile.y < 2 || tile.y > this.getWorldTileHeight() - 3) continue;
             const type = clutterTypes[Math.floor(Math.random() * clutterTypes.length)];
             this.breakableObjects.push(new BreakableObject(tile.x * TILE_SIZE, tile.y * TILE_SIZE, type));
         }
@@ -363,6 +434,21 @@ export class WorldSystem {
         const fw = this.floorMapWidth;
         const fh = this.floorMapHeight;
         const FT = FLOOR_TILE_SIZE;
+        this.floorCanvas = null;
+        this.floorChunkCache = null;
+
+        const shouldUseChunkCache = this.currentMapProfile?.floorChunking === true;
+        if (shouldUseChunkCache) {
+            this.floorChunkCache = new FloorChunkCache({
+                floorMap: fm,
+                width: fw,
+                height: fh,
+                chunkSize: 48,
+                maxCachedChunks: 42
+            });
+            return;
+        }
+
         const canvasW = fw * FT;
         const canvasH = fh * FT;
 
@@ -394,6 +480,11 @@ export class WorldSystem {
         if (sx < 0 || sx >= this.floorMapWidth || sy < 0 || sy >= this.floorMapHeight) return;
 
         this.floorMap[sy * this.floorMapWidth + sx] = type;
+
+        if (this.floorChunkCache) {
+            this.floorChunkCache.clear();
+            return;
+        }
 
         if (!this.floorCanvas) return;
         const ctx = this.floorCanvas.getContext('2d');
@@ -470,8 +561,8 @@ export class WorldSystem {
 
         // Floor (grass)
         const S = FLOOR_TILES_PER_CELL;
-        this.floorMapWidth = MAP_WIDTH * S;
-        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMapWidth = this.getWorldTileWidth() * S;
+        this.floorMapHeight = this.getWorldTileHeight() * S;
         this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
         this.floorMap.fill(FLOOR_TYPES.GRASS);
         this.buildFloorCanvas();
@@ -487,7 +578,7 @@ export class WorldSystem {
 
     initDungeonMap(floor = 1) {
         // Generate dungeon layout
-        const layout = generateDungeonLayout(MAP_WIDTH, MAP_HEIGHT, undefined, floor);
+        const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), undefined, floor);
 
         // Boundary walls
         this.addBoundaryWalls();
@@ -523,8 +614,8 @@ export class WorldSystem {
 
         // Build floor map (stone for rooms/corridors, NONE elsewhere)
         const S = FLOOR_TILES_PER_CELL;
-        this.floorMapWidth = MAP_WIDTH * S;
-        this.floorMapHeight = MAP_HEIGHT * S;
+        this.floorMapWidth = this.getWorldTileWidth() * S;
+        this.floorMapHeight = this.getWorldTileHeight() * S;
         this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
         this.floorMap.fill(FLOOR_TYPES.NONE);
 
@@ -666,7 +757,7 @@ export class WorldSystem {
             const tx = tile.x;
             const ty = tile.y;
             if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-            if (tx < 2 || tx > MAP_WIDTH - 3 || ty < 2 || ty > MAP_HEIGHT - 3) continue;
+            if (tx < 2 || tx > this.getWorldTileWidth() - 3 || ty < 2 || ty > this.getWorldTileHeight() - 3) continue;
             const key = `${tx},${ty}`;
             if (used.has(key)) continue;
             used.add(key);
@@ -676,8 +767,8 @@ export class WorldSystem {
     }
 
     _pickRandomSpawnPoint() {
-        const tx = Math.floor(Math.random() * (MAP_WIDTH - 4) + 2);
-        const ty = Math.floor(Math.random() * (MAP_HEIGHT - 4) + 2);
+        const tx = Math.floor(Math.random() * (this.getWorldTileWidth() - 4) + 2);
+        const ty = Math.floor(Math.random() * (this.getWorldTileHeight() - 4) + 2);
         return this._tileToWorldCenter(tx, ty);
     }
 
@@ -754,7 +845,7 @@ export class WorldSystem {
         for (const tile of spawnTiles) {
             if (!tile || !tile.roomId) continue;
             if (!Number.isFinite(tile.x) || !Number.isFinite(tile.y)) continue;
-            if (tile.x < 1 || tile.x > MAP_WIDTH - 2 || tile.y < 1 || tile.y > MAP_HEIGHT - 2) continue;
+            if (tile.x < 1 || tile.x > this.getWorldTileWidth() - 2 || tile.y < 1 || tile.y > this.getWorldTileHeight() - 2) continue;
             if (!roomTileMap.has(tile.roomId)) {
                 roomTileMap.set(tile.roomId, []);
             }
@@ -793,8 +884,8 @@ export class WorldSystem {
     }
 
     _isVehicleSpawnRectWithinBounds(rect) {
-        const worldWidth = MAP_WIDTH * TILE_SIZE;
-        const worldHeight = MAP_HEIGHT * TILE_SIZE;
+        const worldWidth = this.getWorldPixelWidth();
+        const worldHeight = this.getWorldPixelHeight();
         const margin = TILE_SIZE;
 
         return (
@@ -1197,7 +1288,11 @@ export class WorldSystem {
             }
         }
 
-        this.navGrid.updateFlowField(this.player.x, this.player.y);
+        this.navGrid.updateLocalFlowField(
+            this.player.x,
+            this.player.y,
+            this.localFlowFieldRadiusCells
+        );
     }
 
     updateFlowFieldForPlayer(frameCount, flowPlayerCellX, flowPlayerCellY) {

@@ -330,7 +330,11 @@ function roomSortWeight(room) {
     const priority = {
         living_room: 4,
         bedroom: 3,
+        retail: 3,
         study: 2,
+        office: 2,
+        workshop: 2,
+        clinic: 2,
         bathroom: 1,
         foyer: 1,
         storage: 0,
