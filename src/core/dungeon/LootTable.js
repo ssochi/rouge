@@ -2,6 +2,7 @@
 // 纯逻辑模块：不依赖 Canvas / DOM，仅做随机选取与数值计算，便于单元测试与后续数值调优（P6）。
 
 import { RARITY_TIERS } from './RarityConfig.js';
+import { RELIC_IDS } from '../../assets/relics/RelicData.js';
 import { LOOT_WEAPON_BLACKLIST, CHEST_TIERS } from './EconomyConfig.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 
@@ -49,12 +50,34 @@ export function pickWeaponByRarity(rarity, rng = Math.random) {
     return null;
 }
 
-// 组合稀有度权重 + 武器抽取 + 金币区间随机，模拟一次开箱。
-export function rollChest(tierName, rng = Math.random) {
+// 在未持有的遗物中均匀随机抽取一个；全部持有时返回 null。
+export function pickRelic(ownedRelicIds = [], rng = Math.random) {
+    const owned = new Set(ownedRelicIds);
+    const pool = RELIC_IDS.filter(id => !owned.has(id));
+    if (pool.length === 0) return null;
+    const idx = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+    return pool[idx];
+}
+
+// 组合稀有度权重 + 武器/遗物抽取 + 金币区间随机，模拟一次开箱。
+// opts.ownedRelicIds: 已持有遗物（去重）；opts.forceRelic: 保底遗物（Boss 箱，未全收集时必出遗物）。
+// 返回 { kind: 'weapon'|'relic', weaponConfigId, relicId, coins }。
+export function rollChest(tierName, rng = Math.random, opts = {}) {
     const tier = CHEST_TIERS[tierName];
-    const rarity = pickRarity(tier.rarityWeights, rng);
-    const weaponConfigId = pickWeaponByRarity(rarity, rng);
     const [min, max] = tier.coins;
     const coins = min + Math.floor(rng() * (max - min + 1));
-    return { weaponConfigId, coins };
+
+    const ownedRelicIds = opts.ownedRelicIds || [];
+    const wantRelic = opts.forceRelic || rng() < (tier.relicChance || 0);
+    if (wantRelic) {
+        const relicId = pickRelic(ownedRelicIds, rng);
+        if (relicId) {
+            return { kind: 'relic', weaponConfigId: null, relicId, coins };
+        }
+        // 遗物全收集 → 回退武器
+    }
+
+    const rarity = pickRarity(tier.rarityWeights, rng);
+    const weaponConfigId = pickWeaponByRarity(rarity, rng);
+    return { kind: 'weapon', weaponConfigId, relicId: null, coins };
 }

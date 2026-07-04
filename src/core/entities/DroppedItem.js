@@ -5,6 +5,7 @@
 import { Assets } from '../../graphics/Assets.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { weaponConfigIdFromItemId } from '../systems/WeaponInstanceUtils.js';
+import { RELICS } from '../../assets/relics/RelicData.js';
 
 export class DroppedItem {
     constructor(x, y, itemId, count = 1, instanceData = null) {
@@ -20,6 +21,7 @@ export class DroppedItem {
         this.isWeapon = false;
         this.isConsumable = false;
         this.isCostume = false;
+        this.isRelic = false;
 
         this._resolveMetadata();
         
@@ -65,6 +67,14 @@ export class DroppedItem {
                 this.sprite = Assets.objects[key];
             } else if (Assets[key]) {
                 this.sprite = Assets[key];
+            }
+        } else if (this.itemId.startsWith('relic:')) {
+            this.isRelic = true;
+            const key = this.itemId.replace('relic:', '');
+            const relic = RELICS[key];
+            this.name = relic ? relic.name : 'Relic';
+            if (Assets.relicIcons && Assets.relicIcons[key]) {
+                this.sprite = Assets.relicIcons[key];
             }
         } else if (this.itemId.startsWith('consumable:')) {
             this.isConsumable = true;

@@ -22,6 +22,7 @@ export class Chest {
         this.width = CHEST_W;
         this.height = CHEST_H;
         this.isOpen = false;
+        this.guaranteedRelic = false; // Boss 保底箱：未全收集时必出遗物
         this.showHint = false;    // 靠近提示（WorldSystem.updateChests 维护）
         this.deniedTimer = 0;     // NEED KEY 红字提示剩余帧数
     }
@@ -45,21 +46,35 @@ export class Chest {
         }
         this.isOpen = true;
 
-        const { weaponConfigId, coins } = rollChest(this.tier);
+        const ownedRelicIds = runState ? runState.relicIds : [];
+        const result = rollChest(this.tier, Math.random, {
+            ownedRelicIds,
+            forceRelic: this.guaranteedRelic,
+        });
         const cx = this.x + this.width / 2;
         const cy = this.y + this.height / 2;
 
-        if (weaponConfigId) {
-            const weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
+        this._spawnLoot(result, cx, cy, worldSystem);
+        worldSystem.spawnCoinBurst(cx, cy, result.coins);
+        return 'opened';
+    }
+
+    _spawnLoot(result, cx, cy, worldSystem) {
+        if (result.kind === 'relic' && result.relicId) {
+            worldSystem.droppedItems.push(
+                new DroppedItem(cx, cy + 16, `relic:${result.relicId}`)
+            );
+            return;
+        }
+        if (result.weaponConfigId) {
+            const weaponItemId = weaponItemIdFromConfigId(result.weaponConfigId);
             if (weaponItemId) {
-                const instanceData = createWeaponInstanceData({ weaponConfigId });
+                const instanceData = createWeaponInstanceData({ weaponConfigId: result.weaponConfigId });
                 worldSystem.droppedItems.push(
                     new DroppedItem(cx, cy + 16, weaponItemId, 1, instanceData)
                 );
             }
         }
-        worldSystem.spawnCoinBurst(cx, cy, coins);
-        return 'opened';
     }
 
     // 不可被子弹破坏（占位以兼容通用受击框查询）

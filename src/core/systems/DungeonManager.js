@@ -307,9 +307,10 @@ export class DungeonManager {
             ));
         }
 
-        // Boss 保底宝箱：放在传送门旁 2 tile 处
+        // Boss 保底宝箱：放在传送门旁 2 tile 处，未全收集遗物时必出遗物
         const chestTier = BOSS_CHEST_TIER[this.currentFloor] || 'mithril';
-        this.worldSystem.spawnChest(centerX + TILE_SIZE * 2, centerY, chestTier);
+        const bossChest = this.worldSystem.spawnChest(centerX + TILE_SIZE * 2, centerY, chestTier);
+        bossChest.guaranteedRelic = true;
     }
 
     /**

@@ -243,6 +243,15 @@ export class PlayerSystem {
 
         if (!closestItem) return false;
 
+        // 遗物：直接生效，不入背包
+        if (closestItem.isRelic && this.worldSystem && this.worldSystem.relicSystem) {
+            const relicId = closestItem.itemId.replace('relic:', '');
+            this.worldSystem.relicSystem.addRelic(relicId);
+            const index = this.droppedItems.indexOf(closestItem);
+            if (index > -1) this.droppedItems.splice(index, 1);
+            return true;
+        }
+
         if (this.inventorySystem) {
             const remaining = this.inventorySystem.add(closestItem.itemId, closestItem.count, closestItem.instanceData);
 
