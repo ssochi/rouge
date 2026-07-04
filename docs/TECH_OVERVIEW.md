@@ -219,6 +219,9 @@
 - **6 种地牢专属新敌人（P4）**：弹幕法师 Warlock（Kite+环形/扇形弹幕+受击积伤闪现）、自爆蜂 Boomer（高速逼近+引信红闪自爆，可提前引爆殉爆减半，可链爆）、召唤师 Summoner（Kite+周期召唤上限 4，召唤物入房间清除判定）、盾卫 Shieldbearer（慢速推进+正面 ±60° 塔盾减伤 90%，判定基于子弹击退向量夹角）、哨戒炮 Sentry（固定点蓄力→持续弹流→冷却，免疫击退）、投弹手 Lobber（Kite+抛物线榴弹落点红圈预警，越掩体）。美术全部走 Generator→Idle16/Run12/Attack8 管线（Sentry 机械体免 Run）。
 - **精英词缀系统（P4，`src/core/dungeon/EnemyAffixSystem.js`）**：迅捷（移速×1.4）/坚韧（50% maxHp 护盾+破盾前减伤半）/灼热（近身灼烧+死亡爆燃）/裂魂（死亡 8 向弹幕）/再生（脱战 3s 每秒回 2%）。实例级包装 takeDamage/update，零基类侵入。精英房全员保底 1 词缀，普通房按层 eliteChance；视觉 = 体型 1.15×+词缀色光环+头顶词缀名（Renderer）；掉落金币 ×3 + 30% 钥匙。
 - **BossPhaseController（P4，`src/core/entities/bosses/`）**：相位阈值（单向推进+onEnter）+ 招式池（动态权重/条件/优先级分层）+ per-招式冷却。三 Boss 已迁移（招式执行函数与数值不变）。
+- **遭遇战房间系统（R3，`generation/EncounterTemplates.js`，详见 `docs/feature/DUNGEON_ROOM_REDESIGN.md`）**：普通战斗房不再随机撒怪撒掩体，改为 15 个字符画手作模板（`#` 墙/`c` 掩体/`d` 装饰/`m r h e` 出怪角色一张图一体设计，浅 5/中 6/深 4 档），尺寸适配降档回退、居中放置保 2 tile 通带。角色 → 敌人由 `FloorConfigs.roleMap` 按楼层映射；`DungeonManager._spawnEncounterEnemies` 逐点出怪（邻格退让），`e` 角色保底词缀精英。设计约束（BFS 无封死/远程模板掩体 ≥2/放置不越界）由 `tests/encounter-templates.test.js` 强制。特殊房与放不下模板的小房走原池化路径。
+- **战斗平衡（R4）**：Hunter fireIntervalMultiplier 2→3.2；Soldier 点射更短（4/3/2→3/2）且爆发间冷却 ×1.8→×3.2；敌人武器子弹速度 ×0.75（寿命 ×1.33 保射程）；地牢出怪统一 45 帧首发延迟（`holdFireTimer`，EnemyWeaponController 消费）；掩体 HP 上调（box 30→48/barrel 40→60）。
+- **视觉基调（R1/R2）**：素材走「干净大色块」（近纯色+强明暗轮廓+稀疏大缝，变体差异克制）；环境光为默认 87%~93% 并按层染色，火把/火盆是氛围主光（普通战斗房角落保底火盆）；能量屏障为冷青蓝光栅柱+端点石墩（与火光冷暖对比）；小地图为真实房间形状图。调试直达参数 `?map=dungeon&seed=N&gates=1&room=N` + `tools/screenshot_game.mjs` 截图自查管线。
 - **地牢视觉（P5）**：
   - 墙体贴图：`assets/dungeon/DungeonWallSprites.js` 按主题生成墙顶（32×32）+ 前脸（32×16）各 4 变体（完好/裂纹/苔痕/破损），Renderer 按 tile 位置哈希混铺；边界大墙与非地牢地图保持平涂。能量屏障占位墙 `isGateBarrier` 不绘制墙体（保留碰撞/光照遮挡）。
   - 地板：`FLOOR_TYPES.DUNGEON_F1/F2/F3`（6/7/8）主题石板 4 变体（`DungeonFloorSprites.js`），替代原共享 STONE。

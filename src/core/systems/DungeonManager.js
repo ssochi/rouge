@@ -334,8 +334,10 @@ export class DungeonManager {
     /**
      * 楼层数值缩放（FloorConfigs）：HP 与接触伤害直接乘算，
      * 弹幕/武器伤害经 enemy.damageMult 乘区（CombatSystem 消费）。
+     * 同时赋首发延迟（锁门后给玩家 ~0.75s 反应窗口，EnemyWeaponController 消费）。
      */
     _applyFloorScaling(enemy, floorConfig) {
+        enemy.holdFireTimer = 45;
         if (!floorConfig) return;
         if (floorConfig.hpMult !== 1) {
             enemy.hp = Math.round(enemy.hp * floorConfig.hpMult);

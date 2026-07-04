@@ -86,14 +86,15 @@ export class Soldier extends Enemy {
 
         const fireRateMs = weapon.fireRate || 180;
         const fireRateFrames = Math.max(6, Math.round(fireRateMs / 16.67));
-        this.burstDelayMax = Math.max(3, fireRateFrames);
-        this.burstCooldownMax = Math.max(25, Math.round(fireRateFrames * 1.8));
+        this.burstDelayMax = Math.max(4, Math.round(fireRateFrames * 1.3));
+        // R4 平衡：爆发间冷却 ×1.8 → ×3.2（玩家反馈枪兵压制过强，给走位喘息窗口）
+        this.burstCooldownMax = Math.max(40, Math.round(fireRateFrames * 3.2));
 
         const singleShotTypes = new Set(['rocket', 'grenade', 'black_hole_projectile', 'teleport', 'laser_beam', 'boomerang']);
         if (singleShotTypes.has(weapon.bulletType) || (weapon.pelletCount || 1) > 1) {
             this.burstSize = 1;
         } else {
-            this.burstSize = fireRateFrames <= 7 ? 4 : (fireRateFrames <= 14 ? 3 : 2);
+            this.burstSize = fireRateFrames <= 7 ? 3 : 2; // 更短的点射
         }
 
         if (weapon.isMelee) {

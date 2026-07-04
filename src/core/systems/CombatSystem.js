@@ -113,6 +113,9 @@ export class CombatSystem {
         const relics = source === 'player' ? this.relicSystem : null;
         // 敌人伤害乘区（地牢楼层缩放，DungeonManager._applyFloorScaling 赋值）
         const enemyDmgMult = source === 'enemy' && owner && Number.isFinite(owner.damageMult) ? owner.damageMult : 1;
+        // R4 平衡：敌人武器弹速 ×0.75（可读可躲），寿命 ×1.33 保持射程
+        const enemySpeedMult = source === 'enemy' ? 0.75 : 1;
+        const enemyLifeMult = source === 'enemy' ? 1.33 : 1;
         const pellets = (weapon.pelletCount || 1) + (relics ? relics.extraPellets() : 0);
         const spreadRad = (weapon.spread || 0) * Math.PI / 180;
         const isFlame = weapon.bulletType === 'flame';
@@ -134,9 +137,9 @@ export class CombatSystem {
             const bullet = {
                 x: muzzle.x + Math.cos(finalAngle + Math.PI / 2) * posOffset,
                 y: muzzle.y + Math.sin(finalAngle + Math.PI / 2) * posOffset,
-                vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
-                vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
-                life: Math.round((weapon.bulletLife || 60) * lifeMul),
+                vx: Math.cos(finalAngle) * (weapon.bulletSpeed || 12) * speedMul * enemySpeedMult,
+                vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul * enemySpeedMult,
+                life: Math.round((weapon.bulletLife || 60) * lifeMul * enemyLifeMult),
                 maxLife: weapon.bulletLife || 60,
                 damage: Math.round((weapon.damage || 10) * enemyDmgMult),
                 color: weapon.bulletColor || '#f1c40f',

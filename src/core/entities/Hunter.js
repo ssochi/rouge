@@ -29,7 +29,7 @@ export class Hunter extends Enemy {
             weaponConfigId: this.weaponConfigId,
             weaponInstanceData: this.weaponInstanceData
         });
-        this.fireIntervalMultiplier = 2;
+        this.fireIntervalMultiplier = 3.2; // 攻速削弱（R4 平衡：原 2，玩家反馈枪兵压制过强）
 
         this.meleeSystem = null;
 

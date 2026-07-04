@@ -90,6 +90,10 @@ export class EnemyWeaponController {
     }
 
     update(now = Date.now()) {
+        // 首发延迟递减（R4 平衡：地牢锁门后给玩家反应窗口，DungeonManager 出怪时赋值）
+        if (this.owner && this.owner.holdFireTimer > 0) {
+            this.owner.holdFireTimer--;
+        }
         if (!this.isReloading) return false;
         if (now < this.reloadEndAt) return false;
         this.completeReload(now);
@@ -141,6 +145,9 @@ export class EnemyWeaponController {
     tryFire({ combatSystem, shooter, target = null, aimAngleOverride = null, fireIntervalMultiplier = 1 } = {}) {
         if (!combatSystem || !shooter || !this.weapon || !this.handSystem) {
             return { fired: false, reason: 'invalid' };
+        }
+        if (this.owner && this.owner.holdFireTimer > 0) {
+            return { fired: false, reason: 'holdfire' };
         }
 
         const now = Date.now();
