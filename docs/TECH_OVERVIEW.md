@@ -224,6 +224,12 @@
   - 宝箱：`Chest` 实体（`assets/dungeon/ChestSprites.js` 四档×开关 8 精灵，26×22），E 交互开启（交互链：载具>门>宝箱>拾取>物体），蓝档以上耗钥匙（缺钥匙红字 NEED KEY），产出 = `rollChest`（稀有度加权武器 + 金币），不参与移动碰撞与子弹判定。
   - HUD：`UIManager.initDungeonHud()` 右侧金币/钥匙计数（小地图下方），仅 `runState.active` 时显示，Renderer 每帧 `updateDungeonStatus()`。
   - 带出规则：金币/钥匙/遗物单局有效（退出/通关清零），武器可带回主世界。
+- **遗物系统（P2）**：
+  - 定义：`src/assets/relics/RelicData.js`（18 个：属性 6 / 弹道 7 / 触发 5，effect 纯数据）+ `RelicIcons.js`（12×12 程序化图标，注册为 `Assets.relicIcons`）。
+  - 运行时：`src/core/dungeon/RelicSystem.js`，以 `runState.relicIds` 为唯一事实源。三挂载点：①属性乘区（移速/开火间隔/伤害/磁吸/暴击，`PlayerSystem.getEffectivePlayerSpeed`、`CombatSystem.tryShoot`、`WorldSystem.updatePickups` 查询）②玩家子弹改造（`_pushWeaponProjectiles` push 前 `modifyPlayerBullet`：燃烧/冰冻/穿透/弹射/体积/暴击/split 补偿；`BulletSystem` 命中块已泛化 `burnDamage`/`applyFreezeStack`/`relicBounce`）③事件触发（击杀爆炸+吸血 `WorldSystem` 死亡清扫、受击冲击波 `player.takeDamage`、清房金币乘数、开箱双倍）。
+  - 狂战图腾为条件乘区（HP<30% 实时判断）；vital_heart 的 maxHp 增量记账，退局 `clear()` 回退。
+  - 获取：宝箱按档位 `relicChance`（木 10%/铁 25%/秘银 45%/龙纹 55%）抽遗物，排除已持有、全收集回退武器；Boss 保底箱 `guaranteedRelic` 必出遗物。掉落为 `relic:<id>` 类型 `DroppedItem`，E 拾取直接生效不入背包。
+  - UI：HUD 遗物图标栏（悬停显示名称+效果）+ 拾取 toast（`UIManager.showRelicToast`）。
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
