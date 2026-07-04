@@ -220,9 +220,17 @@ export class DungeonManager {
      */
     _spawnRoomEnemies(room) {
         const config = room.enemyConfig;
-        if (!config || !config.types) return;
+        if (!config) return;
 
         const floorConfig = getFloorConfig(this.currentFloor);
+
+        // 遭遇战房：按模板出怪点 + 角色映射生成（掩体/地形已在生成时落位）
+        if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
+            this._spawnEncounterEnemies(room, floorConfig);
+            return;
+        }
+
+        if (!config.types) return;
 
         const spawnPoints = [...room.spawnPoints];
         // Shuffle spawn points
@@ -252,6 +260,41 @@ export class DungeonManager {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * 遭遇战房出怪：逐出怪点按角色映射抽敌人类型，点位被占时向邻格退让；
+     * e 角色保底词缀精英，其余走常规精英概率。
+     */
+    _spawnEncounterEnemies(room, floorConfig) {
+        const roleMap = floorConfig.roleMap || {};
+        const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+
+        for (const spawn of room.encounterSpawns) {
+            const pool = roleMap[spawn.role] || roleMap.m || ['zombie'];
+            const type = pool[Math.floor(Math.random() * pool.length)];
+
+            let enemy = null;
+            for (const [dx, dy] of offsets) {
+                enemy = this.worldSystem.spawnEnemy(type, {
+                    tileX: spawn.x + dx,
+                    tileY: spawn.y + dy,
+                    strict: true
+                });
+                if (enemy) break;
+            }
+            if (!enemy) continue;
+
+            this._applyFloorScaling(enemy, floorConfig);
+            if (spawn.role === 'e' && !enemy.isBoss && !enemy.isSegment) {
+                const [minCount, maxCount] = floorConfig.eliteAffixCount || [1, 1];
+                const count = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+                applyAffixes(enemy, pickRandomAffixes(count));
+            } else {
+                this._maybePromoteElite(enemy, room, floorConfig);
+            }
+            room.enemies.add(enemy);
         }
     }
 

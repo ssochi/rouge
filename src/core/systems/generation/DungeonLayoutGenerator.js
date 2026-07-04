@@ -1,5 +1,6 @@
 import { tileKey, randomInt } from './GenerationUtils.js';
 import { applyTemplate } from './RoomInteriorTemplates.js';
+import { selectEncounter, placeEncounter, tierForDepth } from './EncounterTemplates.js';
 import { getDungeonTheme } from '../../dungeon/DungeonThemes.js';
 import { getFloorConfig, getDepthTier } from '../../dungeon/FloorConfigs.js';
 
@@ -1183,8 +1184,29 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     const interiorWallTiles = new Set();
     const usedTemplateIds = new Set();
+    const usedEncounterIds = new Set();
 
     for (const room of rooms) {
+        // 普通战斗房：优先手作遭遇战模板（墙+掩体+出怪点一体设计）
+        const isCombatRoom = room.type === 'normal'
+            && room.category !== 'treasure'
+            && room.category !== 'shop'
+            && room.category !== 'elite';
+        if (isCombatRoom) {
+            const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds);
+            if (parsed) {
+                usedEncounterIds.add(parsed.id);
+                const placed = placeEncounter(parsed, room);
+                room.encounter = placed;
+                for (const w of placed.walls) {
+                    const key = tileKey(w.x, w.y);
+                    interiorWallTiles.add(key);
+                    floorTiles.delete(key);
+                }
+                continue;
+            }
+        }
+
         const result = applyTemplate(room, rng, usedTemplateIds);
         // 模板建议掩体位（generateRoomCover 优先消费）
         if (Array.isArray(result.coverSpots) && result.coverSpots.length > 0) {
@@ -1232,9 +1254,9 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
     const lightObjects = [];
     const decals = [];
 
-    for (const room of rooms) {
-        room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor, room.category);
+    const coverTypes = ['box', 'box', 'box', 'barrel', 'barrel', 'explosive_barrel'];
 
+    for (const room of rooms) {
         room.spawnPoints = [];
         for (let y = room.y + 2; y < room.y + room.h - 2; y++) {
             for (let x = room.x + 2; x < room.x + room.w - 2; x++) {
@@ -1242,6 +1264,38 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
                 room.spawnPoints.push({ x, y });
             }
         }
+
+        // 遭遇战房：编成/掩体/装饰全部来自模板（角色→敌人映射在 spawn 时按楼层做）
+        if (room.encounter) {
+            room.enemyConfig = { types: [], count: room.encounter.spawns.length };
+            room.encounterSpawns = room.encounter.spawns;
+
+            const occupied = new Set();
+            for (const c of room.encounter.covers) occupied.add(tileKey(c.x, c.y));
+            for (const dPos of room.encounter.decors) occupied.add(tileKey(dPos.x, dPos.y));
+            for (const s of room.encounter.spawns) occupied.add(tileKey(s.x, s.y));
+
+            lightObjects.push(...generateRoomBraziers(room, interiorWallTiles, occupied));
+
+            for (const c of room.encounter.covers) {
+                coverObjects.push({
+                    x: c.x,
+                    y: c.y,
+                    type: coverTypes[Math.floor(rng() * coverTypes.length)],
+                    roomId: room.id
+                });
+            }
+            for (const dPos of room.encounter.decors) {
+                const type = pickWeighted(theme.decorWeights, rng) || 'dungeon_rubble';
+                decorObjects.push({ x: dPos.x, y: dPos.y, type, roomId: room.id });
+            }
+
+            decals.push(...generateRoomDecals(room, rng, interiorWallTiles, theme.decalWeights));
+            continue;
+        }
+
+        // 特殊房/兜底路径：池化编成 + 随机掩体装饰
+        room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor, room.category);
 
         const occupied = new Set();
         // 火盆先于掩体/装饰落位，保证特殊房固定光源不被随机件挤掉

@@ -37,7 +37,7 @@ describe('FloorConfigs', () => {
         expect(getDepthTier(c, 7)).toBe(c.depthTiers.deep);
     });
 
-    it('生成器编成：count 与 types 数量一致，类型均来自配置池', () => {
+    it('生成器编成：遭遇战房 count=出怪点数且角色合法；池化房 count 与 types 一致', () => {
         for (const floor of [1, 2, 3]) {
             const layout = generateDungeonLayout(130, 130, 987654, floor);
             const config = FLOOR_CONFIGS[floor];
@@ -48,14 +48,25 @@ describe('FloorConfigs', () => {
             for (const t of config.eliteSquad.types) poolTypes.add(t.type);
             for (const t of config.boss.types) poolTypes.add(t.type);
 
+            let encounterRooms = 0;
             for (const room of layout.rooms) {
                 const cfg = room.enemyConfig;
+                if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
+                    encounterRooms++;
+                    expect(cfg.count, `room ${room.id} encounter count`).toBe(room.encounterSpawns.length);
+                    for (const s of room.encounterSpawns) {
+                        expect(config.roleMap[s.role], `role ${s.role}`).toBeDefined();
+                    }
+                    continue;
+                }
                 const sum = cfg.types.reduce((s, t) => s + t.count, 0);
                 expect(sum, `room ${room.id} count consistency`).toBe(cfg.count);
                 for (const t of cfg.types) {
                     expect(poolTypes.has(t.type), `type ${t.type} in pool`).toBe(true);
                 }
             }
+            // 普通战斗房应有相当比例走遭遇战模板
+            expect(encounterRooms, `F${floor} encounter rooms`).toBeGreaterThan(0);
         }
     });
 });

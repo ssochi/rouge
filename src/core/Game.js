@@ -382,6 +382,10 @@ export class Game {
         if (debugParams.get('gates') === '1') {
             this.worldSystem.debugActivateGates = true;
         }
+        const debugRoom = parseInt(debugParams.get('room'), 10);
+        if (Number.isFinite(debugRoom)) {
+            this.worldSystem.debugSpawnRoomIndex = debugRoom;
+        }
         this.worldSystem.loadMap(debugMap || 'hub'); // Start in Hub
         this.playerSystem.updateEquippedItem();
         

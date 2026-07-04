@@ -21,7 +21,14 @@ export const FLOOR_CONFIGS = {
             deep: { countMin: 6, countMax: 8, weights: { zombie_brute: 2, hunter: 2.5, soldier: 2.5, warlock: 1.5, boomer: 1, shieldbearer: 1.5, sentry: 1, lobber: 1 } }
         },
         eliteSquad: { types: [{ type: 'zombie_brute', count: 2 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 2 }] },
-        boss: { types: [{ type: 'mutant_beast', count: 1 }, { type: 'zombie', count: 2 }, { type: 'zombie_female', count: 1 }] }
+        boss: { types: [{ type: 'mutant_beast', count: 1 }, { type: 'zombie', count: 2 }, { type: 'zombie_female', count: 1 }] },
+        // 遭遇战模板角色 → 敌人映射（m 近战 / r 远程 / h 重装 / e 精英保底词缀）
+        roleMap: {
+            m: ['zombie', 'zombie_female'],
+            r: ['hunter'],
+            h: ['zombie_brute'],
+            e: ['zombie_brute', 'hunter']
+        }
     },
     2: {
         hpMult: 1.3,
@@ -35,7 +42,13 @@ export const FLOOR_CONFIGS = {
         },
         eliteSquad: { types: [{ type: 'shieldbearer', count: 2 }, { type: 'hunter', count: 2 }, { type: 'soldier', count: 3 }] },
         // F2 Boss = 机械巨蛇（P4-T8 正式接入；全场机动压迫，护卫从简）
-        boss: { types: [{ type: 'snake_boss', count: 1 }, { type: 'soldier', count: 2 }] }
+        boss: { types: [{ type: 'snake_boss', count: 1 }, { type: 'soldier', count: 2 }] },
+        roleMap: {
+            m: ['zombie_female', 'boomer'],
+            r: ['hunter', 'lobber', 'warlock', 'sentry'],
+            h: ['shieldbearer'],
+            e: ['warlock', 'summoner']
+        }
     },
     3: {
         hpMult: 1.6,
@@ -48,7 +61,13 @@ export const FLOOR_CONFIGS = {
             deep: { countMin: 9, countMax: 11, weights: { hunter: 2, soldier: 3, warlock: 3, shieldbearer: 2.5, summoner: 2, lobber: 2, sentry: 2 } }
         },
         eliteSquad: { types: [{ type: 'shieldbearer', count: 2 }, { type: 'warlock', count: 2 }, { type: 'soldier', count: 3 }] },
-        boss: { types: [{ type: 'mecha_golem', count: 1 }, { type: 'soldier', count: 4 }, { type: 'hunter', count: 2 }] }
+        boss: { types: [{ type: 'mecha_golem', count: 1 }, { type: 'soldier', count: 4 }, { type: 'hunter', count: 2 }] },
+        roleMap: {
+            m: ['boomer', 'zombie_brute'],
+            r: ['soldier', 'warlock', 'lobber', 'sentry'],
+            h: ['shieldbearer'],
+            e: ['warlock', 'summoner']
+        }
     }
 };
 
