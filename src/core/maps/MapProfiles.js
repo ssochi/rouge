@@ -35,6 +35,15 @@ export const MAP_PROFILES = Object.freeze({
         floorChunking: false,
         generationPreset: 'dungeon'
     },
+    dungeon_f3: {
+        id: 'dungeon_f3',
+        tileWidth: 130,
+        tileHeight: 130,
+        navGridSize: 8,
+        localFlowFieldRadiusCells: null,
+        floorChunking: false,
+        generationPreset: 'dungeon'
+    },
     construction: {
         id: 'construction',
         tileWidth: 420,

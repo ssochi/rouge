@@ -3,7 +3,7 @@ import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
-import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR } from '../dungeon/EconomyConfig.js';
+import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR } from '../dungeon/EconomyConfig.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -287,17 +287,18 @@ export class DungeonManager {
         const centerX = (room.x + Math.floor(room.w / 2)) * TILE_SIZE;
         const centerY = (room.y + Math.floor(room.h / 2)) * TILE_SIZE;
 
-        if (this.currentFloor === 1) {
-            // Spawn portal to floor 2
+        if (this.currentFloor < FINAL_FLOOR) {
+            // 下潜传送门：dungeon → dungeon_f2 → dungeon_f3
+            const nextFloor = this.currentFloor + 1;
             this.worldSystem.portals.push(new Portal(
                 centerX,
                 centerY,
-                'dungeon_f2',
-                'FLOOR 2',
-                '#27ae60'
+                `dungeon_f${nextFloor}`,
+                `FLOOR ${nextFloor}`,
+                nextFloor === FINAL_FLOOR ? '#e67e22' : '#27ae60'
             ));
         } else {
-            // Floor 2 cleared: spawn portal back to hub (victory)
+            // 末层通关：回 hub 的胜利传送门
             this.worldSystem.portals.push(new Portal(
                 centerX,
                 centerY,

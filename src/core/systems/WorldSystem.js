@@ -182,9 +182,9 @@ export class WorldSystem {
                 // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
                 if (this.relicSystem) this.relicSystem.clear();
                 this.dungeonRunState.end();
-            } else if (prevMapType === 'dungeon' && mapType === 'dungeon_f2') {
-                // 层间下潜，保持种子不变，仅推进楼层
-                this.dungeonRunState.floor = 2;
+            } else if (prevIsDungeon && nextIsDungeon) {
+                // 层间下潜，保持种子不变，仅推进楼层（dungeon→f2→f3 通用）
+                this.dungeonRunState.floor = this._dungeonFloorFromMapType(mapType);
             }
         }
 
@@ -209,6 +209,9 @@ export class WorldSystem {
             case 'dungeon_f2':
                 this.initDungeonMap(2);
                 break;
+            case 'dungeon_f3':
+                this.initDungeonMap(3);
+                break;
             default:
                 console.error('Unknown map type:', mapType);
                 this.initHubMap();
@@ -223,6 +226,16 @@ export class WorldSystem {
 
     _isDungeonMapType(mapType) {
         return typeof mapType === 'string' && mapType.startsWith('dungeon');
+    }
+
+    /**
+     * 从地牢地图类型解析楼层：'dungeon' → 1，'dungeon_f2' → 2，'dungeon_f3' → 3。
+     * 非地牢类型返回 1（调用方应先用 _isDungeonMapType 判断）。
+     */
+    _dungeonFloorFromMapType(mapType) {
+        if (!this._isDungeonMapType(mapType)) return 1;
+        const m = /_f(\d+)$/.exec(mapType);
+        return m ? parseInt(m[1], 10) : 1;
     }
 
     getWorldTileWidth() {

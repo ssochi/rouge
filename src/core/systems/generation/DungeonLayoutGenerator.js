@@ -574,6 +574,10 @@ function computeEnemyConfig(roomType, depth, floor, category = 'combat_cover') {
         return { types: [], count: 0 };
     }
 
+    if (floor >= 3) {
+        return computeEnemyConfigFloor3(roomType, depth, category);
+    }
+
     if (floor === 2) {
         return computeEnemyConfigFloor2(roomType, depth, category);
     }
@@ -697,6 +701,69 @@ function computeEnemyConfigFloor2(roomType, depth, category = 'combat_cover') {
         types: [
             { type: 'hunter', count: Math.floor(count * 0.4) },
             { type: 'soldier', count: Math.ceil(count * 0.6) }
+        ],
+        count
+    };
+}
+
+// F3 临时编成（P4 FloorConfigs 数据驱动后统一接管数值缩放与新敌人池）。
+// Boss 按最终楼层规划为机械魔偶（F2 的魔偶将在 P4 换成机械巨蛇）。
+function computeEnemyConfigFloor3(roomType, depth, category = 'combat_cover') {
+    if (roomType === 'boss') {
+        return {
+            types: [
+                { type: 'mecha_golem', count: 1 },
+                { type: 'soldier', count: 4 },
+                { type: 'hunter', count: 2 }
+            ],
+            count: 7
+        };
+    }
+
+    if (category === 'treasure' || category === 'shop') {
+        return { types: [], count: 0 };
+    }
+
+    if (category === 'elite') {
+        return {
+            types: [
+                { type: 'zombie_brute', count: 3 },
+                { type: 'hunter', count: 2 },
+                { type: 'soldier', count: 3 }
+            ],
+            count: 8
+        };
+    }
+
+    if (depth <= 2) {
+        const count = 7 + Math.floor(Math.random() * 2);
+        return {
+            types: [
+                { type: 'zombie_brute', count: Math.floor(count * 0.3) },
+                { type: 'hunter', count: Math.floor(count * 0.3) },
+                { type: 'soldier', count: Math.ceil(count * 0.4) }
+            ],
+            count
+        };
+    }
+
+    if (depth <= 4) {
+        const count = 8 + Math.floor(Math.random() * 3);
+        return {
+            types: [
+                { type: 'zombie_brute', count: Math.floor(count * 0.2) },
+                { type: 'hunter', count: Math.floor(count * 0.4) },
+                { type: 'soldier', count: Math.ceil(count * 0.4) }
+            ],
+            count
+        };
+    }
+
+    const count = 9 + Math.floor(Math.random() * 3);
+    return {
+        types: [
+            { type: 'hunter', count: Math.floor(count * 0.45) },
+            { type: 'soldier', count: Math.ceil(count * 0.55) }
         ],
         count
     };
@@ -1140,7 +1207,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
  * @param {number} mapWidth - Map width in tiles
  * @param {number} mapHeight - Map height in tiles
  * @param {number} [seed] - Optional random seed
- * @param {number} [floor=1] - Dungeon floor (1 or 2)
+ * @param {number} [floor=1] - Dungeon floor (1-3)
  * @returns {Object} Dungeon layout
  */
 export function generateDungeonLayout(mapWidth, mapHeight, seed, floor = 1) {

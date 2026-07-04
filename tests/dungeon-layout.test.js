@@ -1,0 +1,65 @@
+// tests/dungeon-layout.test.js
+// 地牢生成器纯逻辑健全性（seeded，无 Canvas 依赖）。
+import { describe, it, expect } from 'vitest';
+import { generateDungeonLayout } from '../src/core/systems/generation/DungeonLayoutGenerator.js';
+
+const SEED = 20260705;
+
+function roomGeometry(layout) {
+    return layout.rooms.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h, type: r.type, category: r.category }));
+}
+
+describe('DungeonLayoutGenerator', () => {
+    for (const floor of [1, 2, 3]) {
+        it(`F${floor}：房间/特殊房/门/墙地板健全`, () => {
+            const layout = generateDungeonLayout(130, 130, SEED, floor);
+
+            expect(layout.floor).toBe(floor);
+            expect(layout.rooms.length).toBeGreaterThanOrEqual(10);
+            expect(layout.rooms.length).toBeLessThanOrEqual(14);
+
+            const byType = (t) => layout.rooms.filter(r => r.type === t);
+            expect(byType('start').length).toBe(1);
+            expect(byType('boss').length).toBe(1);
+
+            const byCategory = (c) => layout.rooms.filter(r => r.category === c);
+            expect(byCategory('treasure').length).toBe(1);
+            expect(byCategory('elite').length).toBe(1);
+            expect(byCategory('shop').length).toBe(1);
+
+            // 安全区不刷怪，战斗房有怪
+            for (const room of layout.rooms) {
+                if (room.type === 'start' || room.category === 'treasure' || room.category === 'shop') {
+                    expect(room.enemyConfig.count).toBe(0);
+                } else {
+                    expect(room.enemyConfig.count).toBeGreaterThan(0);
+                }
+            }
+
+            expect(layout.gates.length).toBeGreaterThan(0);
+            expect(layout.wallTiles.size).toBeGreaterThan(0);
+            expect(layout.floorTiles.size).toBeGreaterThan(0);
+
+            // 门 tile 必须是可通行地板
+            for (const g of layout.gates) {
+                for (const t of g.tiles) {
+                    expect(layout.floorTiles.has(`${t.x},${t.y}`)).toBe(true);
+                    expect(layout.wallTiles.has(`${t.x},${t.y}`)).toBe(false);
+                }
+            }
+        });
+    }
+
+    it('F3 Boss 编成含机械魔偶', () => {
+        const layout = generateDungeonLayout(130, 130, SEED, 3);
+        const boss = layout.rooms.find(r => r.type === 'boss');
+        const types = boss.enemyConfig.types.map(t => t.type);
+        expect(types).toContain('mecha_golem');
+    });
+
+    it('同种子同楼层几何可复现', () => {
+        const a = generateDungeonLayout(130, 130, SEED, 2);
+        const b = generateDungeonLayout(130, 130, SEED, 2);
+        expect(roomGeometry(a)).toEqual(roomGeometry(b));
+    });
+});

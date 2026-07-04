@@ -17,11 +17,14 @@ export const ROOM_CLEAR = {
     chestChance: 0.08, // 普通房清除后生成木箱的概率（正式宝箱房归 P3，此为过渡曝光）
 };
 
+// 地牢总层数（末层 Boss 清除后出胜利传送门）。
+export const FINAL_FLOOR = 3;
+
 // Boss 清除保底宝箱档位（按楼层）。
-export const BOSS_CHEST_TIER = { 1: 'mithril', 2: 'dragon' };
+export const BOSS_CHEST_TIER = { 1: 'mithril', 2: 'dragon', 3: 'dragon' };
 
 // 宝箱房固定投放（按楼层，地图初始化时生成）。
-export const TREASURE_ROOM_CHESTS = { 1: ['iron', 'wood'], 2: ['mithril', 'iron'] };
+export const TREASURE_ROOM_CHESTS = { 1: ['iron', 'wood'], 2: ['mithril', 'iron'], 3: ['dragon', 'mithril'] };
 
 // 精英房清除保底奖励：必掉钥匙 + 保底宝箱 + 金币加成。
 export const ELITE_CLEAR = { chestTier: 'iron', coinMult: 1.5 };
@@ -41,7 +44,7 @@ export const SHOP = {
     relicPrice: 45,
     keyPrice: 20,
     medkitPrice: 15,
-    floorPriceMult: { 1: 1, 2: 1.4 },
+    floorPriceMult: { 1: 1, 2: 1.4, 3: 1.8 },
 };
 
 // 掉落池黑名单：非战斗/特殊拾取武器 id，唯一权威来源（WorldSystem 房间刷枪池同样引用此处）。
