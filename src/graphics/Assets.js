@@ -55,6 +55,9 @@ import { createCoinSprite, createKeySprite } from '../assets/dungeon/PickupSprit
 import { createChestSprite, CHEST_TIER_NAMES } from '../assets/dungeon/ChestSprites.js';
 import { createRelicIcons } from '../assets/relics/RelicIcons.js';
 import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
+import { createDungeonWallSet } from '../assets/dungeon/DungeonWallSprites.js';
+import { createDungeonFloorVariants } from '../assets/dungeon/DungeonFloorSprites.js';
+import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -225,6 +228,13 @@ const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
 const floorSprites = createFloorSprites();
+// 地牢楼层主题：墙体贴图集 {f1|f2|f3: {tops, fronts}} 与地板变体（并入 Assets.floors）
+const dungeonWallSets = {};
+for (const floor of Object.keys(DUNGEON_THEMES)) {
+    const theme = DUNGEON_THEMES[floor];
+    dungeonWallSets[theme.id] = createDungeonWallSet(theme);
+    floorSprites[`dungeon_${theme.id}`] = createDungeonFloorVariants(theme);
+}
 const treeSprite = createTreeSprite();
 const treeSmallSprite = createTreeSmallSprite();
 const bushSprites = createBushSprites();
@@ -557,6 +567,7 @@ export const Assets = {
     dungeonChests: dungeonChestSprites, // 四档宝箱 {tier: {closed, open}}
     relicIcons: relicIconSprites, // 遗物图标 {relicId: 12×12 Canvas}
     dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
+    dungeonWalls: dungeonWallSets, // 楼层主题墙体贴图 {f1|f2|f3: {tops: 4×(32×32), fronts: 4×(32×16)}}
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),

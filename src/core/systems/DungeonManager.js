@@ -187,7 +187,9 @@ export class DungeonManager {
                 x: t.x * TILE_SIZE,
                 y: t.y * TILE_SIZE,
                 w: TILE_SIZE,
-                h: TILE_SIZE
+                h: TILE_SIZE,
+                // 标记为屏障占位墙：参与碰撞/寻路/光照遮挡，但不按墙体贴图绘制
+                isGateBarrier: true
             };
             gate.wallRefs.push(wallRect);
             this.worldSystem.walls.push(wallRect);

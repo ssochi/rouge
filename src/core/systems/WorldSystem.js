@@ -34,6 +34,7 @@ import {
     weaponItemIdFromConfigId
 } from './WeaponInstanceUtils.js';
 import { ENEMY_COIN_VALUES, BREAKABLE_COIN, LOOT_WEAPON_BLACKLIST, TREASURE_ROOM_CHESTS } from '../dungeon/EconomyConfig.js';
+import { getDungeonTheme } from '../dungeon/DungeonThemes.js';
 
 const ROOM_GUN_SPAWN_CHANCE = 0.05;
 const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
@@ -168,6 +169,7 @@ export class WorldSystem {
             this.obstacleIndex.clear();
         }
         this.dungeonManager = null;
+        this.dungeonTheme = null;
         this.currentMapType = mapType;
 
         // 单局地牢运行状态生命周期：必须在生成地牢层（initDungeonMap）之前更新，
@@ -635,6 +637,9 @@ export class WorldSystem {
         // 无运行状态时回退到生成器内部的 Date.now() 默认值。
         const dungeonSeed = this.dungeonRunState ? (this.dungeonRunState.seed + floor) : undefined;
 
+        // 楼层主题：驱动墙体/地板贴图、环境光与火光色（Renderer/LightSystem 消费）
+        this.dungeonTheme = getDungeonTheme(floor);
+
         // Generate dungeon layout
         const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), dungeonSeed, floor);
 
@@ -670,13 +675,14 @@ export class WorldSystem {
             ));
         }
 
-        // Build floor map (stone for rooms/corridors, NONE elsewhere)
+        // Build floor map (per-floor themed dungeon slab, NONE elsewhere)
         const S = FLOOR_TILES_PER_CELL;
         this.floorMapWidth = this.getWorldTileWidth() * S;
         this.floorMapHeight = this.getWorldTileHeight() * S;
         this.floorMap = new Uint8Array(this.floorMapWidth * this.floorMapHeight);
         this.floorMap.fill(FLOOR_TYPES.NONE);
 
+        const dungeonFloorType = FLOOR_TYPES[`DUNGEON_F${Math.min(floor, 3)}`] || FLOOR_TYPES.STONE;
         for (const key of layout.floorTiles) {
             const [tx, ty] = key.split(',').map(Number);
             for (let sy = 0; sy < S; sy++) {
@@ -684,7 +690,7 @@ export class WorldSystem {
                     const fx = tx * S + sx;
                     const fy = ty * S + sy;
                     if (fx >= 0 && fx < this.floorMapWidth && fy >= 0 && fy < this.floorMapHeight) {
-                        this.floorMap[fy * this.floorMapWidth + fx] = FLOOR_TYPES.STONE;
+                        this.floorMap[fy * this.floorMapWidth + fx] = dungeonFloorType;
                     }
                 }
             }

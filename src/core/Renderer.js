@@ -194,15 +194,32 @@ export class Renderer {
 
         const renderList = [];
 
+        // 地牢楼层主题墙体贴图集（非地牢地图为 null，走平涂路径）
+        const dungeonWallSet = (this.worldSystem && this.worldSystem.dungeonTheme && Assets.dungeonWalls)
+            ? Assets.dungeonWalls[this.worldSystem.dungeonTheme.id]
+            : null;
+
         this.walls.forEach(w => {
+            // 能量屏障占位墙不绘制墙体（屏障视觉由 _drawEnergyBarrier 负责）
+            if (w.isGateBarrier) return;
             if (!this._isWorldRectVisible(w.x, w.y - 16, w.w, w.h + 26, 48)) return;
+            const useSprite = dungeonWallSet && w.w === TILE_SIZE && w.h === TILE_SIZE;
             renderList.push({
                 y: w.y + w.h,
                 draw: () => {
-                    this.ctx.fillStyle = COLORS.WALL_FRONT;
-                    this.ctx.fillRect(w.x, w.y, w.w, w.h);
-                    this.ctx.fillStyle = COLORS.WALL_TOP;
-                    this.ctx.fillRect(w.x, w.y - 16, w.w, w.h);
+                    if (useSprite) {
+                        const tx = (w.x / TILE_SIZE) | 0;
+                        const ty = (w.y / TILE_SIZE) | 0;
+                        const vi = ((tx * 7 + ty * 13) & 0xFFFF) % dungeonWallSet.tops.length;
+                        // 顶面覆盖 [y-16, y+16]，前脸覆盖底部 16px
+                        this.ctx.drawImage(dungeonWallSet.tops[vi], w.x, w.y - 16);
+                        this.ctx.drawImage(dungeonWallSet.fronts[vi], w.x, w.y + 16);
+                    } else {
+                        this.ctx.fillStyle = COLORS.WALL_FRONT;
+                        this.ctx.fillRect(w.x, w.y, w.w, w.h);
+                        this.ctx.fillStyle = COLORS.WALL_TOP;
+                        this.ctx.fillRect(w.x, w.y - 16, w.w, w.h);
+                    }
                     this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
                     this.ctx.fillRect(w.x, w.y + w.h, w.w, 10);
                 }
