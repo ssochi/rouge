@@ -1,6 +1,7 @@
 import { Assets } from '../graphics/Assets.js';
 import { TILE_SIZE, COLORS } from '../utils/Constants.js';
 import { CollisionUtils } from '../utils/CollisionUtils.js';
+import { AFFIXES } from './dungeon/EnemyAffixSystem.js';
 
 export class Renderer {
     constructor({ canvas, ctx, scale, camera, input, uiManager, handSystem, player, walls, enemies, breakableObjects, particles, droppedItems, bullets, worldSystem, vehicles, buildSystem, blackHoles, acidPuddles, profiler, pets, costumeSystem, lightSystem }) {
@@ -284,7 +285,19 @@ export class Renderer {
             renderList.push({
                 y: e.y + e.height/2,
                 draw: () => {
-                    e.draw(this.ctx);
+                    // 精英词缀视觉：体型放大 + 脚下光环 + 头顶词缀名
+                    if (e.isElite && e.eliteScale && e.eliteScale !== 1) {
+                        this._drawEliteAura(e);
+                        this.ctx.save();
+                        this.ctx.translate(e.x, e.y);
+                        this.ctx.scale(e.eliteScale, e.eliteScale);
+                        this.ctx.translate(-e.x, -e.y);
+                        e.draw(this.ctx);
+                        this.ctx.restore();
+                        this._drawEliteLabel(e);
+                    } else {
+                        e.draw(this.ctx);
+                    }
                     // Ice effect overlay (boss handles its own overlays)
                     if (e.frozenTimer > 0 && !e.isBoss) {
                         const hb = e.getBulletHurtbox ? e.getBulletHurtbox() :
@@ -1544,6 +1557,52 @@ export class Renderer {
         ctx.fillText('FR', mx + 124, legendY + 1);
 
         ctx.restore();
+    }
+
+    /** 精英光环：脚下椭圆描边（首词缀色）+ 微光填充。 */
+    _drawEliteAura(e) {
+        const affixId = e.affixIds && e.affixIds[0];
+        const color = (AFFIXES[affixId] && AFFIXES[affixId].color) || '#ffd54f';
+        const pulse = 0.55 + 0.25 * Math.sin(performance.now() * 0.005);
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.2 * pulse;
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.ellipse(e.x, e.y + 13, 13, 5, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.globalAlpha = 0.75 * pulse;
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.ellipse(e.x, e.y + 13, 13, 5, 0, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.restore();
+    }
+
+    /** 头顶词缀名（多词缀以 · 连接）+ 坚韧护盾条。 */
+    _drawEliteLabel(e) {
+        if (!e.affixIds || e.affixIds.length === 0) return;
+        const label = e.affixIds.map(id => (AFFIXES[id] ? AFFIXES[id].name : id)).join('·');
+        const color = (AFFIXES[e.affixIds[0]] && AFFIXES[e.affixIds[0]].color) || '#ffd54f';
+        this.ctx.save();
+        this.ctx.font = 'bold 7px monospace';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        this.ctx.fillText(label, Math.floor(e.x) + 1, Math.floor(e.y) - 28);
+        this.ctx.fillStyle = color;
+        this.ctx.fillText(label, Math.floor(e.x), Math.floor(e.y) - 29);
+
+        // 坚韧护盾条（血条上方细黄条）
+        if (Number.isFinite(e.affixShieldMax) && e.affixShieldMax > 0 && e.affixShield > 0) {
+            const w = 24;
+            const x = Math.floor(e.x - w / 2);
+            const y = Math.floor(e.y) - 27;
+            this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            this.ctx.fillRect(x, y, w, 2);
+            this.ctx.fillStyle = '#ffd54f';
+            this.ctx.fillRect(x, y, w * (e.affixShield / e.affixShieldMax), 2);
+        }
+        this.ctx.restore();
     }
 
     _drawEnergyBarrier(gate) {

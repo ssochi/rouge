@@ -2117,10 +2117,16 @@ export class WorldSystem {
                 if (!this.enemies[i].isSegment) {
                     const deadEnemy = this.enemies[i];
                     if (this._isDungeonMapType(this.currentMapType)) {
-                        // 地牢内：金币掉落；Boss 武器掉落改由清房宝箱承接
-                        const coinValue = deadEnemy.isBoss
+                        // 地牢内：金币掉落；Boss 武器掉落改由清房宝箱承接；精英金币 ×3 + 30% 钥匙
+                        let coinValue = deadEnemy.isBoss
                             ? ENEMY_COIN_VALUES.boss
                             : (ENEMY_COIN_VALUES[deadEnemy.spawnType] ?? ENEMY_COIN_VALUES.default);
+                        if (deadEnemy.isElite) {
+                            coinValue *= 3;
+                            if (Math.random() < 0.3) {
+                                this.spawnKeyDrop(deadEnemy.x + 12, deadEnemy.y + 8);
+                            }
+                        }
                         this.spawnCoinBurst(deadEnemy.x, deadEnemy.y, coinValue);
                         if (!deadEnemy.isBoss) {
                             this._dropEnemyWeapon(deadEnemy);

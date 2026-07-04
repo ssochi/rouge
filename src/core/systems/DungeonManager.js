@@ -5,6 +5,7 @@ import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInst
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
 import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR } from '../dungeon/EconomyConfig.js';
 import { getFloorConfig } from '../dungeon/FloorConfigs.js';
+import { applyAffixes, pickRandomAffixes } from '../dungeon/EnemyAffixSystem.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -244,6 +245,7 @@ export class DungeonManager {
 
                 if (enemy) {
                     this._applyFloorScaling(enemy, floorConfig);
+                    this._maybePromoteElite(enemy, room, floorConfig);
                     room.enemies.add(enemy);
                     if (enemy.isBoss) {
                         enemy.worldSystem = this.worldSystem;
@@ -251,6 +253,26 @@ export class DungeonManager {
                 }
             }
         }
+    }
+
+    /**
+     * 精英晋升（词缀）：精英房保底 1 词缀，普通战斗房按楼层 eliteChance 概率；
+     * 词缀数取 FloorConfigs.eliteAffixCount 区间。Boss/分段体不参与。
+     */
+    _maybePromoteElite(enemy, room, floorConfig) {
+        if (!floorConfig || enemy.isBoss || enemy.isSegment) return;
+
+        let promote = false;
+        if (room.category === 'elite') {
+            promote = true; // 精英房全员保底
+        } else if (room.type === 'normal' && Math.random() < floorConfig.eliteChance) {
+            promote = true;
+        }
+        if (!promote) return;
+
+        const [minCount, maxCount] = floorConfig.eliteAffixCount || [1, 1];
+        const count = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+        applyAffixes(enemy, pickRandomAffixes(count));
     }
 
     /**
