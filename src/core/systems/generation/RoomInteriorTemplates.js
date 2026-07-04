@@ -97,6 +97,123 @@ const TEMPLATES = [
         generate: generateGateChannels
     },
     {
+        id: 'corner_cuts',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_open', 'combat_cover'],
+        minInteriorW: 10,
+        minInteriorH: 10,
+        weight: 0.9,
+        generate: generateCornerCuts
+    },
+    {
+        id: 'alcove_niches',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_cover', 'treasure'],
+        minInteriorW: 11,
+        minInteriorH: 10,
+        weight: 0.9,
+        generate: generateAlcoveNiches
+    },
+    {
+        id: 'twin_chambers',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_maze', 'challenge_trapline'],
+        minInteriorW: 10,
+        minInteriorH: 12,
+        weight: 1.0,
+        generate: generateTwinChambers
+    },
+    {
+        id: 'funnel_throat',
+        allowedTypes: ['normal'],
+        allowedCategories: ['challenge_trapline', 'combat_maze'],
+        minInteriorW: 12,
+        minInteriorH: 12,
+        weight: 0.9,
+        generate: generateFunnelThroat
+    },
+    {
+        id: 'hex_pillars',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_open', 'combat_cover'],
+        minInteriorW: 12,
+        minInteriorH: 10,
+        weight: 0.9,
+        generate: generateHexPillars
+    },
+    {
+        id: 'side_gallery',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_maze', 'combat_cover'],
+        minInteriorW: 12,
+        minInteriorH: 10,
+        weight: 0.9,
+        generate: generateSideGallery
+    },
+    {
+        id: 'diamond_core',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_cover', 'challenge_trapline'],
+        minInteriorW: 11,
+        minInteriorH: 11,
+        weight: 0.9,
+        generate: generateDiamondCore
+    },
+    {
+        id: 'parallel_fins',
+        allowedTypes: ['normal'],
+        allowedCategories: ['combat_maze', 'challenge_trapline'],
+        minInteriorW: 12,
+        minInteriorH: 11,
+        weight: 0.9,
+        generate: generateParallelFins
+    },
+    {
+        id: 'treasure_vault',
+        allowedTypes: ['normal'],
+        allowedCategories: ['treasure'],
+        minInteriorW: 10,
+        minInteriorH: 10,
+        weight: 1.4,
+        generate: generateTreasureVault
+    },
+    {
+        id: 'treasure_pockets',
+        allowedTypes: ['normal'],
+        allowedCategories: ['treasure'],
+        minInteriorW: 12,
+        minInteriorH: 12,
+        weight: 1.0,
+        generate: generateTreasurePockets
+    },
+    {
+        id: 'shop_stalls',
+        allowedTypes: ['normal'],
+        allowedCategories: ['shop'],
+        minInteriorW: 10,
+        minInteriorH: 10,
+        weight: 1.0,
+        generate: generateShopStalls
+    },
+    {
+        id: 'elite_pit',
+        allowedTypes: ['normal'],
+        allowedCategories: ['elite'],
+        minInteriorW: 11,
+        minInteriorH: 11,
+        weight: 1.2,
+        generate: generateElitePit
+    },
+    {
+        id: 'elite_gauntlet',
+        allowedTypes: ['normal'],
+        allowedCategories: ['elite'],
+        minInteriorW: 12,
+        minInteriorH: 11,
+        weight: 1.0,
+        generate: generateEliteGauntlet
+    },
+    {
         id: 'arena',
         allowedTypes: ['boss'],
         allowedCategories: ['boss_arena'],
@@ -113,8 +230,20 @@ const TEMPLATES = [
         minInteriorH: 15,
         weight: 0.9,
         generate: generateBossSpokes
+    },
+    {
+        id: 'boss_quadrants',
+        allowedTypes: ['boss'],
+        allowedCategories: ['boss_arena'],
+        minInteriorW: 14,
+        minInteriorH: 14,
+        weight: 0.9,
+        generate: generateBossQuadrants
     }
 ];
+
+// 供 vitest 健全性测试使用（生产代码走 selectTemplate/applyTemplate）
+export { TEMPLATES };
 
 function roomCategoryForTemplate(room) {
     if (room.category) return room.category;
@@ -496,6 +625,321 @@ function generateBossSpokes(room) {
     for (let y = cy + 3; y < iy + ih - 2; y++) walls.push({ x: cx, y });
     for (let x = ix + 2; x < cx - 2; x++) walls.push({ x, y: cy });
     for (let x = cx + 3; x < ix + iw - 2; x++) walls.push({ x, y: cy });
+
+    return { walls };
+}
+
+// ─────────────────────── P5 新增模板（12 → 26） ───────────────────────
+
+/** 四角阶梯斜切：非矩形轮廓感，中场开阔（开阔/掩体房）。 */
+function generateCornerCuts(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const s = Math.min(iw, ih) >= 14 ? 4 : 3;
+    for (let i = 0; i < s; i++) {
+        for (let j = 0; j < s - i; j++) {
+            walls.push({ x: ix + j, y: iy + i });
+            walls.push({ x: ix + iw - 1 - j, y: iy + i });
+            walls.push({ x: ix + j, y: iy + ih - 1 - i });
+            walls.push({ x: ix + iw - 1 - j, y: iy + ih - 1 - i });
+        }
+    }
+
+    return { walls };
+}
+
+/** 左右内凸壁龛：两侧 U 形臂形成掩体龛位。 */
+function generateAlcoveNiches(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const nicheH = 4;
+    const depth = 3;
+    const y1 = iy + Math.floor(ih / 2) - Math.floor(nicheH / 2);
+
+    for (let d = 0; d < depth; d++) {
+        walls.push({ x: ix + d, y: y1 });
+        walls.push({ x: ix + d, y: y1 + nicheH - 1 });
+        walls.push({ x: ix + iw - 1 - d, y: y1 });
+        walls.push({ x: ix + iw - 1 - d, y: y1 + nicheH - 1 });
+    }
+
+    return {
+        walls,
+        coverSpots: [
+            { x: ix + 1, y: y1 + 1 },
+            { x: ix + iw - 2, y: y1 + 1 }
+        ]
+    };
+}
+
+/** 双厅：2 tile 厚横墙 + 双开口，把房间切成前后厅。 */
+function generateTwinChambers(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const wy = iy + Math.floor(ih / 2) - 1;
+    const op1 = ix + 2;
+    const op2 = ix + iw - 5;
+
+    for (let x = ix; x < ix + iw; x++) {
+        if ((x >= op1 && x < op1 + 3) || (x >= op2 && x < op2 + 3)) continue;
+        walls.push({ x, y: wy });
+        walls.push({ x, y: wy + 1 });
+    }
+
+    return { walls };
+}
+
+/** 漏斗喉道：上下中央楔形收口，中场形成窄喉压制带。 */
+function generateFunnelThroat(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const cx = ix + Math.floor(iw / 2);
+    const cy = iy + Math.floor(ih / 2);
+    const depth = Math.min(Math.floor(ih / 2) - 2, 4);
+
+    for (let i = 0; i < depth; i++) {
+        const half = depth - i;
+        for (let dx = -half; dx <= half; dx++) {
+            walls.push({ x: cx + dx, y: iy + i });
+            walls.push({ x: cx + dx, y: iy + ih - 1 - i });
+        }
+    }
+
+    return {
+        walls,
+        coverSpots: [
+            { x: cx - 3, y: cy },
+            { x: cx + 3, y: cy }
+        ]
+    };
+}
+
+/** 蜂窝柱阵：错行 2×1 短柱，撒豆式软掩体网。 */
+function generateHexPillars(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    for (let row = 0; iy + 2 + row * 4 <= iy + ih - 3; row++) {
+        const y = iy + 2 + row * 4;
+        const offset = row % 2 === 0 ? 0 : 3;
+        for (let x = ix + 2 + offset; x < ix + iw - 3; x += 6) {
+            walls.push({ x, y });
+            walls.push({ x: x + 1, y });
+        }
+    }
+
+    return { walls };
+}
+
+/** 边廊：单侧隔墙圈出通长走廊，双开口进出。 */
+function generateSideGallery(room, rng) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const leftSide = rng() > 0.5;
+    const gx = leftSide ? ix + 3 : ix + iw - 4;
+    const op1 = iy + 1;
+    const op2 = iy + ih - 3;
+
+    for (let y = iy; y < iy + ih; y++) {
+        if ((y >= op1 && y < op1 + 2) || (y >= op2 && y < op2 + 2)) continue;
+        walls.push({ x: gx, y });
+    }
+
+    return {
+        walls,
+        coverSpots: [
+            { x: leftSide ? gx + 2 : gx - 2, y: iy + Math.floor(ih / 2) }
+        ]
+    };
+}
+
+/** 中央菱形岛：环岛走位掩体。 */
+function generateDiamondCore(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const cx = ix + Math.floor(iw / 2);
+    const cy = iy + Math.floor(ih / 2);
+    const r = Math.min(3, Math.floor(Math.min(iw, ih) / 4));
+
+    for (let dy = -r; dy <= r; dy++) {
+        const span = r - Math.abs(dy);
+        for (let dx = -span; dx <= span; dx++) {
+            walls.push({ x: cx + dx, y: cy + dy });
+        }
+    }
+
+    return { walls };
+}
+
+/** 平行鳍墙：上下交替梳齿，强制蛇形动线。 */
+function generateParallelFins(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const finLen = Math.max(3, Math.floor(ih * 0.55));
+    let idx = 0;
+    for (let x = ix + 2; x < ix + iw - 2; x += 4) {
+        if (idx % 2 === 0) {
+            for (let d = 0; d < finLen; d++) walls.push({ x, y: iy + d });
+        } else {
+            for (let d = 0; d < finLen; d++) walls.push({ x, y: iy + ih - 1 - d });
+        }
+        idx++;
+    }
+
+    return { walls };
+}
+
+/** 宝箱房·圣坛围合：北墙+双臂 U 形龛护住中央宝箱区，开口朝南。 */
+function generateTreasureVault(room) {
+    const walls = [];
+    const cx = room.x + Math.floor(room.w / 2);
+    const cy = room.y + Math.floor(room.h / 2);
+    const armX = Math.min(4, Math.floor((room.w - 4) / 2) - 1);
+
+    for (let dx = -2; dx <= 2; dx++) walls.push({ x: cx + dx, y: cy - 2 });
+    walls.push({ x: cx - 3, y: cy - 2 });
+    walls.push({ x: cx + 3, y: cy - 2 });
+    if (armX >= 4) {
+        for (let dy = -2; dy <= 0; dy++) {
+            walls.push({ x: cx - armX, y: cy + dy });
+            walls.push({ x: cx + armX, y: cy + dy });
+        }
+    }
+
+    return { walls };
+}
+
+/** 宝箱房·X 形拱卫：对角双列短墙护卫中央（d 2..4，中心留空给宝箱）。 */
+function generateTreasurePockets(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const cx = ix + Math.floor(iw / 2);
+    const cy = iy + Math.floor(ih / 2);
+    const reach = Math.min(4, Math.floor(Math.min(iw, ih) / 2) - 2);
+
+    for (let d = 2; d <= reach; d++) {
+        walls.push({ x: cx - d, y: cy - d });
+        walls.push({ x: cx - d + 1, y: cy - d });
+        walls.push({ x: cx + d, y: cy - d });
+        walls.push({ x: cx + d - 1, y: cy - d });
+        walls.push({ x: cx - d, y: cy + d });
+        walls.push({ x: cx - d + 1, y: cy + d });
+        walls.push({ x: cx + d, y: cy + d });
+        walls.push({ x: cx + d - 1, y: cy + d });
+    }
+
+    return { walls };
+}
+
+/** 商店房·货架墙：商人身后两段货架，中央留过道。 */
+function generateShopStalls(room) {
+    const walls = [];
+    const cx = room.x + Math.floor(room.w / 2);
+    const cy = room.y + Math.floor(room.h / 2);
+    const reach = Math.min(4, Math.floor((room.w - 4) / 2) - 1);
+    if (cy - 3 < room.y + 2 || reach < 2) return { walls };
+
+    for (let dx = 1; dx <= reach; dx++) {
+        walls.push({ x: cx - dx, y: cy - 3 });
+        walls.push({ x: cx + dx, y: cy - 3 });
+    }
+
+    return { walls };
+}
+
+/** 精英房·角斗坑：四角 L 形围墙，中央开阔角斗场。 */
+function generateElitePit(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const arm = 3;
+    for (let d = 0; d < arm; d++) {
+        walls.push({ x: ix + 1 + d, y: iy + 1 });
+        walls.push({ x: ix + 1, y: iy + 1 + d });
+        walls.push({ x: ix + iw - 2 - d, y: iy + 1 });
+        walls.push({ x: ix + iw - 2, y: iy + 1 + d });
+        walls.push({ x: ix + 1 + d, y: iy + ih - 2 });
+        walls.push({ x: ix + 1, y: iy + ih - 2 - d });
+        walls.push({ x: ix + iw - 2 - d, y: iy + ih - 2 });
+        walls.push({ x: ix + iw - 2, y: iy + ih - 2 - d });
+    }
+
+    return { walls };
+}
+
+/** 精英房·递进走廊：两道错位长半墙切出三段递进战区。 */
+function generateEliteGauntlet(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const y1 = iy + Math.floor(ih / 3);
+    const y2 = iy + Math.floor(ih * 2 / 3);
+    const len = Math.floor(iw * 0.6);
+
+    for (let d = 0; d < len; d++) walls.push({ x: ix + d, y: y1 });
+    for (let d = 0; d < len; d++) walls.push({ x: ix + iw - 1 - d, y: y2 });
+
+    return { walls };
+}
+
+/** Boss 房·四象限块：象限各一 3×2 块，中心与十字通道开阔。 */
+function generateBossQuadrants(room) {
+    const walls = [];
+    const ix = room.x + 2;
+    const iy = room.y + 2;
+    const iw = room.w - 4;
+    const ih = room.h - 4;
+
+    const cx = ix + Math.floor(iw / 2);
+    const cy = iy + Math.floor(ih / 2);
+    const ox = Math.floor(iw / 4);
+    const oy = Math.floor(ih / 4);
+
+    addBlock(walls, cx - ox - 1, cy - oy - 1, 3, 2);
+    addBlock(walls, cx + ox - 1, cy - oy - 1, 3, 2);
+    addBlock(walls, cx - ox - 1, cy + oy, 3, 2);
+    addBlock(walls, cx + ox - 1, cy + oy, 3, 2);
 
     return { walls };
 }

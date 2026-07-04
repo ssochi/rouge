@@ -807,7 +807,25 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set(), occupied = 
     const cx = Math.floor(room.x + room.w / 2);
     const cy = Math.floor(room.y + room.h / 2);
 
-    for (let i = 0; i < count; i++) {
+    // 模板建议掩体位优先落位（计入 count）
+    if (Array.isArray(room.templateCoverSpots)) {
+        for (const spot of room.templateCoverSpots) {
+            if (covers.length >= count) break;
+            const key = tileKey(spot.x, spot.y);
+            if (occupied.has(key) || interiorWallTiles.has(key)) continue;
+            if (spot.x < room.x + 2 || spot.x >= room.x + room.w - 2) continue;
+            if (spot.y < room.y + 2 || spot.y >= room.y + room.h - 2) continue;
+            occupied.add(key);
+            covers.push({
+                x: spot.x,
+                y: spot.y,
+                type: coverTypes[Math.floor(rng() * coverTypes.length)],
+                roomId: room.id
+            });
+        }
+    }
+
+    for (let i = covers.length; i < count; i++) {
         for (let attempt = 0; attempt < 24; attempt++) {
             let tx;
             let ty;
@@ -1299,6 +1317,10 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     for (const room of rooms) {
         const result = applyTemplate(room, rng, usedTemplateIds);
+        // 模板建议掩体位（generateRoomCover 优先消费）
+        if (Array.isArray(result.coverSpots) && result.coverSpots.length > 0) {
+            room.templateCoverSpots = result.coverSpots;
+        }
         if (!result.walls || result.walls.length === 0) continue;
 
         for (const w of result.walls) {
