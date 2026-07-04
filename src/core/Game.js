@@ -18,6 +18,7 @@ import { TestPanel } from '../ui/TestPanel.js';
 import { PixelOS } from '../pixelOS/PixelOS.js';
 import { LightSystem } from './lighting/LightSystem.js';
 import { getMapProfile } from './maps/MapProfiles.js';
+import { DungeonRunState } from './dungeon/DungeonRunState.js';
 
 export class Game {
     constructor(canvas) {
@@ -139,6 +140,11 @@ export class Game {
 
         this.inventorySystem = new InventorySystem();
 
+        // 单局地牢运行状态（金币/钥匙/圣物/楼层/种子）。
+        // 传给 WorldSystem（loadMap 进出地牢钩子 + 生成种子）与 UIManager（HUD 显示，Task 9 接线）。
+        this.dungeonRunState = new DungeonRunState();
+        this.uiManager.dungeonRunState = this.dungeonRunState;
+
         this.worldSystem = new WorldSystem({
             navGrid: this.navGrid,
             walls: this.walls,
@@ -149,7 +155,8 @@ export class Game {
             player: this.player,
             combatSystem: this.combatSystem,
             inventorySystem: this.inventorySystem,
-            pets: this.pets
+            pets: this.pets,
+            dungeonRunState: this.dungeonRunState
         });
         this.worldSystem.onWorldProfileChanged = ({ worldPixelWidth, worldPixelHeight }) => {
             this.camera.setWorldBounds(worldPixelWidth, worldPixelHeight);
