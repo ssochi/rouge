@@ -58,6 +58,14 @@ import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
 import { createDungeonWallSet } from '../assets/dungeon/DungeonWallSprites.js';
 import { createDungeonFloorVariants } from '../assets/dungeon/DungeonFloorSprites.js';
 import { createDungeonTorchFrames, createDungeonBrazierFrames } from '../assets/dungeon/DungeonLightSprites.js';
+import { createDungeonPillarSprite } from '../assets/objects/dungeon/DungeonPillarSprite.js';
+import { createDungeonPillarBrokenSprite } from '../assets/objects/dungeon/DungeonPillarBrokenSprite.js';
+import { createDungeonStatueSprite } from '../assets/objects/dungeon/DungeonStatueSprite.js';
+import { createDungeonAltarSprite } from '../assets/objects/dungeon/DungeonAltarSprite.js';
+import { createDungeonBannerSprite } from '../assets/objects/dungeon/DungeonBannerSprite.js';
+import { createDungeonBarsSprite } from '../assets/objects/dungeon/DungeonBarsSprite.js';
+import { createDungeonRackSprite } from '../assets/objects/dungeon/DungeonRackSprite.js';
+import { createDungeonMushroomsSprite } from '../assets/objects/dungeon/DungeonMushroomsSprite.js';
 import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
@@ -217,6 +225,14 @@ const dungeonIronCageSprite = createDungeonIronCageSprite();
 const dungeonBonePileSprite = createDungeonBonePileSprite();
 const dungeonTorchFrames = createDungeonTorchFrames();
 const dungeonBrazierFrames = createDungeonBrazierFrames();
+const dungeonPillarSprite = createDungeonPillarSprite();
+const dungeonPillarBrokenSprite = createDungeonPillarBrokenSprite();
+const dungeonStatueSprite = createDungeonStatueSprite();
+const dungeonAltarSprite = createDungeonAltarSprite();
+const dungeonBannerSprite = createDungeonBannerSprite();
+const dungeonBarsSprite = createDungeonBarsSprite();
+const dungeonRackSprite = createDungeonRackSprite();
+const dungeonMushroomsSprite = createDungeonMushroomsSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
@@ -495,6 +511,20 @@ export const Assets = {
         dungeon_torch: dungeonTorchFrames,
         dungeon_brazier: dungeonBrazierFrames,
         dungeon_brazier_flash: dungeonBrazierFrames.map(f => PixelDraw.createSilhouette(f)),
+        dungeon_pillar: dungeonPillarSprite,
+        dungeon_pillar_broken: dungeonPillarBrokenSprite,
+        dungeon_pillar_broken_flash: PixelDraw.createSilhouette(dungeonPillarBrokenSprite),
+        dungeon_statue: dungeonStatueSprite,
+        dungeon_altar: dungeonAltarSprite,
+        dungeon_altar_flash: PixelDraw.createSilhouette(dungeonAltarSprite),
+        dungeon_banner: dungeonBannerSprite,
+        dungeon_banner_flash: PixelDraw.createSilhouette(dungeonBannerSprite),
+        dungeon_bars: dungeonBarsSprite,
+        dungeon_bars_flash: PixelDraw.createSilhouette(dungeonBarsSprite),
+        dungeon_rack: dungeonRackSprite,
+        dungeon_rack_flash: PixelDraw.createSilhouette(dungeonRackSprite),
+        dungeon_mushrooms: dungeonMushroomsSprite,
+        dungeon_mushrooms_flash: PixelDraw.createSilhouette(dungeonMushroomsSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

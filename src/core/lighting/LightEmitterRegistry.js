@@ -134,6 +134,30 @@ const OBJECT_LIGHTS = {
         castsShadows: true,
         priority: 78,
         ignoreSelfShadow: true
+    },
+    // 烛台祭坛：暖黄微光（宝箱房仪式感）
+    dungeon_altar: {
+        offsetX: 16,
+        offsetY: 14,
+        radius: 74,
+        color: '#ffd97a',
+        intensity: 0.5,
+        flicker: 0.05,
+        castsShadows: true,
+        priority: 52,
+        ignoreSelfShadow: true
+    },
+    // 荧光蘑菇：冷蓝微光（与火光形成冷暖对比）
+    dungeon_mushrooms: {
+        offsetX: 16,
+        offsetY: 18,
+        radius: 56,
+        color: '#84a8f0',
+        intensity: 0.38,
+        flicker: 0.03,
+        castsShadows: false,
+        priority: 30,
+        ignoreSelfShadow: true
     }
 };
 

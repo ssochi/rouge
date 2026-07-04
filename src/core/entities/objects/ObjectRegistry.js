@@ -46,6 +46,16 @@ import { DungeonIronCageObject } from './DungeonIronCageObject.js';
 import { DungeonBonePileObject } from './DungeonBonePileObject.js';
 import { DungeonTorchObject } from './DungeonTorchObject.js';
 import { DungeonBrazierObject } from './DungeonBrazierObject.js';
+import {
+    DungeonPillarObject,
+    DungeonPillarBrokenObject,
+    DungeonStatueObject,
+    DungeonAltarObject,
+    DungeonBannerObject,
+    DungeonBarsObject,
+    DungeonRackObject,
+    DungeonMushroomsObject
+} from './DungeonDecorObjects.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -101,7 +111,15 @@ const OBJECT_DEFS = new Map([
     ['dungeon_iron_cage', DungeonIronCageObject],
     ['dungeon_bone_pile', DungeonBonePileObject],
     ['dungeon_torch', DungeonTorchObject],
-    ['dungeon_brazier', DungeonBrazierObject]
+    ['dungeon_brazier', DungeonBrazierObject],
+    ['dungeon_pillar', DungeonPillarObject],
+    ['dungeon_pillar_broken', DungeonPillarBrokenObject],
+    ['dungeon_statue', DungeonStatueObject],
+    ['dungeon_altar', DungeonAltarObject],
+    ['dungeon_banner', DungeonBannerObject],
+    ['dungeon_bars', DungeonBarsObject],
+    ['dungeon_rack', DungeonRackObject],
+    ['dungeon_mushrooms', DungeonMushroomsObject]
 ]);
 
 export function getObjectDef(type) {

@@ -1,5 +1,6 @@
 import { tileKey, randomInt } from './GenerationUtils.js';
 import { applyTemplate } from './RoomInteriorTemplates.js';
+import { getDungeonTheme } from '../../dungeon/DungeonThemes.js';
 
 /**
  * Compact dungeon layout generator.
@@ -862,42 +863,72 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set(), occupied = 
     return covers;
 }
 
-function generateRoomDecor(room, rng, interiorWallTiles = new Set(), occupied = new Set()) {
+function pickWeighted(weights, rng) {
+    let total = 0;
+    for (const k in weights) total += weights[k];
+    if (total <= 0) return null;
+    let roll = rng() * total;
+    for (const k in weights) {
+        roll -= weights[k];
+        if (roll <= 0) return k;
+    }
+    return null;
+}
+
+/**
+ * 房间装饰：特殊房固定件（Boss 对称雕像/精英旗帜/宝箱房祭坛）+
+ * 楼层主题加权随机件，密度按房间类别驱动。
+ */
+function generateRoomDecor(room, rng, interiorWallTiles = new Set(), occupied = new Set(), decorWeights = null) {
     if (room.type === 'start') return [];
 
-    const decorTypes = [
-        'dungeon_rubble',
-        'dungeon_bone_pile',
-        'dungeon_rubble',
-        'dungeon_iron_cage'
-    ];
-
-    let maxDecor = 2;
-    if (room.category === 'combat_open') maxDecor = 1;
-    if (room.category === 'combat_maze' || room.category === 'challenge_trapline') maxDecor = 3;
-    if (room.type === 'boss') maxDecor = 2;
-
-    const count = randomInt(rng, 0, maxDecor);
+    const weights = decorWeights || { dungeon_rubble: 3, dungeon_bone_pile: 2, dungeon_iron_cage: 1 };
     const out = [];
+    const centerX = room.x + Math.floor(room.w / 2);
+    const centerY = room.y + Math.floor(room.h / 2);
 
+    const tryPlace = (tx, ty, type) => {
+        if (tx < room.x + 2 || tx > room.x + room.w - 3) return false;
+        if (ty < room.y + 2 || ty > room.y + room.h - 3) return false;
+        const key = tileKey(tx, ty);
+        if (occupied.has(key) || interiorWallTiles.has(key)) return false;
+        // Keep gates/major passages cleaner: avoid strict center cross.
+        if (Math.abs(tx - centerX) <= 1 && Math.abs(ty - centerY) <= 1) return false;
+        occupied.add(key);
+        out.push({ x: tx, y: ty, type, roomId: room.id });
+        return true;
+    };
+
+    // 特殊房固定装饰
+    if (room.type === 'boss') {
+        tryPlace(room.x + 2, centerY - 2, 'dungeon_statue');
+        tryPlace(room.x + room.w - 3, centerY - 2, 'dungeon_statue');
+    } else if (room.category === 'elite') {
+        tryPlace(centerX - 2, room.y + 2, 'dungeon_banner');
+        tryPlace(centerX + 2, room.y + 2, 'dungeon_banner');
+    } else if (room.category === 'treasure') {
+        tryPlace(centerX, centerY - 3, 'dungeon_altar');
+    } else if (room.category === 'shop') {
+        // 商店保持整洁，仅角落一件氛围装饰
+        tryPlace(room.x + 2, room.y + 2, 'dungeon_banner');
+        return out;
+    }
+
+    // 随机装饰（类别驱动密度）
+    let minCount = 2;
+    let maxCount = 4;
+    if (room.category === 'combat_open') { minCount = 1; maxCount = 3; }
+    else if (room.category === 'combat_maze' || room.category === 'challenge_trapline') { minCount = 3; maxCount = 6; }
+    else if (room.category === 'treasure') { minCount = 1; maxCount = 2; }
+
+    const count = randomInt(rng, minCount, maxCount);
     for (let i = 0; i < count; i++) {
+        const type = pickWeighted(weights, rng);
+        if (!type) break;
         for (let attempt = 0; attempt < 20; attempt++) {
             const tx = randomInt(rng, room.x + 2, room.x + room.w - 3);
             const ty = randomInt(rng, room.y + 2, room.y + room.h - 3);
-            const key = tileKey(tx, ty);
-
-            if (occupied.has(key)) continue;
-            if (interiorWallTiles.has(key)) continue;
-
-            // Keep gates/major passages cleaner: avoid strict center cross.
-            const centerX = room.x + Math.floor(room.w / 2);
-            const centerY = room.y + Math.floor(room.h / 2);
-            if ((Math.abs(tx - centerX) <= 1 && Math.abs(ty - centerY) <= 1)) continue;
-
-            occupied.add(key);
-            const type = decorTypes[Math.floor(rng() * decorTypes.length)];
-            out.push({ x: tx, y: ty, type, roomId: room.id });
-            break;
+            if (tryPlace(tx, ty, type)) break;
         }
     }
 
@@ -1060,6 +1091,7 @@ function computeCorridorMetrics(corridors) {
 }
 
 function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
+    const theme = getDungeonTheme(floor);
     const bounds = computeDungeonBounds(mapWidth, mapHeight, cfg);
 
     const root = new BSPNode(
@@ -1264,7 +1296,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         const roomCovers = generateRoomCover(room, rng, interiorWallTiles, occupied);
         coverObjects.push(...roomCovers);
 
-        const roomDecor = generateRoomDecor(room, rng, interiorWallTiles, occupied);
+        const roomDecor = generateRoomDecor(room, rng, interiorWallTiles, occupied, theme.decorWeights);
         decorObjects.push(...roomDecor);
     }
 

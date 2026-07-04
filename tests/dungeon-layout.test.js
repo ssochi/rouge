@@ -69,6 +69,26 @@ describe('DungeonLayoutGenerator', () => {
         }
     });
 
+    it('装饰：特殊房固定件到位（Boss 雕像/精英旗帜/宝箱房祭坛）', () => {
+        const layout = generateDungeonLayout(130, 130, SEED, 1);
+        const decorIn = (room, type) =>
+            layout.decorObjects.filter(o => o.roomId === room.id && o.type === type);
+
+        const boss = layout.rooms.find(r => r.type === 'boss');
+        expect(decorIn(boss, 'dungeon_statue').length).toBeGreaterThanOrEqual(1);
+
+        const elite = layout.rooms.find(r => r.category === 'elite');
+        expect(decorIn(elite, 'dungeon_banner').length).toBeGreaterThanOrEqual(1);
+
+        const treasure = layout.rooms.find(r => r.category === 'treasure');
+        expect(decorIn(treasure, 'dungeon_altar').length).toBe(1);
+
+        // 所有装饰均落在地板上且不与内部墙重叠
+        for (const o of layout.decorObjects) {
+            expect(layout.floorTiles.has(`${o.x},${o.y}`)).toBe(true);
+        }
+    });
+
     it('F3 Boss 编成含机械魔偶', () => {
         const layout = generateDungeonLayout(130, 130, SEED, 3);
         const boss = layout.rooms.find(r => r.type === 'boss');
