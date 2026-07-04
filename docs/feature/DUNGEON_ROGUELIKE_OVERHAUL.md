@@ -1,6 +1,6 @@
 # 地牢 Roguelike 系统重构方案
 
-> 状态：设计已确认，待实施
+> 状态：P0/P1 已完成（feature/dungeon-overhaul 分支），P2 起待实施
 > 日期：2026-07-05
 > 范围：`dungeon` / `dungeon_f2` 地图链路（Hub 紫色传送门进入的 Roguelike 关卡）
 
@@ -155,11 +155,11 @@ src/core/entities/ChestObject.js（或 objects/ 注册）  # 宝箱实体
 
 ## 5. 实施分期
 
-> 前置（Phase 0）：当前工作区有大量未提交的城镇生成改动，实施前必须先提交，保证可回滚（CLAUDE.md 规则 8）。随后单独提交 gate.isHorizontal bug 修复。
+> ✅前置（Phase 0）已完成：城镇 WIP 已基线提交（main 4f7faef），vitest 测试设施已引入，gate.isHorizontal bug 已修复。
 
 | 阶段 | 内容 | 交付物 | 依赖 |
 |---|---|---|---|
-| P1 经济骨架 | rarity 字段落库、LootTable、金币/钥匙实体与 HUD、DungeonRunState、宝箱实体+四档美术、清房/Boss/可破坏物掉落接入 | 可玩的「杀怪捡钱开箱」循环 | P0 |
+| ✅P1 经济骨架 | rarity 字段落库、LootTable、金币/钥匙实体与 HUD、DungeonRunState、宝箱实体+四档美术、清房/Boss/可破坏物掉落接入 | 可玩的「杀怪捡钱开箱」循环 | P0 |
 | P2 遗物系统 | RelicData 15-20 个、RelicSystem 三挂载点、遗物 UI、宝箱/Boss 掉落接入 | 局内 build 成长 | P1 |
 | P3 特殊房间 | 商店房（商人+货架+购买）、宝箱房、精英房接入生成与 DungeonManager | 每层三特殊房 | P1（精英房完整体验依赖 P4 词缀） |
 | P4 敌人 | 行为组件层、6 新敌人（美术+逻辑）、精英词缀、BossPhaseController、巨蛇接入、3 层敌人配置与数值缩放 | 战斗体验质变 | 可与 P2/P3 并行 |
