@@ -1,65 +1,44 @@
-// DungeonFloorSprites —— 纯美术：地牢石板地面贴图（按楼层主题色板生成）。严禁游戏逻辑。
-// 16×16 子瓦 4 变体，接 Assets.floors['dungeon_f1'/'dungeon_f2'/'dungeon_f3']，
-// 由 WorldSystem.buildFloorCanvas 位置哈希混铺。
+// DungeonFloorSprites —— 纯美术：地牢石板地面（按楼层主题色板生成）。严禁游戏逻辑。
+// 视觉方向（截图自查后二次迭代）：地面是「安静的背景」——
+// 去掉受光亮线（网格感来源），用两档低频明暗底色交替 + 右/下细缝；细节每板至多一处。
+// 接 Assets.floors['dungeon_f1'/'dungeon_f2'/'dungeon_f3']，buildFloorCanvas 位置哈希混铺。
 
 import { PixelDraw } from '../../utils/PixelDraw.js';
 
-function scatter(seed, count, w, h) {
-    const pts = [];
-    let s = seed;
-    for (let i = 0; i < count; i++) {
-        s = (s * 1664525 + 1013904223) >>> 0;
-        const x = s % w;
-        s = (s * 1664525 + 1013904223) >>> 0;
-        const y = s % h;
-        pts.push({ x, y });
-    }
-    return pts;
+/** hex 颜色线性插值（地板明暗档介于 base 与 dark 之间，避免对比过强）。 */
+function mixHex(a, b, t) {
+    const pa = parseInt(a.slice(1), 16);
+    const pb = parseInt(b.slice(1), 16);
+    const r = Math.round(((pa >> 16) & 255) * (1 - t) + ((pb >> 16) & 255) * t);
+    const g = Math.round(((pa >> 8) & 255) * (1 - t) + ((pb >> 8) & 255) * t);
+    const bl = Math.round((pa & 255) * (1 - t) + (pb & 255) * t);
+    return `#${((r << 16) | (g << 8) | bl).toString(16).padStart(6, '0')}`;
 }
 
 /**
- * 单个石板变体（16×16，双行错缝砖 + 主题色噪点）。
+ * 单块石板变体（16×16）。
  * @param {Object} floor 主题地板色板（DungeonThemes theme.floor）
- * @param {number} seed 变体种子
+ * @param {number} variant 0 亮板 / 1 暗板 / 2 亮板+细裂 / 3 暗板+苔点
  */
-function createSlabVariant(floor, seed) {
+function createSlabVariant(floor, variant) {
     const d = new PixelDraw(16, 16);
 
-    d.rect(0, 0, 16, 16, floor.base);
+    const darkBase = mixHex(floor.base, floor.dark, 0.4);
+    const isDark = variant === 1 || variant === 3;
+    d.rect(0, 0, 16, 16, isDark ? darkBase : floor.base);
 
-    // 两行石板，行缝固定保证跨瓦连续
-    d.hLine(0, 7, 16, floor.gap);
+    // 右/下细缝（相邻板拼成安静的石板网格）
     d.hLine(0, 15, 16, floor.gap);
+    d.vLine(15, 0, 16, floor.gap);
 
-    // 错缝纵缝
-    let ps = seed;
-    ps = (ps * 1664525 + 1013904223) >>> 0;
-    const joint1 = 5 + (ps % 6);
-    ps = (ps * 1664525 + 1013904223) >>> 0;
-    const joint2 = (joint1 + 6 + (ps % 4)) % 16;
-
-    for (let y = 0; y <= 6; y++) d.pixel(joint1, y, floor.gap);
-    for (let y = 8; y <= 14; y++) d.pixel(joint2, y, floor.gap);
-
-    // 行顶受光 / 行底落影
-    d.hLine(0, 0, 16, floor.light);
-    d.hLine(0, 8, 16, floor.light);
-    d.hLine(0, 6, 16, floor.dark);
-    d.hLine(0, 14, 16, floor.dark);
-
-    // 主题色噪点（苔藓/焦痕等由 accent 承担）
-    scatter(seed + 40, 3, 16, 16).forEach(p => d.pixel(p.x, p.y, floor.light));
-    scatter(seed + 90, 2, 16, 16).forEach(p => d.pixel(p.x, p.y, floor.dark));
-    if (seed % 2 === 0) {
-        scatter(seed + 140, 2, 16, 16).forEach(p => d.pixel(p.x, p.y, floor.accent));
-    }
-
-    // 偶发缺损
-    if (seed % 3 === 0) {
-        const cx = 3 + (seed % 9);
-        const cy = 2 + ((seed >> 2) % 10);
-        d.pixel(cx, cy, floor.gap);
-        d.pixel(cx + 1, cy, floor.dark);
+    // 变体细节（每块至多一处，低对比）
+    if (variant === 2) {
+        d.pixel(5, 6, floor.gap);
+        d.pixel(6, 7, floor.gap);
+        d.pixel(7, 7, floor.gap);
+    } else if (variant === 3) {
+        d.pixel(11, 11, floor.accent);
+        d.pixel(12, 12, floor.accent);
     }
 
     return d.getCanvas();
@@ -71,5 +50,5 @@ function createSlabVariant(floor, seed) {
  * @returns {HTMLCanvasElement[]} 4 变体
  */
 export function createDungeonFloorVariants(theme) {
-    return [7, 31, 53, 89].map(s => createSlabVariant(theme.floor, s));
+    return [0, 1, 2, 3].map(v => createSlabVariant(theme.floor, v));
 }

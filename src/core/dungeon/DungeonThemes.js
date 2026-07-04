@@ -11,23 +11,23 @@ export const DUNGEON_THEMES = {
         id: 'f1',
         name: '冷狱',
         wall: {
-            top: '#6a7288',
-            topMortar: '#565d70',
-            front: '#4b5165',
-            frontMortar: '#3d4254',
-            highlight: '#828aa0',
-            accent: '#5d6e6a',   // 淡苔痕
-            crack: '#333848'
+            top: '#8b91a2',
+            topMortar: '#7b818f',
+            front: '#737787',
+            frontMortar: '#585e70',
+            highlight: '#9ea4b5',
+            accent: '#818e8b',   // 淡苔痕
+            crack: '#474c5c'
         },
         floor: {
-            base: '#565d6e',
-            light: '#666e80',
-            dark: '#484e5e',
-            gap: '#3f4453',
-            accent: '#4f5a68'
+            base: '#7b818e',
+            light: '#888e9c',
+            dark: '#6b7180',
+            gap: '#54596a',
+            accent: '#767e89'
         },
-        // 环境光基色（默认全局 115 灰，地牢压暗并染色以突出火光）
-        ambient: { r: 62, g: 68, b: 86 },
+        // 环境光基色（默认全局 115 灰；地牢略暗并染色——可读性优先，火光是氛围层）
+        ambient: { r: 100, g: 104, b: 118 },
         torchColor: '#ffbe72',
         brazierColor: '#ffa85c',
         // 贴花抽取权重（P5-T5）：冷狱以裂纹/蛛网为主
@@ -49,22 +49,22 @@ export const DUNGEON_THEMES = {
         id: 'f2',
         name: '苔窟',
         wall: {
-            top: '#5f6f5e',
-            topMortar: '#4d5a4c',
-            front: '#454f42',
-            frontMortar: '#383f36',
-            highlight: '#79876f',
-            accent: '#6d8a4f',   // 浓苔藓
-            crack: '#2e352c'
+            top: '#828f81',
+            topMortar: '#747e73',
+            front: '#6e766c',
+            frontMortar: '#565c54',
+            highlight: '#96a18f',
+            accent: '#8da476',   // 浓苔藓
+            crack: '#454a44'
         },
         floor: {
-            base: '#525c4e',
-            light: '#616c5a',
-            dark: '#434c40',
-            gap: '#383f36',
-            accent: '#5c7247'
+            base: '#788075',
+            light: '#848c7e',
+            dark: '#687064',
+            gap: '#4f5450',
+            accent: '#80916f'
         },
-        ambient: { r: 56, g: 72, b: 58 },
+        ambient: { r: 96, g: 110, b: 98 },
         torchColor: '#ffc98a',
         brazierColor: '#ffb066',
         decalWeights: { crack: 2, web: 1, moss: 5, blood: 1, puddle: 3, pages: 1 },
@@ -84,22 +84,22 @@ export const DUNGEON_THEMES = {
         id: 'f3',
         name: '燔狱',
         wall: {
-            top: '#75585a',
-            topMortar: '#5e4547',
-            front: '#54393c',
-            frontMortar: '#43292c',
-            highlight: '#8f6f6c',
-            accent: '#a4523c',   // 炽热焦痕
-            crack: '#38201f'
+            top: '#937d7e',
+            topMortar: '#816e6f',
+            front: '#7a6567',
+            frontMortar: '#5c4c4e',
+            highlight: '#a88f8c',
+            accent: '#b87867',   // 炽热焦痕
+            crack: '#4e403f'
         },
         floor: {
-            base: '#5c4747',
-            light: '#6d5352',
-            dark: '#4a3737',
-            gap: '#3c2b2b',
-            accent: '#6e4238'
+            base: '#806f6f',
+            light: '#8d7978',
+            dark: '#6e5f5f',
+            gap: '#524646',
+            accent: '#8e6c64'
         },
-        ambient: { r: 74, g: 56, b: 52 },
+        ambient: { r: 118, g: 100, b: 96 },
         torchColor: '#ff9a52',
         brazierColor: '#ff8442',
         decalWeights: { crack: 3, web: 1, moss: 0, blood: 4, puddle: 0, pages: 1 },

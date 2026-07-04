@@ -836,6 +836,14 @@ function generateRoomBraziers(room, interiorWallTiles, occupied) {
         spots.push([cx - 3, cy - 1], [cx + 3, cy - 1]);
     } else if (room.category === 'shop') {
         spots.push([cx - 4, cy - 1], [cx + 4, cy - 1]);
+    } else if (room.type === 'normal') {
+        // 普通战斗房：角落火盆照亮房间中部（火把只能挂北墙，没有它房间中央是死黑）
+        const area = room.w * room.h;
+        if (area >= 170) {
+            spots.push([left, bottom], [right, top]);
+        } else {
+            spots.push([left, bottom]);
+        }
     }
 
     const out = [];
@@ -877,8 +885,8 @@ function generateRoomDecals(room, rng, interiorWallTiles, decalWeights) {
         }
     }
 
-    // 散布贴花（血迹/裂纹/苔藓/水洼/散页，主题配比）
-    const count = randomInt(rng, 2, 5);
+    // 散布贴花（血迹/裂纹/苔藓/水洼/散页，主题配比；干净路线降密）
+    const count = randomInt(rng, 1, 3);
     for (let i = 0; i < count; i++) {
         const kind = pickWeighted(decalWeights, rng);
         if (!kind || kind === 'web') continue;
@@ -897,12 +905,12 @@ function generateRoomDecals(room, rng, interiorWallTiles, decalWeights) {
 }
 
 /**
- * 走廊稀疏贴花（每条走廊 0-2 个）。
+ * 走廊稀疏贴花（每条走廊 40% 概率 1 个）。
  */
 function generateCorridorDecals(corridors, rng, decalWeights) {
     const out = [];
     for (const corridor of corridors) {
-        const n = Math.floor(rng() * 3);
+        const n = rng() < 0.4 ? 1 : 0;
         for (let i = 0; i < n && corridor.tiles.length > 0; i++) {
             const kind = pickWeighted(decalWeights, rng);
             if (!kind || kind === 'web') continue;
@@ -927,7 +935,7 @@ function generateTorchPlacements(wallTiles, floorTiles, rng) {
     }
 
     const torches = [];
-    const SPACING = 6;
+    const SPACING = 5;
     const sortedRows = [...rows.keys()].sort((a, b) => a - b);
 
     for (const wy of sortedRows) {

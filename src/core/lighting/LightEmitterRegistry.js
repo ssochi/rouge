@@ -116,9 +116,9 @@ const OBJECT_LIGHTS = {
     dungeon_torch: {
         offsetX: 16,
         offsetY: 40,
-        radius: 122,
+        radius: 152,
         color: '#ffbe72',
-        intensity: 0.85,
+        intensity: 0.95,
         flicker: 0.09,
         castsShadows: true,
         priority: 74,
@@ -127,9 +127,9 @@ const OBJECT_LIGHTS = {
     dungeon_brazier: {
         offsetX: 16,
         offsetY: 18,
-        radius: 146,
+        radius: 182,
         color: '#ffa85c',
-        intensity: 0.95,
+        intensity: 1.0,
         flicker: 0.07,
         castsShadows: true,
         priority: 78,

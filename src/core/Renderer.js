@@ -1624,69 +1624,112 @@ export class Renderer {
 
         const bw = maxX - minX;
         const bh = maxY - minY;
+        const isWide = bw >= bh;
+        const theme = this.worldSystem && this.worldSystem.dungeonTheme;
+        const stone = theme ? theme.wall : { top: '#6a7288', highlight: '#828aa0', frontMortar: '#3d4254' };
+
+        // 能量色：冷青蓝（与火光暖色形成冷暖对比）
+        const C_CORE = '#7df4ff';
+        const C_MID = '#38bdf8';
+        const C_DIM = '#1f6fae';
 
         ctx.save();
         ctx.translate(minX, minY);
 
-        // Outer glow
-        ctx.globalAlpha = alpha * 0.12;
-        ctx.fillStyle = '#7c3aed';
-        ctx.fillRect(-6, -6, bw + 12, bh + 12);
+        if (isWide) {
+            // ── 横向门：地面能量槽 + 一排呼吸光栅柱 ──
+            const baseY = bh - 5;
+            ctx.globalAlpha = alpha * 0.35;
+            ctx.fillStyle = C_DIM;
+            ctx.fillRect(1, 2, bw - 2, bh - 4); // 半透光幕底
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.fillStyle = C_MID;
+            ctx.fillRect(2, baseY, bw - 4, 3);
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.fillStyle = C_DIM;
+            ctx.fillRect(2, baseY + 3, bw - 4, 1);
 
-        // Main barrier body
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.fillStyle = '#6366f1';
-        ctx.fillRect(0, 0, bw, bh);
-
-        // Pulsing scanlines along the longer axis
-        const isWide = bw >= bh;
-        const stripeCount = Math.max(4, Math.floor((isWide ? bw : bh) / 5));
-        for (let i = 0; i < stripeCount; i++) {
-            const pulse = 0.3 + 0.3 * Math.sin(t * 0.1 + i * 1.0);
-            ctx.globalAlpha = alpha * pulse;
-            ctx.fillStyle = '#a78bfa';
-            if (isWide) {
-                const sw = bw / stripeCount;
-                ctx.fillRect(i * sw + 1, 0, sw - 2, bh);
-            } else {
-                const sh = bh / stripeCount;
-                ctx.fillRect(0, i * sh + 1, bw, sh - 2);
+            for (let x = 5; x < bw - 6; x += 10) {
+                const phase = Math.sin(t * 0.06 + x * 0.45);
+                const h = Math.max(10, (bh - 10) * (0.72 + 0.28 * phase));
+                const topY = baseY - h;
+                ctx.globalAlpha = alpha * 0.65;
+                ctx.fillStyle = C_MID;
+                ctx.fillRect(x, topY + 4, 3, h - 4);
+                ctx.globalAlpha = alpha * 0.95;
+                ctx.fillStyle = C_CORE;
+                ctx.fillRect(x, topY, 3, 4);
             }
-        }
 
-        // Scrolling energy bands perpendicular to stripes
-        const bandCount = 4;
-        for (let i = 0; i < bandCount; i++) {
-            ctx.globalAlpha = alpha * 0.4;
-            ctx.fillStyle = '#c4b5fd';
-            if (isWide) {
-                const bandY = ((t * 0.5 + i * (bh / bandCount)) % bh);
-                ctx.fillRect(0, bandY, bw, 2);
-            } else {
-                const bandX = ((t * 0.5 + i * (bw / bandCount)) % bw);
-                ctx.fillRect(bandX, 0, 2, bh);
+            // 上升微粒
+            ctx.fillStyle = C_CORE;
+            for (let i = 0; i < 3; i++) {
+                const px = ((i * 37 + 11) % Math.max(1, bw - 8)) + 4;
+                const py = baseY - ((t * 0.6 + i * (bh / 3)) % Math.max(1, bh - 8));
+                ctx.globalAlpha = alpha * 0.7;
+                ctx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
             }
+
+            this._drawGatePylon(ctx, -4, bh - 21, stone, alpha);
+            this._drawGatePylon(ctx, bw - 4, bh - 21, stone, alpha);
+        } else {
+            // ── 竖向门：中央能量脊 + 沿 y 的呼吸横光条 ──
+            const baseX = Math.floor(bw / 2);
+            ctx.globalAlpha = alpha * 0.35;
+            ctx.fillStyle = C_DIM;
+            ctx.fillRect(baseX - 6, 1, 12, bh - 2); // 半透光幕底
+            ctx.globalAlpha = alpha * 0.55;
+            ctx.fillStyle = C_DIM;
+            ctx.fillRect(baseX - 3, 2, 6, bh - 4);
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.fillStyle = C_MID;
+            ctx.fillRect(baseX - 1, 2, 3, bh - 4);
+
+            for (let y = 5; y < bh - 5; y += 10) {
+                const phase = Math.sin(t * 0.06 + y * 0.45);
+                const w = Math.max(10, (bw - 8) * (0.7 + 0.3 * phase));
+                ctx.globalAlpha = alpha * 0.6;
+                ctx.fillStyle = C_MID;
+                ctx.fillRect(Math.floor(baseX - w / 2), y, Math.floor(w), 3);
+                ctx.globalAlpha = alpha * 0.95;
+                ctx.fillStyle = C_CORE;
+                ctx.fillRect(baseX - 1, y, 3, 3);
+            }
+
+            ctx.fillStyle = C_CORE;
+            for (let i = 0; i < 3; i++) {
+                const py = ((i * 37 + 11) % Math.max(1, bh - 8)) + 4;
+                ctx.globalAlpha = alpha * 0.7;
+                ctx.fillRect(baseX + (i % 2 === 0 ? -4 : 3), Math.floor(py + Math.sin(t * 0.08 + i) * 3), 1, 1);
+            }
+
+            this._drawGatePylon(ctx, baseX - 4, -12, stone, alpha);
+            this._drawGatePylon(ctx, baseX - 4, bh - 12, stone, alpha);
         }
-
-        // Bright edge glow
-        ctx.globalAlpha = alpha * 0.7;
-        ctx.strokeStyle = '#818cf8';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(0, 0, bw, bh);
-
-        // Corner sparkles
-        const sparkle = alpha * (0.4 + 0.4 * Math.sin(t * 0.15));
-        ctx.globalAlpha = sparkle;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-1, -1, 3, 3);
-        ctx.fillRect(bw - 2, -1, 3, 3);
-        ctx.fillRect(-1, bh - 2, 3, 3);
-        ctx.fillRect(bw - 2, bh - 2, 3, 3);
 
         ctx.restore();
     }
 
-    drawProfiler(ctx) {
+    /** 门端石墩：小石柱 + 顶端能量宝石（给能量门以实体锚点）。 */
+    _drawGatePylon(ctx, x, y, stone, alpha) {
+        ctx.globalAlpha = Math.min(1, alpha * 1.3);
+        ctx.fillStyle = stone.frontMortar;
+        ctx.fillRect(x - 1, y + 16, 10, 5);
+        ctx.fillStyle = stone.top;
+        ctx.fillRect(x, y, 8, 17);
+        ctx.fillStyle = stone.highlight;
+        ctx.fillRect(x, y, 8, 2);
+        ctx.fillRect(x, y, 2, 17);
+        ctx.fillStyle = stone.frontMortar;
+        ctx.fillRect(x + 6, y + 2, 2, 15);
+        // 顶端能量宝石（大颗 + 白核）
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(x + 2, y - 4, 4, 4);
+        ctx.fillStyle = '#e0fbff';
+        ctx.fillRect(x + 3, y - 3, 2, 2);
+    }
+
+        drawProfiler(ctx) {
         const profiler = this.profiler;
         const canvasW = this.canvas.width;
 

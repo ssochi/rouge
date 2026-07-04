@@ -372,7 +372,17 @@ export class Game {
             this.uiManager.toggleShortcutMenu(false);
         };
 
-        this.worldSystem.loadMap('hub'); // Start in Hub
+        // 调试直达参数：?map=dungeon&seed=42&gates=1（截图自查/复现布局用）
+        const debugParams = new URLSearchParams(window.location.search);
+        const debugMap = debugParams.get('map');
+        const debugSeed = parseInt(debugParams.get('seed'), 10);
+        if (Number.isFinite(debugSeed)) {
+            this.worldSystem.debugDungeonSeed = debugSeed;
+        }
+        if (debugParams.get('gates') === '1') {
+            this.worldSystem.debugActivateGates = true;
+        }
+        this.worldSystem.loadMap(debugMap || 'hub'); // Start in Hub
         this.playerSystem.updateEquippedItem();
         
         const cell = this.navGrid.getCell(this.player.x, this.player.y);

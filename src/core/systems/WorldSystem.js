@@ -184,8 +184,8 @@ export class WorldSystem {
             const prevIsDungeon = this._isDungeonMapType(prevMapType);
             const nextIsDungeon = this._isDungeonMapType(mapType);
             if (!prevIsDungeon && mapType === 'dungeon') {
-                // 从非地牢进入第一层 → 开新局，记录种子
-                this.dungeonRunState.start(Date.now());
+                // 从非地牢进入第一层 → 开新局，记录种子（调试种子优先）
+                this.dungeonRunState.start(this.debugDungeonSeed ?? Date.now());
             } else if (prevIsDungeon && !nextIsDungeon) {
                 // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
                 if (this.relicSystem) this.relicSystem.clear();
@@ -735,6 +735,13 @@ export class WorldSystem {
         this.dungeonManager = new DungeonManager(layout, this);
         this.dungeonManager.initGates(layout.gates);
         this._populateDungeonSpecialRooms(layout);
+
+        // 调试：强制激活全部能量门（截图自查屏障视觉）
+        if (this.debugActivateGates) {
+            for (const gate of this.dungeonManager.gates) {
+                this.dungeonManager._activateGate(gate);
+            }
+        }
     }
 
     updateDungeon() {
