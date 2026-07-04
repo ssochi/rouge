@@ -56,7 +56,7 @@ const COSTUME_DROP_POOL = [
 const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 
 export class WorldSystem {
-    constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem, pets }) {
+    constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem, pets, dungeonRunState }) {
         this.navGrid = navGrid;
         this.walls = walls;
         this.enemies = enemies;
@@ -67,6 +67,7 @@ export class WorldSystem {
         this.vehicles = vehicles;
         this.inventorySystem = inventorySystem;
         this.pets = pets || [];
+        this.dungeonRunState = dungeonRunState || null;
         this.portals = [];
         this.carpets = [];
         // Floor tile system
@@ -128,6 +129,9 @@ export class WorldSystem {
     }
 
     loadMap(mapType) {
+        // 进出地牢的运行状态钩子：切图前记录上一张地图类型。
+        const prevMapType = this.currentMapType;
+
         this._applyMapProfile(mapType);
 
         // Clear existing entities
@@ -150,6 +154,23 @@ export class WorldSystem {
         }
         this.dungeonManager = null;
         this.currentMapType = mapType;
+
+        // 单局地牢运行状态生命周期：必须在生成地牢层（initDungeonMap）之前更新，
+        // 以便地牢生成器读取到本局种子（seed + floor）。
+        if (this.dungeonRunState) {
+            const prevIsDungeon = this._isDungeonMapType(prevMapType);
+            const nextIsDungeon = this._isDungeonMapType(mapType);
+            if (!prevIsDungeon && mapType === 'dungeon') {
+                // 从非地牢进入第一层 → 开新局，记录种子
+                this.dungeonRunState.start(Date.now());
+            } else if (prevIsDungeon && !nextIsDungeon) {
+                // 从地牢系离开（回 hub / 通关）→ 结束本局，清零
+                this.dungeonRunState.end();
+            } else if (prevMapType === 'dungeon' && mapType === 'dungeon_f2') {
+                // 层间下潜，保持种子不变，仅推进楼层
+                this.dungeonRunState.floor = 2;
+            }
+        }
 
         // Reset player state if needed (position is handled per map)
 
@@ -182,6 +203,10 @@ export class WorldSystem {
         this._trackedObstacleStates = new WeakMap();
         this._trackedObstacleCount = 0;
         this.rebuildStaticCachesIfNeeded();
+    }
+
+    _isDungeonMapType(mapType) {
+        return mapType === 'dungeon' || mapType === 'dungeon_f2';
     }
 
     getWorldTileWidth() {
@@ -577,8 +602,12 @@ export class WorldSystem {
     }
 
     initDungeonMap(floor = 1) {
+        // 用单局种子派生每层种子（seed + floor），实现单局内可复现；
+        // 无运行状态时回退到生成器内部的 Date.now() 默认值。
+        const dungeonSeed = this.dungeonRunState ? (this.dungeonRunState.seed + floor) : undefined;
+
         // Generate dungeon layout
-        const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), undefined, floor);
+        const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), dungeonSeed, floor);
 
         // Boundary walls
         this.addBoundaryWalls();
