@@ -325,9 +325,12 @@ export class DungeonManager {
             return;
         }
 
-        // 金币必掉
-        const coinAmount = ROOM_CLEAR.coinMin +
-            Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1));
+        // 金币必掉（黄金神像遗物翻倍）
+        const coinMult = this.worldSystem.relicSystem
+            ? this.worldSystem.relicSystem.roomClearCoinMult()
+            : 1;
+        const coinAmount = (ROOM_CLEAR.coinMin +
+            Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1))) * coinMult;
         this.worldSystem.spawnCoinBurst(centerX, centerY, coinAmount);
 
         // 概率掉钥匙

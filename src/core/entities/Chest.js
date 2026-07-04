@@ -56,6 +56,15 @@ export class Chest {
 
         this._spawnLoot(result, cx, cy, worldSystem);
         worldSystem.spawnCoinBurst(cx, cy, result.coins);
+
+        // 寻宝透镜：概率双倍产出（追加一次独立抽取）
+        if (worldSystem.relicSystem && worldSystem.relicSystem.chestDoubleRoll()) {
+            const bonus = rollChest(this.tier, Math.random, {
+                ownedRelicIds: runState ? runState.relicIds : [],
+            });
+            this._spawnLoot(bonus, cx - 20, cy, worldSystem);
+            worldSystem.spawnCoinBurst(cx, cy, bonus.coins);
+        }
         return 'opened';
     }
 

@@ -1,6 +1,7 @@
 import { Assets } from '../graphics/Assets.js';
 import { SLOT_COUNT, HOTBAR_SIZE } from '../core/systems/InventorySystem.js';
 import { generateAvatar } from '../assets/characters/player/AvatarSprite.js';
+import { RELICS } from '../assets/relics/RelicData.js';
 
 // UIManager.js
 // Manages the DOM-based UI updates
@@ -884,13 +885,52 @@ export class UIManager {
 
         panel.appendChild(coinRow.row);
         panel.appendChild(keyRow.row);
+
+        // 遗物图标栏（横排，自动换行）
+        const relicBar = document.createElement('div');
+        relicBar.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end; max-width:150px; margin-top:4px;';
+        panel.appendChild(relicBar);
         document.body.appendChild(panel);
 
         this.dungeonHudPanel = panel;
         this.dungeonCoinText = coinRow.text;
         this.dungeonKeyText = keyRow.text;
+        this.dungeonRelicBar = relicBar;
         this._lastDungeonCoins = null;
         this._lastDungeonKeys = null;
+        this._lastRelicCount = -1;
+    }
+
+    /**
+     * 遗物拾取 toast：屏幕上方居中，2.5 秒淡出。
+     */
+    showRelicToast(relic) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; top: 22%; left: 50%; transform: translateX(-50%);
+            z-index: 120; background: rgba(20,12,32,0.92);
+            border: 2px solid #9b59b6; border-radius: 8px; padding: 10px 20px;
+            font-family: monospace; text-align: center; color: #fff;
+            pointer-events: none; transition: opacity 0.5s;
+        `;
+        const icon = Assets.relicIcons && Assets.relicIcons[relic.id];
+        if (icon) {
+            const img = document.createElement('img');
+            img.src = icon.toDataURL();
+            img.style.cssText = 'width:36px; height:36px; image-rendering:pixelated;';
+            toast.appendChild(img);
+        }
+        const title = document.createElement('div');
+        title.innerText = relic.name;
+        title.style.cssText = 'font-size:16px; font-weight:bold; color:#f1c40f; margin-top:4px;';
+        const desc = document.createElement('div');
+        desc.innerText = relic.desc;
+        desc.style.cssText = 'font-size:12px; color:#ddd; margin-top:2px;';
+        toast.appendChild(title);
+        toast.appendChild(desc);
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+        setTimeout(() => toast.remove(), 2600);
     }
 
     /**
@@ -912,6 +952,20 @@ export class UIManager {
         if (this._lastDungeonKeys !== rs.keys) {
             this._lastDungeonKeys = rs.keys;
             this.dungeonKeyText.innerText = `${rs.keys}`;
+        }
+        if (this._lastRelicCount !== rs.relicIds.length) {
+            this._lastRelicCount = rs.relicIds.length;
+            this.dungeonRelicBar.innerHTML = '';
+            for (const id of rs.relicIds) {
+                const relic = RELICS[id];
+                const icon = Assets.relicIcons && Assets.relicIcons[id];
+                if (!relic || !icon) continue;
+                const img = document.createElement('img');
+                img.src = icon.toDataURL();
+                img.title = `${relic.name}：${relic.desc}`;
+                img.style.cssText = 'width:24px; height:24px; image-rendering:pixelated; background:rgba(0,0,0,0.35); border:1px solid #6d5a65; border-radius:3px;';
+                this.dungeonRelicBar.appendChild(img);
+            }
         }
     }
 

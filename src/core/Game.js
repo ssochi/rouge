@@ -181,6 +181,10 @@ export class Game {
         this.relicSystem.setKillExplosionHandler((x, y, conf) => {
             this.combatSystem.spawnExplosion(x, y, conf.damage, conf.radius, 4);
         });
+        // 拾取 toast
+        this.relicSystem.setPickupHandler((relic) => {
+            this.uiManager.showRelicToast(relic);
+        });
 
         this.worldSystem = new WorldSystem({
             navGrid: this.navGrid,
