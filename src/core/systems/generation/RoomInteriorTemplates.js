@@ -63,7 +63,7 @@ const TEMPLATES = [
     {
         id: 'checker_blocks',
         allowedTypes: ['normal'],
-        allowedCategories: ['combat_cover', 'reward'],
+        allowedCategories: ['combat_cover', 'treasure'],
         minInteriorW: 10,
         minInteriorH: 10,
         weight: 0.8,
@@ -72,7 +72,7 @@ const TEMPLATES = [
     {
         id: 'broken_ring',
         allowedTypes: ['normal'],
-        allowedCategories: ['challenge_trapline', 'reward'],
+        allowedCategories: ['challenge_trapline', 'elite'],
         minInteriorW: 12,
         minInteriorH: 10,
         weight: 0.8,

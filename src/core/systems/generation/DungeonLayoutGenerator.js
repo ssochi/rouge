@@ -508,10 +508,25 @@ function assignRoomCategories(rooms, depths, startIdx, bossIdx, rng) {
         if (i !== startIdx && i !== bossIdx) normalIds.push(i);
     }
 
-    // Reward rooms: pick deepest normal rooms first.
+    // 特殊房分配（每层各 1 间）：
+    // treasure（宝箱房）= 最深普通房；elite（精英房）= 次深普通房；
+    // shop（商店房）= 深度最接近 50% 的普通房。房间不足时按优先级降级跳过。
     normalIds.sort((a, b) => depths[b] - depths[a]);
-    const rewardCount = normalIds.length >= 7 ? 2 : 1;
-    const rewardSet = new Set(normalIds.slice(0, rewardCount));
+    const treasureId = normalIds.length >= 3 ? normalIds[0] : -1;
+    const eliteId = normalIds.length >= 4 ? normalIds[1] : -1;
+    let shopId = -1;
+    if (normalIds.length >= 5) {
+        const targetDepth = maxDepth * 0.5;
+        let best = Infinity;
+        for (const id of normalIds) {
+            if (id === treasureId || id === eliteId) continue;
+            const diff = Math.abs(depths[id] - targetDepth);
+            if (diff < best) {
+                best = diff;
+                shopId = id;
+            }
+        }
+    }
 
     for (let i = 0; i < rooms.length; i++) {
         if (i === startIdx) {
@@ -523,8 +538,16 @@ function assignRoomCategories(rooms, depths, startIdx, bossIdx, rng) {
             continue;
         }
 
-        if (rewardSet.has(i)) {
-            rooms[i].category = 'reward';
+        if (i === treasureId) {
+            rooms[i].category = 'treasure';
+            continue;
+        }
+        if (i === eliteId) {
+            rooms[i].category = 'elite';
+            continue;
+        }
+        if (i === shopId) {
+            rooms[i].category = 'shop';
             continue;
         }
 
@@ -566,20 +589,20 @@ function computeEnemyConfig(roomType, depth, floor, category = 'combat_cover') {
         };
     }
 
-    // Reward rooms are intentionally lighter to create pacing contrast.
-    if (category === 'reward') {
-        const count = depth <= 2 ? 2 : 3;
+    // 宝箱房/商店房：安全区，不刷怪不锁门（宝箱与商品在地图初始化时投放）。
+    if (category === 'treasure' || category === 'shop') {
+        return { types: [], count: 0 };
+    }
+
+    // 精英房：精锐小队（P4 词缀系统接入后再叠加词缀强化）。
+    if (category === 'elite') {
         return {
-            types: depth <= 2
-                ? [
-                    { type: 'zombie', count: Math.ceil(count * 0.5) },
-                    { type: 'zombie_female', count: Math.floor(count * 0.5) }
-                ]
-                : [
-                    { type: 'zombie_female', count: 1 },
-                    { type: 'hunter', count: Math.max(1, count - 1) }
-                ],
-            count
+            types: [
+                { type: 'zombie_brute', count: 2 },
+                { type: 'hunter', count: 2 },
+                { type: 'soldier', count: 2 }
+            ],
+            count: 6
         };
     }
 
@@ -630,14 +653,18 @@ function computeEnemyConfigFloor2(roomType, depth, category = 'combat_cover') {
         };
     }
 
-    if (category === 'reward') {
-        const count = depth <= 2 ? 3 : 4;
+    if (category === 'treasure' || category === 'shop') {
+        return { types: [], count: 0 };
+    }
+
+    if (category === 'elite') {
         return {
             types: [
-                { type: 'zombie_brute', count: Math.max(1, Math.floor(count * 0.34)) },
-                { type: 'hunter', count: Math.max(1, Math.ceil(count * 0.66)) }
+                { type: 'zombie_brute', count: 2 },
+                { type: 'hunter', count: 2 },
+                { type: 'soldier', count: 3 }
             ],
-            count
+            count: 7
         };
     }
 
@@ -694,9 +721,15 @@ function generateRoomCover(room, rng, interiorWallTiles = new Set(), occupied = 
     } else if (room.category === 'challenge_trapline') {
         minCount = 5;
         maxCount = Math.max(7, Math.floor(area / 17));
-    } else if (room.category === 'reward') {
+    } else if (room.category === 'treasure') {
         minCount = 1;
-        maxCount = 3;
+        maxCount = 2;
+    } else if (room.category === 'shop') {
+        minCount = 0;
+        maxCount = 0;
+    } else if (room.category === 'elite') {
+        minCount = 5;
+        maxCount = Math.max(7, Math.floor(area / 16));
     } else if (room.type === 'boss') {
         minCount = 6;
         maxCount = 10;
