@@ -1409,7 +1409,9 @@ export class Renderer {
             if (room.id === data.currentRoomId) fill = 'rgba(236, 244, 255, 0.9)';
             else if (room.type === 'boss') fill = room.state === 'cleared' ? 'rgba(130, 88, 92, 0.85)' : 'rgba(188, 74, 84, 0.92)';
             else if (room.state === 'active') fill = 'rgba(226, 183, 68, 0.9)';
-            else if (room.category === 'reward' && room.state === 'cleared') fill = 'rgba(86, 184, 189, 0.9)';
+            else if (room.category === 'treasure') fill = 'rgba(86, 184, 189, 0.9)';
+            else if (room.category === 'shop') fill = 'rgba(203, 172, 66, 0.9)';
+            else if (room.category === 'elite' && room.state !== 'cleared') fill = 'rgba(176, 84, 148, 0.92)';
             else if (room.state === 'cleared') fill = room.type === 'start' ? 'rgba(91, 145, 212, 0.86)' : 'rgba(88, 176, 108, 0.9)';
             else if (room.category === 'combat_maze') fill = 'rgba(123, 111, 178, 0.86)';
             else if (room.category === 'challenge_trapline') fill = 'rgba(168, 115, 82, 0.86)';
@@ -1430,12 +1432,17 @@ export class Renderer {
                 ctx.strokeRect(rx - 1.5, ry - 1.5, size + 3, size + 3);
             }
 
-            if (room.type === 'boss' || room.category === 'reward') {
+            const glyph = room.type === 'boss' ? 'B'
+                : room.category === 'treasure' ? '+'
+                : room.category === 'shop' ? '$'
+                : room.category === 'elite' ? '!'
+                : null;
+            if (glyph) {
                 ctx.fillStyle = 'rgba(255,255,255,0.9)';
                 ctx.font = '8px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(room.type === 'boss' ? 'B' : '+', rx + size / 2, ry + size / 2 + 0.5);
+                ctx.fillText(glyph, rx + size / 2, ry + size / 2 + 0.5);
             }
         }
 

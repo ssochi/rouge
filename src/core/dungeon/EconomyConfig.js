@@ -20,6 +20,12 @@ export const ROOM_CLEAR = {
 // Boss 清除保底宝箱档位（按楼层）。
 export const BOSS_CHEST_TIER = { 1: 'mithril', 2: 'dragon' };
 
+// 宝箱房固定投放（按楼层，地图初始化时生成）。
+export const TREASURE_ROOM_CHESTS = { 1: ['iron', 'wood'], 2: ['mithril', 'iron'] };
+
+// 精英房清除保底奖励：必掉钥匙 + 保底宝箱 + 金币加成。
+export const ELITE_CLEAR = { chestTier: 'iron', coinMult: 1.5 };
+
 // 宝箱档位：是否需要钥匙、金币区间、稀有度权重分布。
 export const CHEST_TIERS = {
     wood: { needsKey: false, coins: [3, 8], relicChance: 0.10, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },

@@ -31,7 +31,7 @@ import {
     createWeaponInstanceData,
     weaponItemIdFromConfigId
 } from './WeaponInstanceUtils.js';
-import { ENEMY_COIN_VALUES, BREAKABLE_COIN, LOOT_WEAPON_BLACKLIST } from '../dungeon/EconomyConfig.js';
+import { ENEMY_COIN_VALUES, BREAKABLE_COIN, LOOT_WEAPON_BLACKLIST, TREASURE_ROOM_CHESTS } from '../dungeon/EconomyConfig.js';
 
 const ROOM_GUN_SPAWN_CHANCE = 0.05;
 const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
@@ -688,6 +688,7 @@ export class WorldSystem {
         // Initialize dungeon manager with gate system
         this.dungeonManager = new DungeonManager(layout, this);
         this.dungeonManager.initGates(layout.gates);
+        this._populateDungeonSpecialRooms(layout);
     }
 
     updateDungeon() {
@@ -831,6 +832,23 @@ export class WorldSystem {
 
         if (changed) {
             this.markWorldStaticDirty();
+        }
+    }
+
+    /**
+     * 地图初始化时投放特殊房间内容：宝箱房的分级宝箱（商店房内容由 DungeonShop 负责）。
+     */
+    _populateDungeonSpecialRooms(layout) {
+        const floor = layout.floor || 1;
+        for (const room of layout.rooms) {
+            if (room.category !== 'treasure') continue;
+            const tiers = TREASURE_ROOM_CHESTS[floor] || TREASURE_ROOM_CHESTS[1];
+            const centerX = (room.x + room.w / 2) * TILE_SIZE;
+            const centerY = (room.y + room.h / 2) * TILE_SIZE;
+            tiers.forEach((tier, i) => {
+                const offsetX = (i - (tiers.length - 1) / 2) * 48;
+                this.spawnChest(centerX + offsetX - 13, centerY - 11, tier);
+            });
         }
     }
 

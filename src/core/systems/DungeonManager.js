@@ -3,7 +3,7 @@ import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
-import { ROOM_CLEAR, BOSS_CHEST_TIER } from '../dungeon/EconomyConfig.js';
+import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR } from '../dungeon/EconomyConfig.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -325,13 +325,20 @@ export class DungeonManager {
             return;
         }
 
-        // 金币必掉（黄金神像遗物翻倍）
-        const coinMult = this.worldSystem.relicSystem
+        // 金币必掉（黄金神像遗物翻倍；精英房金币加成）
+        const relicCoinMult = this.worldSystem.relicSystem
             ? this.worldSystem.relicSystem.roomClearCoinMult()
             : 1;
-        const coinAmount = (ROOM_CLEAR.coinMin +
-            Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1))) * coinMult;
+        const eliteCoinMult = room.category === 'elite' ? ELITE_CLEAR.coinMult : 1;
+        const coinAmount = Math.round((ROOM_CLEAR.coinMin +
+            Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1))) * relicCoinMult * eliteCoinMult);
         this.worldSystem.spawnCoinBurst(centerX, centerY, coinAmount);
+
+        // 精英房：保底钥匙 + 保底宝箱
+        if (room.category === 'elite') {
+            this.worldSystem.spawnKeyDrop(centerX + 24, centerY + 16);
+            this.worldSystem.spawnChest(centerX - 13, centerY - 40, ELITE_CLEAR.chestTier);
+        }
 
         // 概率掉钥匙
         if (Math.random() < ROOM_CLEAR.keyChance) {
