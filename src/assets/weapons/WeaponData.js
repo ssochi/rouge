@@ -39,7 +39,8 @@ export const WEAPONS = {
         // Ammo
         magazineSize: 30,
         maxReserve: 120,
-        reloadTime: 2000 // 2 seconds
+        reloadTime: 2000, // 2 seconds
+        rarity: 'common'
     },
     default_pistol: {
         name: "Pistol",
@@ -62,7 +63,8 @@ export const WEAPONS = {
         // Ammo
         magazineSize: 12,
         maxReserve: 60,
-        reloadTime: 1500
+        reloadTime: 1500,
+        rarity: 'common'
     },
     rocket_launcher: {
         name: "RPG-7",
@@ -90,7 +92,8 @@ export const WEAPONS = {
         // Ammo
         magazineSize: 1,
         maxReserve: 10,
-        reloadTime: 3000
+        reloadTime: 3000,
+        rarity: 'rare'
     },
     hammer: {
         name: "Hammer",
@@ -105,7 +108,8 @@ export const WEAPONS = {
         orbitRadius: 18,
         fireRate: 0,
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        damage: 0
     },
     recovery_needle: {
         name: "Recovery Needle",
@@ -175,7 +179,8 @@ export const WEAPONS = {
         magazineSize: 6,
         maxReserve: 36,
         reloadTime: 2500,
-        caliber: 'shotgun'
+        caliber: 'shotgun',
+        rarity: 'common'
     },
     smg: {
         name: "SMG",
@@ -197,7 +202,8 @@ export const WEAPONS = {
         magazineSize: 40,
         maxReserve: 200,
         reloadTime: 1800,
-        caliber: 'pistol'
+        caliber: 'pistol',
+        rarity: 'common'
     },
     sniper: {
         name: "Sniper Rifle",
@@ -227,7 +233,8 @@ export const WEAPONS = {
         magazineSize: 5,
         maxReserve: 25,
         reloadTime: 3000,
-        caliber: 'rifle'
+        caliber: 'rifle',
+        rarity: 'uncommon'
     },
     crossbow: {
         name: "Crossbow",
@@ -254,7 +261,8 @@ export const WEAPONS = {
         bulletType: 'bolt',
         magazineSize: 1,
         maxReserve: 20,
-        reloadTime: 1500
+        reloadTime: 1500,
+        rarity: 'common'
     },
     grenade_launcher: {
         name: "Grenade Launcher",
@@ -284,7 +292,8 @@ export const WEAPONS = {
         gravityZ: 0.15,
         magazineSize: 1,
         maxReserve: 15,
-        reloadTime: 2000
+        reloadTime: 2000,
+        rarity: 'uncommon'
     },
     laser_gun: {
         name: "Laser Gun",
@@ -311,7 +320,8 @@ export const WEAPONS = {
         beamDuration: 10,
         magazineSize: 8,
         maxReserve: 40,
-        reloadTime: 2500
+        reloadTime: 2500,
+        rarity: 'rare'
     },
     laser_rifle: {
         name: "Laser Rifle",
@@ -344,7 +354,8 @@ export const WEAPONS = {
         bulletSize: 0,
         magazineSize: 60,
         maxReserve: 180,
-        reloadTime: 3000
+        reloadTime: 3000,
+        rarity: 'epic'
     },
     laser_shotgun: {
         name: "Laser Shotgun",
@@ -373,7 +384,8 @@ export const WEAPONS = {
         spread: 30,                  // 30-degree cone
         magazineSize: 10,
         maxReserve: 50,
-        reloadTime: 2500
+        reloadTime: 2500,
+        rarity: 'rare'
     },
     flamethrower: {
         name: "Flamethrower",
@@ -402,7 +414,8 @@ export const WEAPONS = {
         burnTickInterval: 20,
         magazineSize: 100,
         maxReserve: 200,
-        reloadTime: 3000
+        reloadTime: 3000,
+        rarity: 'uncommon'
     },
     black_hole_gun: {
         name: "Black Hole Gun",
@@ -433,7 +446,8 @@ export const WEAPONS = {
         blackHolePullForce: 2,
         magazineSize: 3,
         maxReserve: 9,
-        reloadTime: 3500
+        reloadTime: 3500,
+        rarity: 'legendary'
     },
     teleport_gun: {
         name: "Teleport Gun",
@@ -457,7 +471,8 @@ export const WEAPONS = {
         bulletType: 'teleport',
         magazineSize: 3,
         maxReserve: 15,
-        reloadTime: 2000
+        reloadTime: 2000,
+        rarity: 'legendary'
     },
     lightning_gun: {
         name: "Lightning Gun",
@@ -484,7 +499,8 @@ export const WEAPONS = {
         chainDamageMultiplier: 0.9,
         magazineSize: 15,
         maxReserve: 60,
-        reloadTime: 2000
+        reloadTime: 2000,
+        rarity: 'epic'
     },
     freeze_ray: {
         name: "Freeze Ray",
@@ -514,7 +530,8 @@ export const WEAPONS = {
         frozenDamageMultiplier: 1.5,
         magazineSize: 80,
         maxReserve: 160,
-        reloadTime: 2500
+        reloadTime: 2500,
+        rarity: 'rare'
     },
     ricochet_gun: {
         name: "Ricochet Gun",
@@ -537,7 +554,8 @@ export const WEAPONS = {
         maxBounces: 3,
         magazineSize: 8,
         maxReserve: 40,
-        reloadTime: 1500
+        reloadTime: 1500,
+        rarity: 'uncommon'
     },
     katana: {
         name: "Katana",
@@ -564,7 +582,8 @@ export const WEAPONS = {
         swingArcDegrees: 150,
         // No ammo
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        rarity: 'uncommon'
     },
     dagger: {
         name: "Dagger",
@@ -594,7 +613,8 @@ export const WEAPONS = {
         slashTrailWidth: 2,
         hitSparkColors: ['#2ecc71', '#27ae60', '#ffffff'],
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        rarity: 'common'
     },
     greatsword: {
         name: "Greatsword",
@@ -625,7 +645,8 @@ export const WEAPONS = {
         slashTrailWidth: 6,
         hitSparkColors: ['#e67e22', '#f39c12', '#ffffff'],
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        rarity: 'rare'
     },
     spear: {
         name: "Spear",
@@ -654,7 +675,8 @@ export const WEAPONS = {
         slashTrailWidth: 3,
         hitSparkColors: ['#ecf0f1', '#bdc3c7', '#ffffff'],
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        rarity: 'uncommon'
     },
     battle_axe: {
         name: "Battle Axe",
@@ -687,7 +709,8 @@ export const WEAPONS = {
         slashTrailWidth: 5,
         hitSparkColors: ['#c0392b', '#922b21', '#e74c3c'],
         magazineSize: 0,
-        maxReserve: 0
+        maxReserve: 0,
+        rarity: 'rare'
     },
     boomerang: {
         name: "Boomerang",
@@ -713,7 +736,8 @@ export const WEAPONS = {
         catchRadius: 16,
         magazineSize: 1,
         maxReserve: 10,
-        reloadTime: 600
+        reloadTime: 600,
+        rarity: 'uncommon'
     },
     plasma_rifle: {
         name: "Plasma Rifle",
@@ -739,7 +763,8 @@ export const WEAPONS = {
         burstInterval: 60,
         magazineSize: 21,
         maxReserve: 84,
-        reloadTime: 2200
+        reloadTime: 2200,
+        rarity: 'rare'
     },
     homing_launcher: {
         name: "Homing Launcher",
@@ -767,7 +792,8 @@ export const WEAPONS = {
         homingAcquireRange: 300,
         magazineSize: 4,
         maxReserve: 16,
-        reloadTime: 3000
+        reloadTime: 3000,
+        rarity: 'epic'
     },
     acid_gun: {
         name: "Acid Gun",
@@ -799,7 +825,8 @@ export const WEAPONS = {
         puddleTickInterval: 15,
         magazineSize: 20,
         maxReserve: 80,
-        reloadTime: 2200
+        reloadTime: 2200,
+        rarity: 'rare'
     },
     cluster_gun: {
         name: "Cluster Gun",
@@ -828,7 +855,8 @@ export const WEAPONS = {
         fragmentSize: 3,
         magazineSize: 6,
         maxReserve: 24,
-        reloadTime: 2500
+        reloadTime: 2500,
+        rarity: 'epic'
     },
     force_gun: {
         name: "Force Gun",
@@ -856,7 +884,8 @@ export const WEAPONS = {
         wallSlamDamage: 15,
         magazineSize: 8,
         maxReserve: 40,
-        reloadTime: 2000
+        reloadTime: 2000,
+        rarity: 'rare'
     },
     vampyre_gun: {
         name: "Vampyre",
@@ -881,7 +910,8 @@ export const WEAPONS = {
         lifestealCap: 10,
         magazineSize: 8,
         maxReserve: 48,
-        reloadTime: 2200
+        reloadTime: 2200,
+        rarity: 'epic'
     },
     needle_gun: {
         name: "Needle Gun",
@@ -910,7 +940,8 @@ export const WEAPONS = {
         needleMaxStacks: 6,
         magazineSize: 24,
         maxReserve: 96,
-        reloadTime: 2000
+        reloadTime: 2000,
+        rarity: 'uncommon'
     },
     railgun: {
         name: "Railgun",
@@ -939,7 +970,8 @@ export const WEAPONS = {
         railPierceSpeedThreshold: 14,
         magazineSize: 4,
         maxReserve: 20,
-        reloadTime: 2500
+        reloadTime: 2500,
+        rarity: 'epic'
     },
     turret_deployer: {
         name: "炮塔部署器",
@@ -992,7 +1024,8 @@ export const WEAPONS = {
         magazineSize: 8,
         maxReserve: 48,
         reloadTime: 2000,
-        caliber: 'shotgun'
+        caliber: 'shotgun',
+        rarity: 'uncommon'
     },
     venom_sprayer: {
         name: "毒雾喷射器",
@@ -1024,7 +1057,8 @@ export const WEAPONS = {
         puddleTickInterval: 20,
         magazineSize: 80,
         maxReserve: 160,
-        reloadTime: 3000
+        reloadTime: 3000,
+        rarity: 'rare'
     },
     storm_revolver: {
         name: "风暴左轮",
@@ -1050,7 +1084,8 @@ export const WEAPONS = {
         chainDamageMultiplier: 0.7,
         magazineSize: 6,
         maxReserve: 36,
-        reloadTime: 2200
+        reloadTime: 2200,
+        rarity: 'epic'
     },
     meteor_cannon: {
         name: "陨石炮",
@@ -1083,7 +1118,8 @@ export const WEAPONS = {
         knockback: 6,
         magazineSize: 4,
         maxReserve: 16,
-        reloadTime: 2800
+        reloadTime: 2800,
+        rarity: 'legendary'
     },
     phantom_pistol: {
         name: "幻影手枪",
@@ -1106,6 +1142,7 @@ export const WEAPONS = {
         maxBounces: 6,
         magazineSize: 6,
         maxReserve: 36,
-        reloadTime: 1800
+        reloadTime: 1800,
+        rarity: 'epic'
     }
 };
