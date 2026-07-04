@@ -53,6 +53,7 @@ import { createDungeonIronCageSprite } from '../assets/objects/dungeon/DungeonIr
 import { createDungeonBonePileSprite } from '../assets/objects/dungeon/DungeonBonePileSprite.js';
 import { createCoinSprite, createKeySprite } from '../assets/dungeon/PickupSprites.js';
 import { createChestSprite, CHEST_TIER_NAMES } from '../assets/dungeon/ChestSprites.js';
+import { createRelicIcons } from '../assets/relics/RelicIcons.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -211,6 +212,7 @@ const dungeonIronCageSprite = createDungeonIronCageSprite();
 const dungeonBonePileSprite = createDungeonBonePileSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
+const relicIconSprites = createRelicIcons();
 const dungeonChestSprites = Object.fromEntries(
     CHEST_TIER_NAMES.map(tier => [tier, {
         closed: createChestSprite(tier, false),
@@ -551,6 +553,7 @@ export const Assets = {
     dungeonCoin: dungeonCoinFrames, // 两帧微闪金币
     dungeonKey: dungeonKeySprite,   // 古铜色钥匙
     dungeonChests: dungeonChestSprites, // 四档宝箱 {tier: {closed, open}}
+    relicIcons: relicIconSprites, // 遗物图标 {relicId: 12×12 Canvas}
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),
