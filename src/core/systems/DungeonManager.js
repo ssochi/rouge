@@ -2,6 +2,8 @@ import { TILE_SIZE } from '../../utils/Constants.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
+import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
+import { ROOM_CLEAR } from '../dungeon/EconomyConfig.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -318,20 +320,31 @@ export class DungeonManager {
             return;
         }
 
-        // 30% chance to drop a weapon
-        if (Math.random() < 0.3) {
-            const pool = this.worldSystem._getRoomWeaponPool();
-            if (pool && pool.length > 0) {
-                const weaponConfigId = pool[Math.floor(Math.random() * pool.length)];
-                const weaponItemId = weaponItemIdFromConfigId(weaponConfigId);
-                if (weaponItemId) {
-                    const instanceData = createWeaponInstanceData({ weaponConfigId });
-                    const offsetX = (Math.random() - 0.5) * 32;
-                    const offsetY = (Math.random() - 0.5) * 32;
-                    this.worldSystem.droppedItems.push(
-                        new DroppedItem(centerX + offsetX, centerY + offsetY, weaponItemId, 1, instanceData)
-                    );
-                }
+        // 金币必掉
+        const coinAmount = ROOM_CLEAR.coinMin +
+            Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1));
+        this.worldSystem.spawnCoinBurst(centerX, centerY, coinAmount);
+
+        // 概率掉钥匙
+        if (Math.random() < ROOM_CLEAR.keyChance) {
+            this.worldSystem.spawnKeyDrop(
+                centerX + (Math.random() - 0.5) * 40,
+                centerY + (Math.random() - 0.5) * 40
+            );
+        }
+
+        // 概率掉武器（稀有度加权抽取）
+        if (Math.random() < ROOM_CLEAR.weaponChance) {
+            const rarity = pickRarity(ROOM_CLEAR.weaponRarityWeights);
+            const weaponConfigId = pickWeaponByRarity(rarity);
+            const weaponItemId = weaponConfigId ? weaponItemIdFromConfigId(weaponConfigId) : null;
+            if (weaponItemId) {
+                const instanceData = createWeaponInstanceData({ weaponConfigId });
+                const offsetX = (Math.random() - 0.5) * 32;
+                const offsetY = (Math.random() - 0.5) * 32;
+                this.worldSystem.droppedItems.push(
+                    new DroppedItem(centerX + offsetX, centerY + offsetY, weaponItemId, 1, instanceData)
+                );
             }
         }
 

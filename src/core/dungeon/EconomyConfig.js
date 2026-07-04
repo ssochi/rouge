@@ -7,8 +7,14 @@ export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5,
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
 export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };
 
-// 清房奖励：钥匙/武器掉落概率 + 金币数量区间。
-export const ROOM_CLEAR = { keyChance: 0.15, weaponChance: 0.15, coinMin: 3, coinMax: 8 };
+// 清房奖励：钥匙/武器掉落概率 + 金币数量区间 + 武器稀有度权重。
+export const ROOM_CLEAR = {
+    keyChance: 0.15,
+    weaponChance: 0.15,
+    coinMin: 3,
+    coinMax: 8,
+    weaponRarityWeights: { common: 40, uncommon: 30, rare: 20, epic: 8, legendary: 2 },
+};
 
 // 宝箱档位：是否需要钥匙、金币区间、稀有度权重分布。
 export const CHEST_TIERS = {
@@ -18,7 +24,5 @@ export const CHEST_TIERS = {
     dragon: { needsKey: true, coins: [15, 30], rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
 };
 
-// 掉落池黑名单：与 WorldSystem.js 中 ROOM_GUN_POOL_BLACKLIST 保持一致的非战斗/特殊拾取武器 id。
-// WorldSystem.js 中该常量为模块内部变量未导出，故在此复制一份供 LootTable 使用；
-// 如后续两处出现不一致，以此文件为准并同步修改 WorldSystem.js。
+// 掉落池黑名单：非战斗/特殊拾取武器 id，唯一权威来源（WorldSystem 房间刷枪池同样引用此处）。
 export const LOOT_WEAPON_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);

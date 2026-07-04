@@ -30,6 +30,7 @@ import {
     createWeaponInstanceData,
     weaponItemIdFromConfigId
 } from './WeaponInstanceUtils.js';
+import { ENEMY_COIN_VALUES, BREAKABLE_COIN, LOOT_WEAPON_BLACKLIST } from '../dungeon/EconomyConfig.js';
 
 const ROOM_GUN_SPAWN_CHANCE = 0.05;
 const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
@@ -54,7 +55,6 @@ const COSTUME_DROP_POOL = [
     'costume:clothes_clown',
     'costume:hair_clown',
 ];
-const ROOM_GUN_POOL_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
 
 export class WorldSystem {
     constructor({ navGrid, walls, enemies, droppedItems, breakableObjects, player, combatSystem, vehicles, inventorySystem, pets, dungeonRunState }) {
@@ -210,7 +210,7 @@ export class WorldSystem {
     }
 
     _isDungeonMapType(mapType) {
-        return mapType === 'dungeon' || mapType === 'dungeon_f2';
+        return typeof mapType === 'string' && mapType.startsWith('dungeon');
     }
 
     getWorldTileWidth() {
@@ -777,6 +777,10 @@ export class WorldSystem {
             const stamp = `${obj.isBroken ? 1 : 0}:${obj.isOpen ? 1 : 0}`;
             const prev = this._trackedObstacleStates.get(obj);
             if (prev !== stamp) {
+                // 破碎瞬间（未破 → 已破）触发一次掉落钩子
+                if (prev !== undefined && obj.isBroken && prev.charAt(0) === '0') {
+                    this._onBreakableBroken(obj);
+                }
                 this._trackedObstacleStates.set(obj, stamp);
                 changed = true;
             }
@@ -790,6 +794,17 @@ export class WorldSystem {
         if (changed) {
             this.markWorldStaticDirty();
         }
+    }
+
+    _onBreakableBroken(obj) {
+        if (!this._isDungeonMapType(this.currentMapType)) return;
+        // 墙体/门破坏不掉落，只有箱桶等普通可破坏物掉金币
+        if (obj.type === 'wall' || obj.baseType === 'door_h' || obj.baseType === 'door_v') return;
+        if (Math.random() >= BREAKABLE_COIN.chance) return;
+        const amount = BREAKABLE_COIN.min + Math.floor(Math.random() * (BREAKABLE_COIN.max - BREAKABLE_COIN.min + 1));
+        const cx = obj.x + (obj.width || TILE_SIZE) / 2;
+        const cy = obj.y + (obj.height || TILE_SIZE) / 2;
+        this.spawnCoinBurst(cx, cy, amount);
     }
 
     _snapshotObstacleStates() {
@@ -914,7 +929,7 @@ export class WorldSystem {
             const weapon = WEAPONS[id];
             if (!weapon) return false;
             if (weapon.isUtility) return false;
-            return !ROOM_GUN_POOL_BLACKLIST.has(id);
+            return !LOOT_WEAPON_BLACKLIST.has(id);
         });
 
         if (this.roomWeaponPool.length === 0) {
@@ -1154,6 +1169,7 @@ export class WorldSystem {
             }
 
             const enemy = this._createEnemyByType(type, spawnPos.x, spawnPos.y);
+            enemy.spawnType = type;
             this._setupEnemyLoadout(enemy, type, options);
 
             if (this.isEntityBlockedAt(enemy, enemy.x, enemy.y)) {
@@ -1931,15 +1947,25 @@ export class WorldSystem {
             if (this.enemies[i].hp <= 0) {
                 // Skip loot drops for boss segments (SnakeSegment etc.)
                 if (!this.enemies[i].isSegment) {
-                    if (this.enemies[i].isBoss) {
-                        this._dropBossLoot(this.enemies[i]);
+                    const deadEnemy = this.enemies[i];
+                    if (this._isDungeonMapType(this.currentMapType)) {
+                        // 地牢内：金币掉落；Boss 武器掉落改由清房宝箱承接
+                        const coinValue = deadEnemy.isBoss
+                            ? ENEMY_COIN_VALUES.boss
+                            : (ENEMY_COIN_VALUES[deadEnemy.spawnType] ?? ENEMY_COIN_VALUES.default);
+                        this.spawnCoinBurst(deadEnemy.x, deadEnemy.y, coinValue);
+                        if (!deadEnemy.isBoss) {
+                            this._dropEnemyWeapon(deadEnemy);
+                        }
+                    } else if (deadEnemy.isBoss) {
+                        this._dropBossLoot(deadEnemy);
                     } else {
-                        this._dropEnemyWeapon(this.enemies[i]);
+                        this._dropEnemyWeapon(deadEnemy);
                     }
-                    this._dropEnemyRecoveryNeedle(this.enemies[i]);
-                    this._dropEnemyMedkit(this.enemies[i]);
-                    this._dropEnemyHamburger(this.enemies[i]);
-                    this._dropEnemyCostume(this.enemies[i]);
+                    this._dropEnemyRecoveryNeedle(deadEnemy);
+                    this._dropEnemyMedkit(deadEnemy);
+                    this._dropEnemyHamburger(deadEnemy);
+                    this._dropEnemyCostume(deadEnemy);
                 }
                 this.enemies.splice(i, 1);
             }
