@@ -2,7 +2,7 @@
 // 所有掉落/奖励相关的数值均在此定义，供 P6 数值调优时统一调整。
 
 // 敌人死亡掉落金币基准值（按敌人类型），default 为兜底值。
-export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, default: 2, boss: 50 };
+export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, default: 2, boss: 50 };
 
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
 export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };

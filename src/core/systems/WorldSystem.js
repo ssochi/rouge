@@ -11,6 +11,8 @@ import { Warlock } from '../entities/Warlock.js';
 import { Boomer } from '../entities/Boomer.js';
 import { Summoner } from '../entities/Summoner.js';
 import { Shieldbearer } from '../entities/Shieldbearer.js';
+import { Sentry } from '../entities/Sentry.js';
+import { Lobber } from '../entities/Lobber.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
@@ -1064,6 +1066,8 @@ export class WorldSystem {
         if (type === 'boomer') return new Boomer(x, y);
         if (type === 'summoner') return new Summoner(x, y);
         if (type === 'shieldbearer') return new Shieldbearer(x, y);
+        if (type === 'sentry') return new Sentry(x, y);
+        if (type === 'lobber') return new Lobber(x, y);
         return new Zombie(x, y);
     }
 

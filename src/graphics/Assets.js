@@ -20,6 +20,11 @@ import { SUMMONER_ATTACK_FRAMES } from '../assets/characters/enemies/summoner/Su
 import { SHIELDBEARER_IDLE_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerIdle.js';
 import { SHIELDBEARER_RUN_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerRun.js';
 import { SHIELDBEARER_ATTACK_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerAttack.js';
+import { SENTRY_IDLE_FRAMES } from '../assets/characters/enemies/sentry/SentryIdle.js';
+import { SENTRY_ATTACK_FRAMES } from '../assets/characters/enemies/sentry/SentryAttack.js';
+import { LOBBER_IDLE_FRAMES } from '../assets/characters/enemies/lobber/LobberIdle.js';
+import { LOBBER_RUN_FRAMES } from '../assets/characters/enemies/lobber/LobberRun.js';
+import { LOBBER_ATTACK_FRAMES } from '../assets/characters/enemies/lobber/LobberAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
 import { PISTOL_SPRITE } from '../assets/weapons/PistolGenerator.js';
 import { ROCKET_LAUNCHER_SPRITE } from '../assets/weapons/RocketLauncherGenerator.js';
@@ -334,6 +339,15 @@ export const Assets = {
         idle: SHIELDBEARER_IDLE_FRAMES,
         run: SHIELDBEARER_RUN_FRAMES,
         attack: SHIELDBEARER_ATTACK_FRAMES
+    },
+    sentry: {
+        idle: SENTRY_IDLE_FRAMES,
+        attack: SENTRY_ATTACK_FRAMES // 固定炮台无 Run
+    },
+    lobber: {
+        idle: LOBBER_IDLE_FRAMES,
+        run: LOBBER_RUN_FRAMES,
+        attack: LOBBER_ATTACK_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,
