@@ -402,6 +402,17 @@ export class Renderer {
             });
         }
 
+        // Draw Dungeon Chests
+        if (this.worldSystem && this.worldSystem.chests) {
+            this.worldSystem.chests.forEach(chest => {
+                if (!this._isWorldRectVisible(chest.x, chest.y - 16, chest.width, chest.height + 16, 32)) return;
+                renderList.push({
+                    y: chest.y + chest.height, // Sort by bottom
+                    draw: () => chest.draw(this.ctx)
+                });
+            });
+        }
+
         // Draw Pets
         this.pets.forEach(pet => {
             if (!this._isEntityVisible(pet, 96)) return;
@@ -1219,6 +1230,7 @@ export class Renderer {
 
         this.uiManager.updatePlayerStatus(this.player);
         this.uiManager.updateWeapon(this.handSystem.currentWeapon, this.handSystem.getWeaponState());
+        this.uiManager.updateDungeonStatus();
     }
 
     drawBossHpBar(ctx) {

@@ -3,7 +3,7 @@ import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
-import { ROOM_CLEAR } from '../dungeon/EconomyConfig.js';
+import { ROOM_CLEAR, BOSS_CHEST_TIER } from '../dungeon/EconomyConfig.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -306,6 +306,10 @@ export class DungeonManager {
                 '#f1c40f'
             ));
         }
+
+        // Boss 保底宝箱：放在传送门旁 2 tile 处
+        const chestTier = BOSS_CHEST_TIER[this.currentFloor] || 'mithril';
+        this.worldSystem.spawnChest(centerX + TILE_SIZE * 2, centerY, chestTier);
     }
 
     /**
@@ -331,6 +335,11 @@ export class DungeonManager {
                 centerX + (Math.random() - 0.5) * 40,
                 centerY + (Math.random() - 0.5) * 40
             );
+        }
+
+        // 概率生成木箱（过渡曝光，正式宝箱房归 P3）
+        if (Math.random() < ROOM_CLEAR.chestChance) {
+            this.worldSystem.spawnChest(centerX + TILE_SIZE, centerY - TILE_SIZE, 'wood');
         }
 
         // 概率掉武器（稀有度加权抽取）

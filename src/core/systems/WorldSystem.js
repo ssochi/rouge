@@ -9,6 +9,7 @@ import { MechaGolem } from '../entities/MechaGolem.js';
 import { SnakeBoss } from '../entities/SnakeBoss.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
+import { Chest } from '../entities/Chest.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
 import { Enemy } from '../entities/Enemy.js';
@@ -73,6 +74,8 @@ export class WorldSystem {
         this.carpets = [];
         // 地牢金币/钥匙拾取物（仅地牢内生成，loadMap 时清空）
         this.pickups = [];
+        // 地牢宝箱（仅地牢内生成，loadMap 时清空）
+        this.chests = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -145,6 +148,7 @@ export class WorldSystem {
         this.portals.length = 0;
         this.carpets.length = 0;
         this.pickups.length = 0;
+        this.chests.length = 0;
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -692,6 +696,38 @@ export class WorldSystem {
         // 拾取物每帧更新随 Dungeon 分段计入 Profiler（参照 droppedItems 接法）。
         // 独立于 dungeonManager：拾取物仅在地牢生成，但需保证已散出的金币持续磁吸/收集。
         this.updatePickups();
+        this.updateChests();
+    }
+
+    /**
+     * 更新地牢宝箱：交互提示的接近检测与拒绝提示计时。
+     */
+    updateChests() {
+        const chests = this.chests;
+        if (chests.length === 0) return;
+        const px = this.player.x;
+        const py = this.player.y;
+        for (const chest of chests) {
+            chest.update();
+            if (chest.isOpen) {
+                chest.showHint = false;
+                continue;
+            }
+            const cx = chest.x + chest.width / 2;
+            const cy = chest.y + chest.height / 2;
+            const dx = px - cx;
+            const dy = py - cy;
+            chest.showHint = (dx * dx + dy * dy) < 50 * 50;
+        }
+    }
+
+    /**
+     * 在世界坐标 (x, y)（宝箱左上角）生成一个指定档位的宝箱。
+     */
+    spawnChest(x, y, tier) {
+        const chest = new Chest(x, y, tier);
+        this.chests.push(chest);
+        return chest;
     }
 
     /**

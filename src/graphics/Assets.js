@@ -52,6 +52,7 @@ import { createDungeonRubbleSprite } from '../assets/objects/dungeon/DungeonRubb
 import { createDungeonIronCageSprite } from '../assets/objects/dungeon/DungeonIronCageSprite.js';
 import { createDungeonBonePileSprite } from '../assets/objects/dungeon/DungeonBonePileSprite.js';
 import { createCoinSprite, createKeySprite } from '../assets/dungeon/PickupSprites.js';
+import { createChestSprite, CHEST_TIER_NAMES } from '../assets/dungeon/ChestSprites.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -210,6 +211,12 @@ const dungeonIronCageSprite = createDungeonIronCageSprite();
 const dungeonBonePileSprite = createDungeonBonePileSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
+const dungeonChestSprites = Object.fromEntries(
+    CHEST_TIER_NAMES.map(tier => [tier, {
+        closed: createChestSprite(tier, false),
+        open: createChestSprite(tier, true),
+    }])
+);
 const wallAdaptiveSprites = createAdaptiveWallSprites();
 const doorSprites = createDoorSprites();
 const carpetSprites = createCarpetSprites();
@@ -543,6 +550,7 @@ export const Assets = {
     // Dungeon pickups (P1-4)
     dungeonCoin: dungeonCoinFrames, // 两帧微闪金币
     dungeonKey: dungeonKeySprite,   // 古铜色钥匙
+    dungeonChests: dungeonChestSprites, // 四档宝箱 {tier: {closed, open}}
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),

@@ -37,11 +37,13 @@ export class PlayerSystem {
         const keys = this.input.keys;
         if (keys.e && !this.player.ePressed) {
             this.player.ePressed = true;
-            // Interaction Priority: Vehicle > Portal > Item > Object(Door)
+            // Interaction Priority: Vehicle > Portal > Chest > Item > Object(Door)
             if (!this.tryEnterVehicle()) {
                 if (!this.tryEnterPortal()) {
-                    if (!this.tryPickupWeapon()) {
-                        this.tryInteractWithObject();
+                    if (!this.tryOpenChest()) {
+                        if (!this.tryPickupWeapon()) {
+                            this.tryInteractWithObject();
+                        }
                     }
                 }
             }
@@ -83,6 +85,25 @@ export class PlayerSystem {
             
             if (dist < 40) { // 40px interaction range
                 this.worldSystem.loadMap(p.targetMap);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    tryOpenChest() {
+        const ws = this.worldSystem;
+        if (!ws || !ws.chests || ws.chests.length === 0) return false;
+
+        for (const chest of ws.chests) {
+            if (chest.isOpen) continue;
+            const cx = chest.x + chest.width / 2;
+            const cy = chest.y + chest.height / 2;
+            const dx = this.player.x - cx;
+            const dy = this.player.y - cy;
+            if (dx * dx + dy * dy < 50 * 50) {
+                // 缺钥匙时 tryOpen 返回 need_key 并触发红字提示；同样消费本次交互
+                chest.tryOpen(ws.dungeonRunState, ws);
                 return true;
             }
         }

@@ -14,7 +14,11 @@ export const ROOM_CLEAR = {
     coinMin: 3,
     coinMax: 8,
     weaponRarityWeights: { common: 40, uncommon: 30, rare: 20, epic: 8, legendary: 2 },
+    chestChance: 0.08, // 普通房清除后生成木箱的概率（正式宝箱房归 P3，此为过渡曝光）
 };
+
+// Boss 清除保底宝箱档位（按楼层）。
+export const BOSS_CHEST_TIER = { 1: 'mithril', 2: 'dragon' };
 
 // 宝箱档位：是否需要钥匙、金币区间、稀有度权重分布。
 export const CHEST_TIERS = {

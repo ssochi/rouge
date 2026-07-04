@@ -34,6 +34,10 @@ export class UIManager {
         // Create Game Over Screen
         this.createGameOverScreen();
 
+        // Dungeon HUD (金币/钥匙计数，仅地牢内显示)
+        this.dungeonRunState = null; // Game.js 注入
+        this.initDungeonHud();
+
         // Cursor Item
         this.cursorItem = null;
         this.createCursorItemDOM();
@@ -840,6 +844,77 @@ export class UIManager {
      * 更新玩家状态 (HP, Stamina)
      * @param {Object} player 
      */
+    initDungeonHud() {
+        const panel = document.createElement('div');
+        panel.id = 'dungeon-hud';
+        panel.style.cssText = `
+            position: fixed;
+            top: 200px;
+            right: 18px;
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            font-family: monospace;
+            font-size: 15px;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 1px 1px 0 #000;
+            pointer-events: none;
+        `;
+
+        const makeRow = (iconCanvas, iconW, iconH) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; gap:6px; justify-content:flex-end;';
+            const text = document.createElement('span');
+            text.innerText = '0';
+            row.appendChild(text);
+            if (iconCanvas) {
+                const img = document.createElement('img');
+                img.src = iconCanvas.toDataURL();
+                img.style.cssText = `width:${iconW * 2}px; height:${iconH * 2}px; image-rendering:pixelated;`;
+                row.appendChild(img);
+            }
+            return { row, text };
+        };
+
+        const coinRow = makeRow(Assets.dungeonCoin && Assets.dungeonCoin[0], 10, 10);
+        const keyRow = makeRow(Assets.dungeonKey, 14, 8);
+        keyRow.text.style.color = '#e3ad5c';
+
+        panel.appendChild(coinRow.row);
+        panel.appendChild(keyRow.row);
+        document.body.appendChild(panel);
+
+        this.dungeonHudPanel = panel;
+        this.dungeonCoinText = coinRow.text;
+        this.dungeonKeyText = keyRow.text;
+        this._lastDungeonCoins = null;
+        this._lastDungeonKeys = null;
+    }
+
+    /**
+     * 刷新地牢金币/钥匙 HUD。仅单局激活时显示（Renderer 每帧调用）。
+     */
+    updateDungeonStatus() {
+        if (!this.dungeonHudPanel) return;
+        const rs = this.dungeonRunState;
+        const active = !!(rs && rs.active);
+        const displayValue = active ? 'flex' : 'none';
+        if (this.dungeonHudPanel.style.display !== displayValue) {
+            this.dungeonHudPanel.style.display = displayValue;
+        }
+        if (!active) return;
+        if (this._lastDungeonCoins !== rs.coins) {
+            this._lastDungeonCoins = rs.coins;
+            this.dungeonCoinText.innerText = `${rs.coins}`;
+        }
+        if (this._lastDungeonKeys !== rs.keys) {
+            this._lastDungeonKeys = rs.keys;
+            this.dungeonKeyText.innerText = `${rs.keys}`;
+        }
+    }
+
     updatePlayerStatus(player) {
         // HP
         const hpPercent = Math.max(0, (player.hp / player.maxHp) * 100);
