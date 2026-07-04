@@ -218,8 +218,9 @@ export class Renderer {
                 if (!firstTile) continue;
                 const gateX = firstTile.x * TILE_SIZE;
                 const gateY = firstTile.y * TILE_SIZE;
-                const gateW = gate.isHorizontal ? gate.tiles.length * TILE_SIZE : TILE_SIZE;
-                const gateH = gate.isHorizontal ? TILE_SIZE : gate.tiles.length * TILE_SIZE;
+                const isHorizontal = gate.orientation === 'horizontal';
+                const gateW = isHorizontal ? gate.tiles.length * TILE_SIZE : TILE_SIZE;
+                const gateH = isHorizontal ? TILE_SIZE : gate.tiles.length * TILE_SIZE;
                 if (!this._isWorldRectVisible(gateX, gateY, gateW, gateH, 64)) continue;
                 // Use the first tile's y for sort order
                 const sortY = firstTile.y * TILE_SIZE + TILE_SIZE;
