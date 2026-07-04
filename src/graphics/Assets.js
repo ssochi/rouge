@@ -14,6 +14,12 @@ import { WARLOCK_ATTACK_FRAMES } from '../assets/characters/enemies/warlock/Warl
 import { BOOMER_IDLE_FRAMES } from '../assets/characters/enemies/boomer/BoomerIdle.js';
 import { BOOMER_RUN_FRAMES } from '../assets/characters/enemies/boomer/BoomerRun.js';
 import { BOOMER_ATTACK_FRAMES } from '../assets/characters/enemies/boomer/BoomerAttack.js';
+import { SUMMONER_IDLE_FRAMES } from '../assets/characters/enemies/summoner/SummonerIdle.js';
+import { SUMMONER_RUN_FRAMES } from '../assets/characters/enemies/summoner/SummonerRun.js';
+import { SUMMONER_ATTACK_FRAMES } from '../assets/characters/enemies/summoner/SummonerAttack.js';
+import { SHIELDBEARER_IDLE_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerIdle.js';
+import { SHIELDBEARER_RUN_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerRun.js';
+import { SHIELDBEARER_ATTACK_FRAMES } from '../assets/characters/enemies/shieldbearer/ShieldbearerAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
 import { PISTOL_SPRITE } from '../assets/weapons/PistolGenerator.js';
 import { ROCKET_LAUNCHER_SPRITE } from '../assets/weapons/RocketLauncherGenerator.js';
@@ -318,6 +324,16 @@ export const Assets = {
         idle: BOOMER_IDLE_FRAMES,
         run: BOOMER_RUN_FRAMES,
         attack: BOOMER_ATTACK_FRAMES
+    },
+    summoner: {
+        idle: SUMMONER_IDLE_FRAMES,
+        run: SUMMONER_RUN_FRAMES,
+        attack: SUMMONER_ATTACK_FRAMES
+    },
+    shieldbearer: {
+        idle: SHIELDBEARER_IDLE_FRAMES,
+        run: SHIELDBEARER_RUN_FRAMES,
+        attack: SHIELDBEARER_ATTACK_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,

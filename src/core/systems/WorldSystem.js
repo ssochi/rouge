@@ -9,6 +9,8 @@ import { MechaGolem } from '../entities/MechaGolem.js';
 import { SnakeBoss } from '../entities/SnakeBoss.js';
 import { Warlock } from '../entities/Warlock.js';
 import { Boomer } from '../entities/Boomer.js';
+import { Summoner } from '../entities/Summoner.js';
+import { Shieldbearer } from '../entities/Shieldbearer.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
@@ -1060,6 +1062,8 @@ export class WorldSystem {
         if (type === 'snake_boss') return new SnakeBoss(x, y);
         if (type === 'warlock') return new Warlock(x, y);
         if (type === 'boomer') return new Boomer(x, y);
+        if (type === 'summoner') return new Summoner(x, y);
+        if (type === 'shieldbearer') return new Shieldbearer(x, y);
         return new Zombie(x, y);
     }
 
@@ -1338,8 +1342,8 @@ export class WorldSystem {
 
             this.enemies.push(enemy);
 
-            // Set worldSystem reference for bosses that need it
-            if (enemy.isBoss && !enemy.worldSystem) {
+            // 统一注入 worldSystem 引用（Boss 生成 segments、召唤师召唤小怪等依赖）
+            if (!enemy.worldSystem) {
                 enemy.worldSystem = this;
             }
 

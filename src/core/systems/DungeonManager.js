@@ -254,6 +254,19 @@ export class DungeonManager {
     }
 
     /**
+     * 中途生成的敌人（召唤物等）注册进来源敌人所在房间，纳入清除判定并应用楼层缩放。
+     */
+    registerSpawnedEnemy(enemy, sourceEnemy) {
+        if (!enemy) return;
+        this._applyFloorScaling(enemy, getFloorConfig(this.currentFloor));
+        const anchor = sourceEnemy || enemy;
+        const room = this.getRoomAt(anchor.x, anchor.y);
+        if (room && room.state === 'active') {
+            room.enemies.add(enemy);
+        }
+    }
+
+    /**
      * 楼层数值缩放（FloorConfigs）：HP 与接触伤害直接乘算，
      * 弹幕/武器伤害经 enemy.damageMult 乘区（CombatSystem 消费）。
      */
