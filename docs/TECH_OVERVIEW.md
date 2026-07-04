@@ -206,15 +206,15 @@
 
 ### 地牢模式（dungeon / dungeon_f2）
 - 通过 Hub 紫色传送门进入，类似《挺进地牢》的闯关玩法，支持 2 层楼层。
-- 生成流水线（`DungeonLayoutGenerator.js`）：中心 `80x80` 工作区 BSP 切分（minRegion 14）→ 紧凑房间筛选（10~14 间，普通房 10~16 tiles）→ 近邻约束 MST（K近邻 + 短边阈值）+ 1~2 条短环路 → 房间分类（`combat_open/combat_cover/combat_maze/challenge_trapline/reward/boss_arena`）→ 房间内部模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间掩体（box/barrel/explosive_barrel）与装饰（`dungeon_rubble/dungeon_iron_cage/dungeon_bone_pile`）生成 → BFS 深度计算 → 按深度/分类/楼层分配敌人配置。生成带质量门限与自动重试，约束走廊均长与极值。
+- 生成流水线（`DungeonLayoutGenerator.js`）：中心 `80x80` 工作区 BSP 切分（minRegion 14）→ 紧凑房间筛选（10~14 间，普通房 10~16 tiles）→ 近邻约束 MST（K近邻 + 短边阈值）+ 1~2 条短环路 → 房间分类（`combat_open/combat_cover/combat_maze/challenge_trapline/boss_arena` + 特殊房 `treasure/elite/shop` 每层各 1：最深普通房=宝箱房、次深=精英房、深度约 50% 处=商店房）→ 房间内部模板生成 → 能量屏障 gate 放置在房间-走廊交界处 → 房间掩体（box/barrel/explosive_barrel）与装饰（`dungeon_rubble/dungeon_iron_cage/dungeon_bone_pile`）生成 → BFS 深度计算 → 按深度/分类/楼层分配敌人配置。生成带质量门限与自动重试，约束走廊均长与极值。
 - 房间内部布局模板（`RoomInteriorTemplates.js`）：为非起始房间按“类型+分类”选择布局模板，生成永久墙体结构作为掩体。当前 12 种模板：`pillars`、`center_divide`、`l_alcoves`、`cross`、`corridors`、`offset_pillars`、`checker_blocks`、`broken_ring`、`zigzag_walls`、`gate_channels`、`arena`、`boss_spokes`。模板选择采用加权随机，已使用模板权重减半以促进多样性。内部墙体 tiles 合并到 wallTiles，自动获得碰撞和渲染。
-- 房间类型：`start`（起始安全区+返回传送门）、`normal`（战斗房+内部墙体结构+掩体物品）、`boss`（距起始房最远的房间，Boss + 小怪+竞技场布局+掩体）。
+- 房间类型：`start`（起始安全区+返回传送门）、`normal`（战斗房+内部墙体结构+掩体物品）、`boss`（距起始房最远的房间，Boss + 小怪+竞技场布局+掩体）。特殊房：**宝箱房**（不锁门不刷怪，初始化投放分级宝箱 `TREASURE_ROOM_CHESTS`，F1 铁+木/F2 秘银+铁）、**精英房**（精锐小队，清除保底钥匙+铁箱+金币×1.5，`ELITE_CLEAR`；P4 词缀接入后叠加强化）、**商店房**（安全区，商人 NPC + 5 件货品：1 稀有度加权武器+2 遗物+钥匙+medkit，价格 `SHOP` 配置、F2 ×1.4；`DungeonShop.generateShopInventory` 生成，`ShopItem` 实体 E 键购买，武器/medkit 落地拾取、遗物即时生效、钥匙入账，余额不足红字 NEED GOLD）。
 - 运行时管理（`DungeonManager.js`）：玩家进入 idle 房间 → 状态变 active → 激活能量屏障（动态添加墙体 rect）→ 按 enemyConfig 生成敌人 → 全灭后状态变 cleared → 关闭屏障（移除墙体 rect）→ 清房奖励（金币必掉 + 15% 钥匙 + 15% 稀有度加权武器 + 8% 过渡木箱 + 50% 消耗品，数值见 `EconomyConfig.ROOM_CLEAR`）。Boss 清除额外生成保底宝箱（F1 秘银 / F2 龙纹，`BOSS_CHEST_TIER`）。小地图可见性模型：`visited + frontier`。
 - 能量屏障门系统：不使用 BreakableObject，而是在 `DungeonManager.gates[]` 中管理。激活时动态往 `worldSystem.walls[]` 添加墙体 rect 阻挡通行，清除时移除。`Renderer._drawEnergyBarrier()` 绘制蓝紫色半透明屏障（竖条纹脉冲+水平能量带+角落光点）。
 - 楼层系统：F1 Boss 清除后在房间中心生成绿色"FLOOR 2"传送门 → 进入 `dungeon_f2` 地图 → F2 Boss 清除后生成金色"VICTORY"传送门回 Hub。
 - F1 敌人：depth 1-2 僵尸系、depth 3-4 混合（+brute/hunter）、depth 5+ 精英（brute/hunter/soldier），Boss = mutant_beast。
 - F2 敌人（更强）：depth 1-2 zombie_female/brute/hunter、depth 3-4 brute/hunter/soldier、depth 5+ hunter/soldier 多数，Boss = mecha_golem + 3 soldier + 1 hunter。
-- 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制拓扑节点图（约 158×158 区域），采用“邻接预览 + 动态探索”：已探索房间实心、前沿房间半透明轮廓、已探索连线实线、前沿连线虚线；当前房间高亮，锁门状态脉冲描边，玩家标记为朝向箭头，标题显示 `F层 + 已探索/总房间`，底部附状态图例（CLR/ACT/BOSS/FR）。
+- 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制拓扑节点图（约 158×158 区域），采用“邻接预览 + 动态探索”：已探索房间实心、前沿房间半透明轮廓、已探索连线实线、前沿连线虚线；当前房间高亮，锁门状态脉冲描边，玩家标记为朝向箭头，标题显示 `F层 + 已探索/总房间`，底部附状态图例（CLR/ACT/BOSS/FR）。特殊房节点带专属色与字母标记：宝箱房青色 `+`、商店房金色 `$`、精英房紫红 `!`。
 - 地板使用 STONE(5) 石砖瓦片，石砖纹理通过 `FloorSprites.js` 的 `createStoneVariant()` 程序化生成。
 - **地牢经济系统（P1，详见 `docs/feature/DUNGEON_ROGUELIKE_OVERHAUL.md`）**：
   - `src/core/dungeon/` 子系统：`RarityConfig.js`（五档稀有度+颜色）、`EconomyConfig.js`（全部经济数值单一来源：敌人金币值/可破坏物掉落/清房奖励/宝箱档位/掉落黑名单）、`LootTable.js`（`pickRarity` 加权抽档 + `pickWeaponByRarity` 档内均匀空档降级 + `rollChest` 开箱模拟）、`DungeonRunState.js`（单局金币/钥匙/遗物/楼层/种子；进地牢 `start(seed)`、回 Hub `end()` 清零；种子驱动生成可复现）。
