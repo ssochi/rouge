@@ -110,6 +110,30 @@ const OBJECT_LIGHTS = {
         castsShadows: true,
         priority: 68,
         ignoreSelfShadow: true
+    },
+    // 地牢壁挂火把：对象放在墙 tile 上，光心下移到墙南侧地板（offsetY 40 > TILE 32），
+    // 避免光源落在墙体遮挡体内部被自遮蔽；楼层色差由实例 lightColor 覆盖。
+    dungeon_torch: {
+        offsetX: 16,
+        offsetY: 40,
+        radius: 122,
+        color: '#ffbe72',
+        intensity: 0.85,
+        flicker: 0.09,
+        castsShadows: true,
+        priority: 74,
+        ignoreSelfShadow: true
+    },
+    dungeon_brazier: {
+        offsetX: 16,
+        offsetY: 18,
+        radius: 146,
+        color: '#ffa85c',
+        intensity: 0.95,
+        flicker: 0.07,
+        castsShadows: true,
+        priority: 78,
+        ignoreSelfShadow: true
     }
 };
 

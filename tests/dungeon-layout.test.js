@@ -50,6 +50,25 @@ describe('DungeonLayoutGenerator', () => {
         });
     }
 
+    it('氛围光源：火把挂在南向墙面，Boss 房有火盆', () => {
+        const layout = generateDungeonLayout(130, 130, SEED, 1);
+        const torches = layout.lightObjects.filter(l => l.type === 'dungeon_torch');
+        const braziers = layout.lightObjects.filter(l => l.type === 'dungeon_brazier');
+
+        expect(torches.length).toBeGreaterThan(0);
+        for (const t of torches) {
+            expect(layout.wallTiles.has(`${t.x},${t.y}`)).toBe(true);
+            expect(layout.floorTiles.has(`${t.x},${t.y + 1}`)).toBe(true);
+        }
+
+        const boss = layout.rooms.find(r => r.type === 'boss');
+        const bossBraziers = braziers.filter(b => b.roomId === boss.id);
+        expect(bossBraziers.length).toBeGreaterThanOrEqual(1);
+        for (const b of braziers) {
+            expect(layout.floorTiles.has(`${b.x},${b.y}`)).toBe(true);
+        }
+    });
+
     it('F3 Boss 编成含机械魔偶', () => {
         const layout = generateDungeonLayout(130, 130, SEED, 3);
         const boss = layout.rooms.find(r => r.type === 'boss');

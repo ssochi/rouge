@@ -57,6 +57,7 @@ import { createRelicIcons } from '../assets/relics/RelicIcons.js';
 import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
 import { createDungeonWallSet } from '../assets/dungeon/DungeonWallSprites.js';
 import { createDungeonFloorVariants } from '../assets/dungeon/DungeonFloorSprites.js';
+import { createDungeonTorchFrames, createDungeonBrazierFrames } from '../assets/dungeon/DungeonLightSprites.js';
 import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
@@ -214,6 +215,8 @@ const computerDeskSprite = createComputerDeskSprite();
 const dungeonRubbleSprite = createDungeonRubbleSprite();
 const dungeonIronCageSprite = createDungeonIronCageSprite();
 const dungeonBonePileSprite = createDungeonBonePileSprite();
+const dungeonTorchFrames = createDungeonTorchFrames();
+const dungeonBrazierFrames = createDungeonBrazierFrames();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
@@ -489,6 +492,9 @@ export const Assets = {
         dungeon_iron_cage_flash: PixelDraw.createSilhouette(dungeonIronCageSprite),
         dungeon_bone_pile: dungeonBonePileSprite,
         dungeon_bone_pile_flash: PixelDraw.createSilhouette(dungeonBonePileSprite),
+        dungeon_torch: dungeonTorchFrames,
+        dungeon_brazier: dungeonBrazierFrames,
+        dungeon_brazier_flash: dungeonBrazierFrames.map(f => PixelDraw.createSilhouette(f)),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,

@@ -675,6 +675,19 @@ export class WorldSystem {
             ));
         }
 
+        // 氛围光源：壁挂火把 + 特殊房火盆（火光色随楼层主题）
+        for (const light of (layout.lightObjects || [])) {
+            const obj = new BreakableObject(
+                light.x * TILE_SIZE,
+                light.y * TILE_SIZE,
+                light.type
+            );
+            obj.lightColor = light.type === 'dungeon_torch'
+                ? this.dungeonTheme.torchColor
+                : this.dungeonTheme.brazierColor;
+            this.breakableObjects.push(obj);
+        }
+
         // Build floor map (per-floor themed dungeon slab, NONE elsewhere)
         const S = FLOOR_TILES_PER_CELL;
         this.floorMapWidth = this.getWorldTileWidth() * S;

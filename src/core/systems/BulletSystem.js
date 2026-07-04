@@ -132,7 +132,7 @@ export class BulletSystem {
 
         // Breakable objects
         for (const obj of this.breakableObjects) {
-            if (obj.isBroken) continue;
+            if (obj.isBroken || obj.noBulletCollision) continue;
             const boxes = obj.getHurtboxes
                 ? obj.getHurtboxes()
                 : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
@@ -1013,7 +1013,7 @@ export class BulletSystem {
                     // Objects with zero movement hitboxes are not indexed.
                     // Include them via hurtbox AABB test to keep bullet collision complete.
                     for (const obj of this.breakableObjects) {
-                        if (!obj || obj.isBroken || seenObjects.has(obj)) continue;
+                        if (!obj || obj.isBroken || obj.noBulletCollision || seenObjects.has(obj)) continue;
                         const hurtboxes = obj.getHurtboxes
                             ? obj.getHurtboxes()
                             : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];
@@ -1036,7 +1036,7 @@ export class BulletSystem {
                 }
 
                 for (const obj of candidateObjects) {
-                    if (!obj || obj.isBroken) continue;
+                    if (!obj || obj.isBroken || obj.noBulletCollision) continue;
                     const hurtboxes = obj.getHurtboxes
                         ? obj.getHurtboxes()
                         : [obj.getHurtbox ? obj.getHurtbox() : obj.getHitbox()];

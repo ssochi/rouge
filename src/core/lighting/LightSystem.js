@@ -491,6 +491,8 @@ export class LightSystem {
     }
 
     render(ctx, { camera, viewportWidth, viewportHeight, screenScale }) {
+        // 地牢楼层主题环境光覆盖（压暗+染色，非地牢为 null 走默认灰度）
+        this.bufferRenderer.ambientOverride = this.worldSystem?.dungeonTheme?.ambient || null;
         this.lastRenderMs = this.bufferRenderer.render({
             ctx,
             camera,

@@ -44,6 +44,8 @@ import { ComputerDeskObject } from './ComputerDeskObject.js';
 import { DungeonRubbleObject } from './DungeonRubbleObject.js';
 import { DungeonIronCageObject } from './DungeonIronCageObject.js';
 import { DungeonBonePileObject } from './DungeonBonePileObject.js';
+import { DungeonTorchObject } from './DungeonTorchObject.js';
+import { DungeonBrazierObject } from './DungeonBrazierObject.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -97,7 +99,9 @@ const OBJECT_DEFS = new Map([
     ['computer_desk', ComputerDeskObject],
     ['dungeon_rubble', DungeonRubbleObject],
     ['dungeon_iron_cage', DungeonIronCageObject],
-    ['dungeon_bone_pile', DungeonBonePileObject]
+    ['dungeon_bone_pile', DungeonBonePileObject],
+    ['dungeon_torch', DungeonTorchObject],
+    ['dungeon_brazier', DungeonBrazierObject]
 ]);
 
 export function getObjectDef(type) {

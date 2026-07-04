@@ -904,6 +904,90 @@ function generateRoomDecor(room, rng, interiorWallTiles = new Set(), occupied = 
     return out;
 }
 
+/**
+ * 特殊房间火盆布点（Boss 四角/精英对角/宝箱房与商店房中轴两侧）。
+ * 火盆为阻挡型可破坏发光装饰，与掩体/装饰共用 occupied 防重叠。
+ */
+function generateRoomBraziers(room, interiorWallTiles, occupied) {
+    const spots = [];
+    const inset = 2;
+    const left = room.x + inset;
+    const right = room.x + room.w - 1 - inset;
+    const top = room.y + inset;
+    const bottom = room.y + room.h - 1 - inset;
+    const cx = room.x + Math.floor(room.w / 2);
+    const cy = room.y + Math.floor(room.h / 2);
+
+    if (room.type === 'boss') {
+        spots.push([left, top], [right, top], [left, bottom], [right, bottom]);
+    } else if (room.category === 'elite') {
+        spots.push([left, top], [right, bottom]);
+    } else if (room.category === 'treasure') {
+        spots.push([cx - 3, cy - 1], [cx + 3, cy - 1]);
+    } else if (room.category === 'shop') {
+        spots.push([cx - 4, cy - 1], [cx + 4, cy - 1]);
+    }
+
+    const out = [];
+    for (const [tx, ty] of spots) {
+        if (tx < room.x + 1 || tx > room.x + room.w - 2) continue;
+        if (ty < room.y + 1 || ty > room.y + room.h - 2) continue;
+        const key = tileKey(tx, ty);
+        if (occupied.has(key) || interiorWallTiles.has(key)) continue;
+        occupied.add(key);
+        out.push({ x: tx, y: ty, type: 'dungeon_brazier', roomId: room.id });
+    }
+    return out;
+}
+
+/**
+ * 壁挂火把布点：所有「南邻为地板」的墙面（房间北墙/走廊北壁/内部结构南面）
+ * 按连续墙段等距布置（段长 ≥3，间距 6，段首抖动）。
+ */
+function generateTorchPlacements(wallTiles, floorTiles, rng) {
+    const rows = new Map();
+    for (const key of wallTiles) {
+        const [wx, wy] = key.split(',').map(Number);
+        if (!floorTiles.has(tileKey(wx, wy + 1))) continue;
+        if (!rows.has(wy)) rows.set(wy, []);
+        rows.get(wy).push(wx);
+    }
+
+    const torches = [];
+    const SPACING = 6;
+    const sortedRows = [...rows.keys()].sort((a, b) => a - b);
+
+    for (const wy of sortedRows) {
+        const xs = rows.get(wy).sort((a, b) => a - b);
+        const flushRun = (start, end) => {
+            const len = end - start + 1;
+            if (len < 3) return;
+            const first = start + 1 + Math.floor(rng() * Math.min(2, len - 2));
+            for (let x = first; x <= end - 1; x += SPACING) {
+                torches.push({ x, y: wy, type: 'dungeon_torch' });
+            }
+        };
+
+        let runStart = null;
+        let prev = null;
+        for (const x of xs) {
+            if (runStart === null) {
+                runStart = prev = x;
+                continue;
+            }
+            if (x === prev + 1) {
+                prev = x;
+                continue;
+            }
+            flushRun(runStart, prev);
+            runStart = prev = x;
+        }
+        if (runStart !== null) flushRun(runStart, prev);
+    }
+
+    return torches;
+}
+
 function buildMinimapGraph(rooms, edges, bounds) {
     const gridSize = 14;
     const occupied = new Set();
@@ -1159,6 +1243,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     const decorObjects = [];
     const coverObjects = [];
+    const lightObjects = [];
 
     for (const room of rooms) {
         room.enemyConfig = computeEnemyConfig(room.type, room.depth, floor, room.category);
@@ -1172,12 +1257,19 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         }
 
         const occupied = new Set();
+        // 火盆先于掩体/装饰落位，保证特殊房固定光源不被随机件挤掉
+        const roomBraziers = generateRoomBraziers(room, interiorWallTiles, occupied);
+        lightObjects.push(...roomBraziers);
+
         const roomCovers = generateRoomCover(room, rng, interiorWallTiles, occupied);
         coverObjects.push(...roomCovers);
 
         const roomDecor = generateRoomDecor(room, rng, interiorWallTiles, occupied);
         decorObjects.push(...roomDecor);
     }
+
+    // 壁挂火把（依赖最终 wallTiles/floorTiles，门 tile 已被剔除）
+    lightObjects.push(...generateTorchPlacements(wallTiles, floorTiles, rng));
 
     const graph = buildMinimapGraph(rooms, graphEdges, bounds);
 
@@ -1189,6 +1281,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         floorTiles,
         coverObjects,
         decorObjects,
+        lightObjects,
         startRoomId: rooms[startIdx].id,
         bossRoomId: rooms[bossIdx].id,
         floor,

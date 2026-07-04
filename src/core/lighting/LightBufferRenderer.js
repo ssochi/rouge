@@ -389,11 +389,15 @@ export class LightBufferRenderer {
         const enableContourGlow = this.config.enableContourGlow === true;
 
         const ambient = clampByte(this.config.ambientBrightness);
+        const ambientOverride = this.ambientOverride || null;
 
         const lctx = this.lightCtx;
         lctx.globalCompositeOperation = 'source-over';
         lctx.globalAlpha = 1;
-        lctx.fillStyle = `rgb(${ambient}, ${ambient}, ${ambient})`;
+        // 环境光：默认全局灰度；地牢等场景可用 ambientOverride 压暗并染色
+        lctx.fillStyle = ambientOverride
+            ? `rgb(${clampByte(ambientOverride.r)}, ${clampByte(ambientOverride.g)}, ${clampByte(ambientOverride.b)})`
+            : `rgb(${ambient}, ${ambient}, ${ambient})`;
         lctx.fillRect(0, 0, this.bufferWidth, this.bufferHeight);
 
         const gctx = this.glowCtx;
