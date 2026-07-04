@@ -34,5 +34,15 @@ export const CHEST_TIERS = {
     dragon: { needsKey: true, coins: [15, 30], relicChance: 0.55, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
 };
 
+// 商店定价与商品权重。
+export const SHOP = {
+    weaponPriceByRarity: { common: 15, uncommon: 25, rare: 40, epic: 60, legendary: 90 },
+    weaponRarityWeights: { common: 20, uncommon: 35, rare: 30, epic: 12, legendary: 3 },
+    relicPrice: 45,
+    keyPrice: 20,
+    medkitPrice: 15,
+    floorPriceMult: { 1: 1, 2: 1.4 },
+};
+
 // 掉落池黑名单：非战斗/特殊拾取武器 id，唯一权威来源（WorldSystem 房间刷枪池同样引用此处）。
 export const LOOT_WEAPON_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);

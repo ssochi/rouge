@@ -413,6 +413,32 @@ export class Renderer {
             });
         }
 
+        // Draw Shop (merchant + items)
+        if (this.worldSystem && this.worldSystem.merchants && this.worldSystem.merchants.length > 0) {
+            const coins = this.worldSystem.dungeonRunState ? this.worldSystem.dungeonRunState.coins : 0;
+            this.worldSystem.merchants.forEach(m => {
+                if (!this._isWorldRectVisible(m.x - 16, m.y - 16, 32, 40, 32)) return;
+                renderList.push({
+                    y: m.y + 16,
+                    draw: () => {
+                        const sprite = Assets.dungeonMerchant;
+                        this.ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(m.x, m.y + 15, 11, 4, 0, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        if (sprite) this.ctx.drawImage(sprite, Math.floor(m.x - 16), Math.floor(m.y - 16));
+                    }
+                });
+            });
+            this.worldSystem.shopItems.forEach(item => {
+                if (!this._isWorldRectVisible(item.x - 14, item.y - 20, 28, 44, 32)) return;
+                renderList.push({
+                    y: item.y + 12,
+                    draw: () => item.draw(this.ctx, coins)
+                });
+            });
+        }
+
         // Draw Pets
         this.pets.forEach(pet => {
             if (!this._isEntityVisible(pet, 96)) return;

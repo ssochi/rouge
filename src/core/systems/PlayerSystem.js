@@ -37,12 +37,14 @@ export class PlayerSystem {
         const keys = this.input.keys;
         if (keys.e && !this.player.ePressed) {
             this.player.ePressed = true;
-            // Interaction Priority: Vehicle > Portal > Chest > Item > Object(Door)
+            // Interaction Priority: Vehicle > Portal > Shop > Chest > Item > Object(Door)
             if (!this.tryEnterVehicle()) {
                 if (!this.tryEnterPortal()) {
-                    if (!this.tryOpenChest()) {
-                        if (!this.tryPickupWeapon()) {
-                            this.tryInteractWithObject();
+                    if (!this.tryBuyShopItem()) {
+                        if (!this.tryOpenChest()) {
+                            if (!this.tryPickupWeapon()) {
+                                this.tryInteractWithObject();
+                            }
                         }
                     }
                 }
@@ -85,6 +87,23 @@ export class PlayerSystem {
             
             if (dist < 40) { // 40px interaction range
                 this.worldSystem.loadMap(p.targetMap);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    tryBuyShopItem() {
+        const ws = this.worldSystem;
+        if (!ws || !ws.shopItems || ws.shopItems.length === 0) return false;
+
+        for (const item of ws.shopItems) {
+            if (item.sold) continue;
+            const dx = this.player.x - item.x;
+            const dy = this.player.y - item.y;
+            if (dx * dx + dy * dy < 44 * 44) {
+                // 余额不足/已拥有时 tryBuy 触发红字提示，同样消费本次交互
+                item.tryBuy(ws.dungeonRunState, ws);
                 return true;
             }
         }

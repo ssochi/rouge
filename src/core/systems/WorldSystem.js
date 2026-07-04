@@ -10,6 +10,8 @@ import { SnakeBoss } from '../entities/SnakeBoss.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
+import { ShopItem } from '../entities/ShopItem.js';
+import { generateShopInventory } from '../dungeon/DungeonShop.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
 import { Enemy } from '../entities/Enemy.js';
@@ -76,6 +78,9 @@ export class WorldSystem {
         this.pickups = [];
         // 地牢宝箱（仅地牢内生成，loadMap 时清空）
         this.chests = [];
+        // 商店房货品与商人（仅地牢内生成，loadMap 时清空）
+        this.shopItems = [];
+        this.merchants = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -149,6 +154,8 @@ export class WorldSystem {
         this.carpets.length = 0;
         this.pickups.length = 0;
         this.chests.length = 0;
+        this.shopItems.length = 0;
+        this.merchants.length = 0;
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -699,6 +706,7 @@ export class WorldSystem {
         // 独立于 dungeonManager：拾取物仅在地牢生成，但需保证已散出的金币持续磁吸/收集。
         this.updatePickups();
         this.updateChests();
+        this.updateShopItems();
     }
 
     /**
@@ -841,14 +849,46 @@ export class WorldSystem {
     _populateDungeonSpecialRooms(layout) {
         const floor = layout.floor || 1;
         for (const room of layout.rooms) {
-            if (room.category !== 'treasure') continue;
-            const tiers = TREASURE_ROOM_CHESTS[floor] || TREASURE_ROOM_CHESTS[1];
             const centerX = (room.x + room.w / 2) * TILE_SIZE;
             const centerY = (room.y + room.h / 2) * TILE_SIZE;
-            tiers.forEach((tier, i) => {
-                const offsetX = (i - (tiers.length - 1) / 2) * 48;
-                this.spawnChest(centerX + offsetX - 13, centerY - 11, tier);
-            });
+
+            if (room.category === 'treasure') {
+                const tiers = TREASURE_ROOM_CHESTS[floor] || TREASURE_ROOM_CHESTS[1];
+                tiers.forEach((tier, i) => {
+                    const offsetX = (i - (tiers.length - 1) / 2) * 48;
+                    this.spawnChest(centerX + offsetX - 13, centerY - 11, tier);
+                });
+            } else if (room.category === 'shop') {
+                // 商人在房间中上方，货品一排陈列在商人身前
+                this.merchants.push({ x: centerX, y: centerY - 40 });
+                const owned = this.dungeonRunState ? this.dungeonRunState.relicIds : [];
+                const offers = generateShopInventory(floor, owned);
+                const spacing = 44;
+                const startX = centerX - ((offers.length - 1) * spacing) / 2;
+                offers.forEach((offer, i) => {
+                    this.shopItems.push(new ShopItem(startX + i * spacing, centerY + 4, offer));
+                });
+            }
+        }
+    }
+
+    /**
+     * 更新商店货品：靠近提示与拒绝红字计时。
+     */
+    updateShopItems() {
+        const items = this.shopItems;
+        if (items.length === 0) return;
+        const px = this.player.x;
+        const py = this.player.y;
+        for (const item of items) {
+            item.update();
+            if (item.sold) {
+                item.showHint = false;
+                continue;
+            }
+            const dx = px - item.x;
+            const dy = py - item.y;
+            item.showHint = (dx * dx + dy * dy) < 44 * 44;
         }
     }
 

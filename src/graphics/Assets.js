@@ -54,6 +54,7 @@ import { createDungeonBonePileSprite } from '../assets/objects/dungeon/DungeonBo
 import { createCoinSprite, createKeySprite } from '../assets/dungeon/PickupSprites.js';
 import { createChestSprite, CHEST_TIER_NAMES } from '../assets/dungeon/ChestSprites.js';
 import { createRelicIcons } from '../assets/relics/RelicIcons.js';
+import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
@@ -213,6 +214,7 @@ const dungeonBonePileSprite = createDungeonBonePileSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
+const dungeonMerchantSprite = createMerchantSprite();
 const dungeonChestSprites = Object.fromEntries(
     CHEST_TIER_NAMES.map(tier => [tier, {
         closed: createChestSprite(tier, false),
@@ -554,6 +556,7 @@ export const Assets = {
     dungeonKey: dungeonKeySprite,   // 古铜色钥匙
     dungeonChests: dungeonChestSprites, // 四档宝箱 {tier: {closed, open}}
     relicIcons: relicIconSprites, // 遗物图标 {relicId: 12×12 Canvas}
+    dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),
