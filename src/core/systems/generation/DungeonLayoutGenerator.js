@@ -1,6 +1,7 @@
 import { tileKey, randomInt } from './GenerationUtils.js';
 import { applyTemplate } from './RoomInteriorTemplates.js';
 import { getDungeonTheme } from '../../dungeon/DungeonThemes.js';
+import { getFloorConfig, getDepthTier } from '../../dungeon/FloorConfigs.js';
 
 /**
  * Compact dungeon layout generator.
@@ -570,28 +571,20 @@ function assignRoomCategories(rooms, depths, startIdx, bossIdx, rng) {
     }
 }
 
+/**
+ * 房间敌人编成：全部走 FloorConfigs 数据驱动。
+ * Boss/精英房固定编成；普通战斗房按 BFS 深度档位取池，权重比例分配数量。
+ */
 function computeEnemyConfig(roomType, depth, floor, category = 'combat_cover') {
     if (roomType === 'start') {
         return { types: [], count: 0 };
     }
 
-    if (floor >= 3) {
-        return computeEnemyConfigFloor3(roomType, depth, category);
-    }
-
-    if (floor === 2) {
-        return computeEnemyConfigFloor2(roomType, depth, category);
-    }
+    const config = getFloorConfig(floor);
 
     if (roomType === 'boss') {
-        return {
-            types: [
-                { type: 'mutant_beast', count: 1 },
-                { type: 'zombie', count: 2 },
-                { type: 'zombie_female', count: 1 }
-            ],
-            count: 4
-        };
+        const types = config.boss.types.map(t => ({ ...t }));
+        return { types, count: types.reduce((s, t) => s + t.count, 0) };
     }
 
     // 宝箱房/商店房：安全区，不刷怪不锁门（宝箱与商品在地图初始化时投放）。
@@ -599,175 +592,43 @@ function computeEnemyConfig(roomType, depth, floor, category = 'combat_cover') {
         return { types: [], count: 0 };
     }
 
-    // 精英房：精锐小队（P4 词缀系统接入后再叠加词缀强化）。
+    // 精英房：固定精锐小队（词缀强化在 spawn 时叠加）。
     if (category === 'elite') {
-        return {
-            types: [
-                { type: 'zombie_brute', count: 2 },
-                { type: 'hunter', count: 2 },
-                { type: 'soldier', count: 2 }
-            ],
-            count: 6
-        };
+        const types = config.eliteSquad.types.map(t => ({ ...t }));
+        return { types, count: types.reduce((s, t) => s + t.count, 0) };
     }
 
-    if (depth <= 2) {
-        const count = 4 + Math.floor(Math.random() * 2);
-        return {
-            types: [
-                { type: 'zombie', count: Math.ceil(count * 0.6) },
-                { type: 'zombie_female', count: Math.floor(count * 0.4) }
-            ],
-            count
-        };
+    // 普通战斗房：深度档位敌人池，按权重比例分配。
+    const tier = getDepthTier(config, depth);
+    const count = tier.countMin + Math.floor(Math.random() * (tier.countMax - tier.countMin + 1));
+
+    const entries = Object.entries(tier.weights);
+    const totalWeight = entries.reduce((s, [, w]) => s + w, 0);
+    const types = [];
+    let assigned = 0;
+    for (const [type, weight] of entries) {
+        const n = Math.max(1, Math.floor(count * (weight / totalWeight)));
+        types.push({ type, count: n });
+        assigned += n;
     }
 
-    if (depth <= 4) {
-        const count = 5 + Math.floor(Math.random() * 3);
-        return {
-            types: [
-                { type: 'zombie', count: Math.floor(count * 0.3) },
-                { type: 'zombie_female', count: Math.floor(count * 0.3) },
-                { type: 'zombie_brute', count: Math.max(1, Math.floor(count * 0.15)) },
-                { type: 'hunter', count: Math.max(1, Math.ceil(count * 0.25)) }
-            ],
-            count
-        };
+    // 差额修正到权重最高的类型（保证 count === Σtypes.count）
+    types.sort((a, b) => tier.weights[b.type] - tier.weights[a.type]);
+    let diff = count - assigned;
+    while (diff !== 0 && types.length > 0) {
+        if (diff > 0) {
+            types[0].count++;
+            diff--;
+        } else if (types[0].count > 1) {
+            types[0].count--;
+            diff++;
+        } else {
+            break;
+        }
     }
 
-    const count = 6 + Math.floor(Math.random() * 3);
-    return {
-        types: [
-            { type: 'zombie_brute', count: Math.floor(count * 0.25) },
-            { type: 'hunter', count: Math.floor(count * 0.35) },
-            { type: 'soldier', count: Math.ceil(count * 0.4) }
-        ],
-        count
-    };
-}
-
-function computeEnemyConfigFloor2(roomType, depth, category = 'combat_cover') {
-    if (roomType === 'boss') {
-        return {
-            types: [
-                { type: 'mecha_golem', count: 1 },
-                { type: 'soldier', count: 3 },
-                { type: 'hunter', count: 1 }
-            ],
-            count: 5
-        };
-    }
-
-    if (category === 'treasure' || category === 'shop') {
-        return { types: [], count: 0 };
-    }
-
-    if (category === 'elite') {
-        return {
-            types: [
-                { type: 'zombie_brute', count: 2 },
-                { type: 'hunter', count: 2 },
-                { type: 'soldier', count: 3 }
-            ],
-            count: 7
-        };
-    }
-
-    if (depth <= 2) {
-        const count = 6 + Math.floor(Math.random() * 2);
-        return {
-            types: [
-                { type: 'zombie_female', count: Math.floor(count * 0.3) },
-                { type: 'zombie_brute', count: Math.floor(count * 0.3) },
-                { type: 'hunter', count: Math.ceil(count * 0.4) }
-            ],
-            count
-        };
-    }
-
-    if (depth <= 4) {
-        const count = 7 + Math.floor(Math.random() * 3);
-        return {
-            types: [
-                { type: 'zombie_brute', count: Math.floor(count * 0.25) },
-                { type: 'hunter', count: Math.floor(count * 0.35) },
-                { type: 'soldier', count: Math.ceil(count * 0.4) }
-            ],
-            count
-        };
-    }
-
-    const count = 8 + Math.floor(Math.random() * 3);
-    return {
-        types: [
-            { type: 'hunter', count: Math.floor(count * 0.4) },
-            { type: 'soldier', count: Math.ceil(count * 0.6) }
-        ],
-        count
-    };
-}
-
-// F3 临时编成（P4 FloorConfigs 数据驱动后统一接管数值缩放与新敌人池）。
-// Boss 按最终楼层规划为机械魔偶（F2 的魔偶将在 P4 换成机械巨蛇）。
-function computeEnemyConfigFloor3(roomType, depth, category = 'combat_cover') {
-    if (roomType === 'boss') {
-        return {
-            types: [
-                { type: 'mecha_golem', count: 1 },
-                { type: 'soldier', count: 4 },
-                { type: 'hunter', count: 2 }
-            ],
-            count: 7
-        };
-    }
-
-    if (category === 'treasure' || category === 'shop') {
-        return { types: [], count: 0 };
-    }
-
-    if (category === 'elite') {
-        return {
-            types: [
-                { type: 'zombie_brute', count: 3 },
-                { type: 'hunter', count: 2 },
-                { type: 'soldier', count: 3 }
-            ],
-            count: 8
-        };
-    }
-
-    if (depth <= 2) {
-        const count = 7 + Math.floor(Math.random() * 2);
-        return {
-            types: [
-                { type: 'zombie_brute', count: Math.floor(count * 0.3) },
-                { type: 'hunter', count: Math.floor(count * 0.3) },
-                { type: 'soldier', count: Math.ceil(count * 0.4) }
-            ],
-            count
-        };
-    }
-
-    if (depth <= 4) {
-        const count = 8 + Math.floor(Math.random() * 3);
-        return {
-            types: [
-                { type: 'zombie_brute', count: Math.floor(count * 0.2) },
-                { type: 'hunter', count: Math.floor(count * 0.4) },
-                { type: 'soldier', count: Math.ceil(count * 0.4) }
-            ],
-            count
-        };
-    }
-
-    const count = 9 + Math.floor(Math.random() * 3);
-    return {
-        types: [
-            { type: 'hunter', count: Math.floor(count * 0.45) },
-            { type: 'soldier', count: Math.ceil(count * 0.55) }
-        ],
-        count
-    };
+    const finalCount = types.reduce((s, t) => s + t.count, 0);
+    return { types, count: finalCount };
 }
 
 function generateRoomCover(room, rng, interiorWallTiles = new Set(), occupied = new Set()) {

@@ -4,6 +4,7 @@ import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
 import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR } from '../dungeon/EconomyConfig.js';
+import { getFloorConfig } from '../dungeon/FloorConfigs.js';
 
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
@@ -220,6 +221,8 @@ export class DungeonManager {
         const config = room.enemyConfig;
         if (!config || !config.types) return;
 
+        const floorConfig = getFloorConfig(this.currentFloor);
+
         const spawnPoints = [...room.spawnPoints];
         // Shuffle spawn points
         for (let i = spawnPoints.length - 1; i > 0; i--) {
@@ -240,12 +243,31 @@ export class DungeonManager {
                 });
 
                 if (enemy) {
+                    this._applyFloorScaling(enemy, floorConfig);
                     room.enemies.add(enemy);
                     if (enemy.isBoss) {
                         enemy.worldSystem = this.worldSystem;
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * 楼层数值缩放（FloorConfigs）：HP 与接触伤害直接乘算，
+     * 弹幕/武器伤害经 enemy.damageMult 乘区（CombatSystem 消费）。
+     */
+    _applyFloorScaling(enemy, floorConfig) {
+        if (!floorConfig) return;
+        if (floorConfig.hpMult !== 1) {
+            enemy.hp = Math.round(enemy.hp * floorConfig.hpMult);
+            enemy.maxHp = Math.round(enemy.maxHp * floorConfig.hpMult);
+        }
+        if (floorConfig.dmgMult !== 1) {
+            if (Number.isFinite(enemy.damage)) {
+                enemy.damage = Math.round(enemy.damage * floorConfig.dmgMult);
+            }
+            enemy.damageMult = floorConfig.dmgMult;
         }
     }
 

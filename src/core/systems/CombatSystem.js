@@ -111,6 +111,8 @@ export class CombatSystem {
 
         // 遗物弹道改造只作用于玩家子弹
         const relics = source === 'player' ? this.relicSystem : null;
+        // 敌人伤害乘区（地牢楼层缩放，DungeonManager._applyFloorScaling 赋值）
+        const enemyDmgMult = source === 'enemy' && owner && Number.isFinite(owner.damageMult) ? owner.damageMult : 1;
         const pellets = (weapon.pelletCount || 1) + (relics ? relics.extraPellets() : 0);
         const spreadRad = (weapon.spread || 0) * Math.PI / 180;
         const isFlame = weapon.bulletType === 'flame';
@@ -136,7 +138,7 @@ export class CombatSystem {
                 vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul,
                 life: Math.round((weapon.bulletLife || 60) * lifeMul),
                 maxLife: weapon.bulletLife || 60,
-                damage: weapon.damage || 10,
+                damage: Math.round((weapon.damage || 10) * enemyDmgMult),
                 color: weapon.bulletColor || '#f1c40f',
                 size: Math.max(1, (weapon.bulletSize || 5) + sizeVar),
                 type: weapon.bulletType || 'standard',
@@ -699,7 +701,9 @@ export class CombatSystem {
         }
     }
 
-    spawnEnemyBullet({ x, y, angle, damage, speed, color = '#e74c3c', size = 4, life = 100, type = 'standard', blastRadius, knockback }) {
+    spawnEnemyBullet({ x, y, angle, damage, speed, color = '#e74c3c', size = 4, life = 100, type = 'standard', blastRadius, knockback, owner = null }) {
+        // 楼层伤害乘区（DungeonManager._applyFloorScaling 给敌人挂 damageMult）
+        const dmgMult = owner && Number.isFinite(owner.damageMult) ? owner.damageMult : 1;
         const bullet = {
             x: x,
             y: y,
@@ -707,7 +711,7 @@ export class CombatSystem {
             vy: Math.sin(angle) * speed,
             life: life,
             maxLife: life,
-            damage: damage,
+            damage: Math.round(damage * dmgMult),
             color: color,
             size: size,
             type: type,
