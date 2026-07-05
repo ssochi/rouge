@@ -11,7 +11,7 @@ const CHARGE_KNOCKBACK = 11;
 
 export class Hellhound extends Enemy {
     constructor(x, y) {
-        super(x, y, 26, 26, 16, 1.4);
+        super(x, y, 26, 26, 32, 1.4);
 
         this.spriteScale = 1.3;
         this.chase = new ChaseBehavior();

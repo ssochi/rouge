@@ -7,6 +7,28 @@ import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR } from '../dungeo
 import { getFloorConfig } from '../dungeon/FloorConfigs.js';
 import { applyAffixes, pickRandomAffixes } from '../dungeon/EnemyAffixSystem.js';
 
+// 用户反馈：手枪猎人 / 随机武器士兵手感偏强，F1/F2 枪兵应是稀有强敌，避免一波涌出多只。
+// 每个遭遇战房间限制 hunter+soldier 合计生成 ≤2 只；超额时从同角色池改抽非枪兵类型。
+const GUN_USER_TYPES = new Set(['hunter', 'soldier']);
+const MAX_GUN_USERS_PER_ROOM = 2;
+
+/**
+ * 枪兵限额工具：若 type 为枪兵且本房已达上限，则从同角色池改抽一个非枪兵类型；
+ * 池内无非枪兵替补时维持原选择（不至于生成失败）。
+ * @param {string} type 初选类型
+ * @param {string[]} pool 该角色候选池
+ * @param {number} spawnedGunUsers 本房已生成枪兵数
+ * @param {Function} [rng=Math.random] 随机源
+ * @returns {string} 最终敌人类型
+ */
+function capGunUsers(type, pool, spawnedGunUsers, rng = Math.random) {
+    if (!GUN_USER_TYPES.has(type)) return type;
+    if (spawnedGunUsers < MAX_GUN_USERS_PER_ROOM) return type;
+    const alts = pool.filter(t => !GUN_USER_TYPES.has(t));
+    if (alts.length === 0) return type;
+    return alts[Math.floor(rng() * alts.length)];
+}
+
 /**
  * DungeonManager - Runtime manager for dungeon room state machine.
  * Uses energy barrier gates instead of door objects.
@@ -341,10 +363,14 @@ export class DungeonManager {
         const roleMap = floorConfig.roleMap || {};
         const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
         const spawnedThisWave = [];
+        // 枪兵限额跨波累计（同房多波共享该计数）
+        room._gunUserCount = room._gunUserCount || 0;
 
         for (const spawn of spawns) {
             const pool = roleMap[spawn.role] || roleMap.m || ['zombie'];
-            const type = pool[Math.floor(Math.random() * pool.length)];
+            let type = pool[Math.floor(Math.random() * pool.length)];
+            // 每房枪兵限额：超额则改抽非枪兵类型
+            type = capGunUsers(type, pool, room._gunUserCount);
 
             let enemy = null;
             for (const [dx, dy] of offsets) {
@@ -356,6 +382,7 @@ export class DungeonManager {
                 if (enemy) break;
             }
             if (!enemy) continue;
+            if (GUN_USER_TYPES.has(type)) room._gunUserCount++;
 
             this._applyFloorScaling(enemy, floorConfig);
             this._applySpawnGrace(enemy);

@@ -263,6 +263,55 @@ export class BulletSystem {
             b.y += b.vy;
             b.life--;
 
+            // === 敌方弹幕运动扩展（仅携带对应字段的子弹生效，对普通弹零开销）===
+            // 波浪弹：沿垂直于基向量方向做正弦横移（挺进地牢式蛇形弹）。
+            // waveAge 为敌方波浪弹独占字段，避免与玩家武器 M5 波形弹（waveTimer）语义混淆。
+            if (b.waveAge !== undefined) {
+                b.waveAge++;
+                const perpX = -b.waveBaseVY;   // 基向量（单位向量）顺时针 90°
+                const perpY = b.waveBaseVX;
+                const amp = b.waveAmplitude;
+                const freq = b.waveFrequency;
+                const delta = (Math.sin(b.waveAge * freq) - Math.sin((b.waveAge - 1) * freq)) * amp;
+                b.x += perpX * delta;
+                b.y += perpY * delta;
+            }
+
+            // 分裂弹：飞行 splitAfter 帧后消失，环形迸发 splitCount 颗普通敌弹（继承 owner）。
+            // 排除玩家武器 M4 分裂弹（type==='split'），二者字段语义不同。
+            if (b.splitAfter !== undefined && b.type !== 'split') {
+                b.splitAge = (b.splitAge || 0) + 1;
+                if (b.splitAge >= b.splitAfter) {
+                    const n = b.splitCount || 8;
+                    const spd = b.splitSpeed || 2.5;
+                    const childLife = b.splitChildLife || 90;
+                    const childSize = Math.max(2, (b.size || 6) * 0.5);
+                    for (let s = 0; s < n; s++) {
+                        const a = (s / n) * Math.PI * 2;
+                        this.bullets.push({
+                            x: b.x, y: b.y,
+                            vx: Math.cos(a) * spd,
+                            vy: Math.sin(a) * spd,
+                            life: childLife,
+                            maxLife: childLife,
+                            damage: b.splitDamage || b.damage,
+                            color: b.color,
+                            size: childSize,
+                            type: 'standard',
+                            source: b.source,
+                            owner: b.owner,
+                            hitList: []
+                        });
+                    }
+                    // 迸发闪光
+                    this.particles.push({ type: 'flash', x: b.x, y: b.y, size: 14, color: b.color, alpha: 0.7, life: 6 });
+                    // 移除母弹（swap-pop），跳过本帧后续碰撞
+                    this.bullets[i] = this.bullets[this.bullets.length - 1];
+                    this.bullets.pop();
+                    continue;
+                }
+            }
+
             if (b.type === 'rocket') {
                 if (Math.random() > 0.5) {
                     this.particles.push({

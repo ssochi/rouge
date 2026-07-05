@@ -20,6 +20,9 @@ import { FlailWarden } from '../entities/FlailWarden.js';
 import { PlagueRat } from '../entities/PlagueRat.js';
 import { Cultist } from '../entities/Cultist.js';
 import { Gargoyle } from '../entities/Gargoyle.js';
+import { Spinner } from '../entities/Spinner.js';
+import { Weeper } from '../entities/Weeper.js';
+import { Splitter } from '../entities/Splitter.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
@@ -1138,6 +1141,9 @@ export class WorldSystem {
         if (type === 'plague_rat') return new PlagueRat(x, y);
         if (type === 'cultist') return new Cultist(x, y);
         if (type === 'gargoyle') return new Gargoyle(x, y);
+        if (type === 'spinner') return new Spinner(x, y);
+        if (type === 'weeper') return new Weeper(x, y);
+        if (type === 'splitter') return new Splitter(x, y);
         return new Zombie(x, y);
     }
 

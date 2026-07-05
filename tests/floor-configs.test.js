@@ -23,6 +23,14 @@ describe('FloorConfigs', () => {
         }
     });
 
+    it('枪兵重定位：F1 roleMap.r 不含 hunter（下放精英位），hunter 仍在 F1 e', () => {
+        const f1 = FLOOR_CONFIGS[1];
+        expect(f1.roleMap.r).not.toContain('hunter');
+        expect(f1.roleMap.e).toContain('hunter'); // 保留于精英保底位
+        // 新增弹幕妖已入 F1 远程位
+        expect(f1.roleMap.r).toContain('spinner');
+    });
+
     it('难度缩放随楼层单调递增', () => {
         expect(FLOOR_CONFIGS[2].hpMult).toBeGreaterThan(FLOOR_CONFIGS[1].hpMult);
         expect(FLOOR_CONFIGS[3].hpMult).toBeGreaterThan(FLOOR_CONFIGS[2].hpMult);

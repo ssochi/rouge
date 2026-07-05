@@ -13,7 +13,7 @@ const DEATH_EXPLODE_RADIUS = 42;
 
 export class Boomer extends Enemy {
     constructor(x, y) {
-        super(x, y, 26, 26, 18, 2.2);
+        super(x, y, 26, 26, 28, 2.2);
 
         this.spriteScale = 1.35; // 体型放大至角色同级（N1）
 

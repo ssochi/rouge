@@ -712,7 +712,8 @@ export class CombatSystem {
         }
     }
 
-    spawnEnemyBullet({ x, y, angle, damage, speed, color = '#e74c3c', size = 4, life = 100, type = 'standard', blastRadius, knockback, owner = null }) {
+    spawnEnemyBullet({ x, y, angle, damage, speed, color = '#e74c3c', size = 4, life = 100, type = 'standard', blastRadius, knockback, owner = null,
+        waveAmplitude, waveFrequency, splitAfter, splitCount, splitSpeed, splitDamage, splitChildLife }) {
         // 楼层伤害乘区（DungeonManager._applyFloorScaling 给敌人挂 damageMult）
         const dmgMult = owner && Number.isFinite(owner.damageMult) ? owner.damageMult : 1;
         const bullet = {
@@ -730,7 +731,28 @@ export class CombatSystem {
         };
         if (blastRadius) bullet.blastRadius = blastRadius;
         if (knockback) bullet.knockback = knockback;
+
+        // 波浪弹运动字段：BulletSystem 位移处按 waveAge 沿垂直基向量正弦横移。
+        if (waveAmplitude) {
+            bullet.waveAmplitude = waveAmplitude;
+            bullet.waveFrequency = waveFrequency || 0.15;
+            bullet.waveAge = 0;
+            bullet.waveBaseVX = Math.cos(angle); // 单位基向量
+            bullet.waveBaseVY = Math.sin(angle);
+        }
+        // 分裂弹运动字段：BulletSystem 计时到点后消失并环形迸发子弹。
+        if (splitAfter) {
+            bullet.splitAfter = splitAfter;
+            bullet.splitCount = splitCount || 8;
+            bullet.splitSpeed = splitSpeed || 2.5;
+            bullet.splitDamage = Math.max(1, Math.round((splitDamage != null ? splitDamage : damage * 0.6) * dmgMult));
+            if (splitChildLife) bullet.splitChildLife = splitChildLife;
+            bullet.splitAge = 0;
+            bullet.hitList = [];
+        }
+
         this.bullets.push(bullet);
+        return bullet;
     }
 
     setObstacleIndex(index) { this.bulletSystem.setObstacleIndex(index); }

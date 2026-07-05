@@ -71,6 +71,100 @@ describe('弹幕角度数学', () => {
     });
 });
 
+describe('弹幕模式扩展（spiral/wave_volley/split_shot/wall）', () => {
+    function firingCtx(enemyPos, playerPos) {
+        const spawned = [];
+        const ctx = mockCtx(enemyPos, playerPos);
+        ctx.combatSystem = { spawnEnemyBullet: (b) => spawned.push(b) };
+        return { ctx, spawned };
+    }
+
+    it('spiral：起始角朝玩家，逐发角度 +stepRad', () => {
+        const behavior = new RangedPatternBehavior({
+            patterns: [{ kind: 'spiral', count: 5, interval: 1, stepRad: 0.5, speed: 2, damage: 7, weight: 1 }],
+            cooldown: 30, range: 500
+        });
+        behavior.cooldownTimer = 0;
+        const { ctx, spawned } = firingCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        for (let f = 0; f < 8; f++) behavior.update(ctx); // 首帧选定，其后逐帧连发
+        expect(spawned.length).toBe(5);
+        expect(spawned[0].angle).toBeCloseTo(0);   // 朝玩家
+        expect(spawned[1].angle).toBeCloseTo(0.5);
+        expect(spawned[4].angle).toBeCloseTo(2.0);
+        expect(spawned[0].owner).toBe(ctx.enemy);
+    });
+
+    it('spiral 期间 isFiring 为真，结束后进入冷却', () => {
+        const behavior = new RangedPatternBehavior({
+            patterns: [{ kind: 'spiral', count: 3, interval: 1, stepRad: 0.3, weight: 1 }],
+            cooldown: 25, range: 500
+        });
+        behavior.cooldownTimer = 0;
+        const { ctx } = firingCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        behavior.update(ctx); // 选定 → active
+        expect(behavior.isFiring).toBe(true);
+        for (let f = 0; f < 5; f++) behavior.update(ctx);
+        expect(behavior.isFiring).toBe(false);
+        expect(behavior.cooldownTimer).toBeGreaterThan(0); // 已进入冷却
+    });
+
+    it('wave_volley：向玩家齐射并注入 wave 字段', () => {
+        const behavior = new RangedPatternBehavior({
+            patterns: [{ kind: 'wave_volley', count: 3, spreadDeg: 10, damage: 8, waveAmplitude: 14, waveFrequency: 0.14, weight: 1 }],
+            cooldown: 30, range: 500
+        });
+        behavior.cooldownTimer = 0;
+        const { ctx, spawned } = firingCtx({ x: 0, y: 0 }, { x: 0, y: 100 }); // 瞄准向下 = PI/2
+        behavior.update(ctx); // 选定
+        behavior.update(ctx); // 齐射
+        expect(spawned.length).toBe(3);
+        for (const b of spawned) {
+            expect(b.waveAmplitude).toBe(14);
+            expect(b.waveFrequency).toBeCloseTo(0.14);
+            expect(b.owner).toBe(ctx.enemy);
+        }
+        expect(spawned[1].angle).toBeCloseTo(Math.PI / 2); // 中间弹朝玩家
+    });
+
+    it('split_shot：单发大弹注入分裂字段', () => {
+        const behavior = new RangedPatternBehavior({
+            patterns: [{ kind: 'split_shot', damage: 10, size: 8, splitAfter: 45, splitCount: 8, splitDamage: 5, splitSpeed: 2.5, weight: 1 }],
+            cooldown: 30, range: 500
+        });
+        behavior.cooldownTimer = 0;
+        const { ctx, spawned } = firingCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        behavior.update(ctx);
+        behavior.update(ctx);
+        expect(spawned.length).toBe(1);
+        expect(spawned[0].splitAfter).toBe(45);
+        expect(spawned[0].splitCount).toBe(8);
+        expect(spawned[0].splitDamage).toBe(5);
+        expect(spawned[0].size).toBe(8);
+        expect(spawned[0].angle).toBeCloseTo(0);
+    });
+
+    it('wall：一字排开留缺口且弹道平行', () => {
+        let calls = 0;
+        const seq = [0.0, 0.9]; // floor(0*7)=0, floor(0.9*7)=6 → 缺口 {0,6}
+        const behavior = new RangedPatternBehavior({
+            patterns: [{ kind: 'wall', count: 7, spacing: 20, gapCount: 2, speed: 3, damage: 7, weight: 1 }],
+            cooldown: 30, range: 500,
+            rng: () => seq[calls++ % seq.length]
+        });
+        behavior.cooldownTimer = 0;
+        const { ctx, spawned } = firingCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        behavior.update(ctx);
+        behavior.update(ctx);
+        expect(spawned.length).toBe(5); // 7 - 2 缺口
+        for (const b of spawned) {
+            expect(b.angle).toBeCloseTo(0);            // 全部朝玩家方向（平行）
+            expect(Math.abs(b.x)).toBeLessThan(1e-6);  // 沿垂直方向排开：x≈0
+        }
+        const ys = spawned.map(b => b.y).sort((a, z) => a - z);
+        expect(ys[ys.length - 1] - ys[0]).toBeGreaterThan(0); // y 方向分散
+    });
+});
+
 describe('KiteBehavior 决策', () => {
     it('距离带三态', () => {
         const kite = new KiteBehavior({ near: 100, far: 200 });

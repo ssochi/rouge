@@ -41,6 +41,15 @@ import { PLAGUE_RAT_ATTACK_FRAMES } from '../assets/characters/enemies/plague_ra
 import { CULTIST_IDLE_FRAMES } from '../assets/characters/enemies/cultist/CultistIdle.js';
 import { CULTIST_RUN_FRAMES } from '../assets/characters/enemies/cultist/CultistRun.js';
 import { CULTIST_ATTACK_FRAMES } from '../assets/characters/enemies/cultist/CultistAttack.js';
+import { SPINNER_IDLE_FRAMES } from '../assets/characters/enemies/spinner/SpinnerIdle.js';
+import { SPINNER_RUN_FRAMES } from '../assets/characters/enemies/spinner/SpinnerRun.js';
+import { SPINNER_ATTACK_FRAMES } from '../assets/characters/enemies/spinner/SpinnerAttack.js';
+import { WEEPER_IDLE_FRAMES } from '../assets/characters/enemies/weeper/WeeperIdle.js';
+import { WEEPER_RUN_FRAMES } from '../assets/characters/enemies/weeper/WeeperRun.js';
+import { WEEPER_ATTACK_FRAMES } from '../assets/characters/enemies/weeper/WeeperAttack.js';
+import { SPLITTER_IDLE_FRAMES } from '../assets/characters/enemies/splitter/SplitterIdle.js';
+import { SPLITTER_RUN_FRAMES } from '../assets/characters/enemies/splitter/SplitterRun.js';
+import { SPLITTER_ATTACK_FRAMES } from '../assets/characters/enemies/splitter/SplitterAttack.js';
 import { GARGOYLE_IDLE_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleIdle.js';
 import { GARGOYLE_RUN_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleRun.js';
 import { GARGOYLE_ATTACK_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleAttack.js';
@@ -401,6 +410,21 @@ export const Assets = {
         idle: CULTIST_IDLE_FRAMES,
         run: CULTIST_RUN_FRAMES,
         attack: CULTIST_ATTACK_FRAMES
+    },
+    spinner: {
+        idle: SPINNER_IDLE_FRAMES,
+        run: SPINNER_RUN_FRAMES,
+        attack: SPINNER_ATTACK_FRAMES
+    },
+    weeper: {
+        idle: WEEPER_IDLE_FRAMES,
+        run: WEEPER_RUN_FRAMES,
+        attack: WEEPER_ATTACK_FRAMES
+    },
+    splitter: {
+        idle: SPLITTER_IDLE_FRAMES,
+        run: SPLITTER_RUN_FRAMES,
+        attack: SPLITTER_ATTACK_FRAMES
     },
     gargoyle: {
         idle: GARGOYLE_IDLE_FRAMES,

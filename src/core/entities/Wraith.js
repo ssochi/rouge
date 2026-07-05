@@ -12,7 +12,7 @@ const DEATH_BURST_RADIUS = 34;
 
 export class Wraith extends Enemy {
     constructor(x, y) {
-        super(x, y, 24, 24, 12, 2.6);
+        super(x, y, 24, 24, 26, 2.6);
 
         this.spriteScale = 1.3; // 体型与角色同级
         this.chase = new ChaseBehavior();
