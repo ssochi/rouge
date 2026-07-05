@@ -767,6 +767,17 @@ export class WorldSystem {
             '#9b59b6'
         ));
 
+        // 稀有彩蛋：30% 概率在起始房角落停一辆车（谁把车开进地牢的？）
+        if (Math.random() < 0.3 && this.vehicles) {
+            const vTypes = ['suv', 'police', 'truck', 'spider'];
+            const vType = vTypes[Math.floor(Math.random() * vTypes.length)];
+            this.vehicles.push(new Vehicle(
+                (startRoom.x + startRoom.w - 3) * TILE_SIZE,
+                (startRoom.y + startRoom.h - 3) * TILE_SIZE,
+                vType
+            ));
+        }
+
         // Initialize dungeon manager with gate system
         this.dungeonManager = new DungeonManager(layout, this);
         this.dungeonManager.initGates(layout.gates);

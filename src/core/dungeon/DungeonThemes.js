@@ -42,7 +42,10 @@ export const DUNGEON_THEMES = {
             dungeon_statue: 1,
             dungeon_bars: 2,
             dungeon_rack: 1,
-            dungeon_mushrooms: 1
+            dungeon_mushrooms: 1,
+            computer_desk: 0.6,
+            fish_tank: 0.5,
+            tv_stand: 0.5
         }
     },
     2: {
@@ -77,7 +80,10 @@ export const DUNGEON_THEMES = {
             dungeon_statue: 1,
             dungeon_bars: 1,
             dungeon_rack: 1,
-            dungeon_mushrooms: 4
+            dungeon_mushrooms: 4,
+            computer_desk: 0.6,
+            fish_tank: 0.5,
+            tv_stand: 0.5
         }
     },
     3: {
@@ -112,7 +118,10 @@ export const DUNGEON_THEMES = {
             dungeon_statue: 2,
             dungeon_bars: 1,
             dungeon_rack: 2,
-            dungeon_mushrooms: 0
+            dungeon_mushrooms: 0,
+            computer_desk: 0.6,
+            fish_tank: 0.5,
+            tv_stand: 0.5
         }
     }
 };
