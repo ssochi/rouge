@@ -61,10 +61,10 @@ export const WEAPONS = {
         bulletColor: '#ecf0f1', // White
         bulletSize: 4,
         // Ammo
-        magazineSize: 12,
+        magazineSize: 6,
         maxReserve: 60,
         reloadTime: 1500,
-        infiniteAmmo: true, // 起始手枪备弹无限（保底输出手段）；弹匣 12 发照常消耗、打空需换弹
+        infiniteAmmo: true, // 起始手枪备弹无限（保底输出手段）；弹匣 6 发照常消耗、打空需换弹
         rarity: 'common'
     },
     rocket_launcher: {
