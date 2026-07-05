@@ -194,9 +194,10 @@ export class WorldSystem {
         if (this.dungeonRunState) {
             const prevIsDungeon = this._isDungeonMapType(prevMapType);
             const nextIsDungeon = this._isDungeonMapType(mapType);
-            if (!prevIsDungeon && mapType === 'dungeon') {
-                // 从非地牢进入第一层 → 开新局，记录种子（调试种子优先）
+            if (!prevIsDungeon && nextIsDungeon) {
+                // 进入地牢系任意层（含调试直达 ?map=dungeon_f2/f3）→ 开新局，记录种子（调试种子优先）
                 this.dungeonRunState.start(this.debugDungeonSeed ?? Date.now());
+                this.dungeonRunState.floor = this._dungeonFloorFromMapType(mapType);
             } else if (prevIsDungeon && !nextIsDungeon) {
                 // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
                 if (this.relicSystem) this.relicSystem.clear();
