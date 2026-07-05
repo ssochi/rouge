@@ -13,33 +13,33 @@ import { getFloorConfig, getDepthTier } from '../../dungeon/FloorConfigs.js';
 const DUNGEON_CONFIG = {
     // Generate dungeon inside a compact central work area, not the full world map.
     // W4：房间全面加大（容纳叙事化遭遇战模板 13~16 宽），工作区同步扩到 100。
-    dungeonBoundsSize: 100,
+    dungeonBoundsSize: 110,
     mapPadding: 4,
 
-    roomCountMin: 9,
-    roomCountMax: 12,
-    normalRoomMin: 13,
-    normalRoomMax: 20,
+    roomCountMin: 8,
+    roomCountMax: 10,
+    normalRoomMin: 17,
+    normalRoomMax: 22,
     bossRoomMin: 18,
     bossRoomMax: 22,
     startRoomMin: 10,
     startRoomMax: 13,
 
     corridorWidth: 3,
-    bspMinRegion: 18,
+    bspMinRegion: 22,
     roomPadding: 1,
 
     // Graph shaping for short corridors.
     neighborLimit: 4,
-    edgeDistanceThreshold: 42,
-    loopEdgeMaxDistance: 38,
+    edgeDistanceThreshold: 48,
+    loopEdgeMaxDistance: 44,
     extraEdgeMin: 1,
     extraEdgeMax: 2,
 
     // Generation quality gates.
     maxGenerationAttempts: 8,
-    maxCorridorLenHard: 110,
-    maxCorridorAvg: 55
+    maxCorridorLenHard: 130,
+    maxCorridorAvg: 65
 };
 
 function createRng(seed) {
@@ -841,7 +841,9 @@ function generateRoomBraziers(room, interiorWallTiles, occupied) {
     } else if (room.type === 'normal') {
         // 普通战斗房：角落火盆照亮房间中部（火把只能挂北墙，没有它房间中央是死黑）
         const area = room.w * room.h;
-        if (area >= 170) {
+        if (area >= 300) {
+            spots.push([left, bottom], [right, top], [right, bottom]);
+        } else if (area >= 170) {
             spots.push([left, bottom], [right, top]);
         } else {
             spots.push([left, bottom]);

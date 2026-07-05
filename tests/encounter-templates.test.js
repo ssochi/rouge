@@ -61,7 +61,16 @@ describe('EncounterTemplates', () => {
 
             const parsed = parseEncounter(template);
             expect(parsed.spawns.length, '出怪点').toBeGreaterThanOrEqual(3);
-            expect(parsed.spawns.length, '出怪点上限').toBeLessThanOrEqual(8);
+            expect(parsed.spawns.length, '出怪点上限').toBeLessThanOrEqual(12);
+
+            // 波次结构：波1 热身（3-5 只）、波2 上强度（数量不少于波1）
+            const wave0 = parsed.spawns.filter(s => s.wave === 0);
+            const wave1 = parsed.spawns.filter(s => s.wave === 1);
+            expect(wave0.length, `${template.id} 波1 热身量`).toBeGreaterThanOrEqual(3);
+            expect(wave0.length, `${template.id} 波1 上限`).toBeLessThanOrEqual(5);
+            if (wave1.length > 0) {
+                expect(wave1.length, `${template.id} 波2 强度`).toBeGreaterThanOrEqual(wave0.length);
+            }
 
             const { reachable, totalOpen } = assertConnected(parsed, template.rows);
             expect(reachable, `${template.id} 封死区域`).toBe(totalOpen);
@@ -76,15 +85,17 @@ describe('EncounterTemplates', () => {
 
     it('selectEncounter：尺寸过滤 + 降档回退 + 放不下返回 null', () => {
         const rng = () => 0.5;
-        const big = selectEncounter('deep', 14, 12, rng);
+        const big = selectEncounter('deep', 16, 12, rng);
         expect(big).not.toBeNull();
-        expect(big.w).toBeLessThanOrEqual(14);
+        expect(big.w).toBeLessThanOrEqual(16);
         expect(big.h).toBeLessThanOrEqual(12);
 
-        // 小房间：deep 放不下 → 降档到 shallow
-        const small = selectEncounter('deep', 8, 8, rng);
-        expect(small).not.toBeNull();
-        expect(small.w).toBeLessThanOrEqual(8);
+        // 标准最小房 interior（17-4=13）：任何档位都应有模板可放
+        for (const tier of ['shallow', 'mid', 'deep']) {
+            const fit = selectEncounter(tier, 13, 13, rng);
+            expect(fit, `${tier} @13x13`).not.toBeNull();
+            expect(fit.w).toBeLessThanOrEqual(13);
+        }
 
         expect(selectEncounter('deep', 3, 3, rng)).toBeNull();
     });

@@ -120,7 +120,7 @@ export class DungeonManager {
 
         // Activate room on first entry - only when player is well inside
         // (not at edge tiles where gates are, to avoid trapping player outside)
-        if (room.state === 'idle') {
+        if (room.state === 'idle' && !this.worldSystem.debugPeaceMode) {
             room.visited = true;
             const tx = Math.floor(player.x / TILE_SIZE);
             const ty = Math.floor(player.y / TILE_SIZE);

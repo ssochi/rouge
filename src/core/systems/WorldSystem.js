@@ -724,12 +724,12 @@ export class WorldSystem {
         this.player.x = (startRoom.x + Math.floor(startRoom.w / 2)) * TILE_SIZE;
         this.player.y = (startRoom.y + Math.floor(startRoom.h / 2)) * TILE_SIZE;
 
-        // 调试：出生到指定房间边缘（截图自查遭遇战地形/特殊房布置）
+        // 调试：出生到指定房间中央（截图自查遭遇战布景；配合 peace=1 不触发出怪）
         if (Number.isFinite(this.debugSpawnRoomIndex)) {
             const target = layout.rooms[this.debugSpawnRoomIndex];
             if (target) {
                 this.player.x = (target.x + Math.floor(target.w / 2)) * TILE_SIZE;
-                this.player.y = (target.y + 1) * TILE_SIZE;
+                this.player.y = (target.y + Math.floor(target.h / 2)) * TILE_SIZE;
             }
         }
 

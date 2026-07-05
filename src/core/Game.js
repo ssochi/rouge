@@ -388,6 +388,9 @@ export class Game {
         if (Number.isFinite(debugRoom)) {
             this.worldSystem.debugSpawnRoomIndex = debugRoom;
         }
+        if (debugParams.get('peace') === '1') {
+            this.worldSystem.debugPeaceMode = true; // 房间不激活不出怪（布景审视用）
+        }
         this.worldSystem.loadMap(debugMap || 'hub'); // Start in Hub
         this.playerSystem.updateEquippedItem();
         
