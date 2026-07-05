@@ -11,7 +11,9 @@ const COOLDOWN_FRAMES = 100;
 
 export class Sentry extends Enemy {
     constructor(x, y) {
-        super(x, y, 22, 22, 45, 0);
+        super(x, y, 28, 28, 45, 0);
+
+        this.spriteScale = 1.3; // 体型放大至角色同级（N1）
 
         this.mode = 'scan'; // scan | windup | firing | cooldown
         this.modeTimer = 0;
@@ -118,7 +120,8 @@ export class Sentry extends Enemy {
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
-        if (this.facingRight) ctx.scale(-1, 1);
+        const s = this.spriteScale || 1;
+        ctx.scale(this.facingRight ? -s : s, s);
 
         const frames = this._currentFrames();
         if (frames) {

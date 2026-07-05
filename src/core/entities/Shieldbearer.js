@@ -8,7 +8,9 @@ const BLOCK_REDUCTION = 0.1; // 正面命中伤害保留 10%
 
 export class Shieldbearer extends Enemy {
     constructor(x, y) {
-        super(x, y, 22, 22, 60, 0.55);
+        super(x, y, 28, 28, 60, 0.55);
+
+        this.spriteScale = 1.3; // 体型放大至角色同级（N1）
 
         this.chase = new ChaseBehavior();
         this.damage = 12;
@@ -120,7 +122,8 @@ export class Shieldbearer extends Enemy {
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
-        if (this.facingRight) ctx.scale(-1, 1);
+        const s = this.spriteScale || 1;
+        ctx.scale(this.facingRight ? -s : s, s);
 
         const frames = this._currentFrames();
         if (frames) {

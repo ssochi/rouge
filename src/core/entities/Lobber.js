@@ -14,7 +14,9 @@ const RELEASE_FRAME = 14; // 抡臂到位的出手帧
 
 export class Lobber extends Enemy {
     constructor(x, y) {
-        super(x, y, 20, 20, 28, 1.0);
+        super(x, y, 26, 26, 28, 1.0);
+
+        this.spriteScale = 1.35; // 体型放大至角色同级（N1）
 
         this.kite = new KiteBehavior({ near: 170, far: 280 });
         this.throwCooldown = Math.floor(THROW_COOLDOWN * 0.5);
@@ -130,7 +132,8 @@ export class Lobber extends Enemy {
         if (this.hp > 0) {
             ctx.save();
             ctx.translate(Math.floor(this.x), Math.floor(this.y));
-            if (this.facingRight) ctx.scale(-1, 1);
+            const s = this.spriteScale || 1;
+            ctx.scale(this.facingRight ? -s : s, s);
 
             const frames = this._currentFrames();
             if (frames) {

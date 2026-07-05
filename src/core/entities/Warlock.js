@@ -8,7 +8,9 @@ const TELEPORT_DAMAGE_THRESHOLD = 16;
 
 export class Warlock extends Enemy {
     constructor(x, y) {
-        super(x, y, 20, 20, 30, 0.9);
+        super(x, y, 26, 26, 30, 0.9);
+
+        this.spriteScale = 1.35; // 体型放大至角色同级（N1）
 
         this.kite = new KiteBehavior({ near: 150, far: 250 });
         this.pattern = new RangedPatternBehavior({
@@ -120,7 +122,8 @@ export class Warlock extends Enemy {
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
-        if (this.facingRight) ctx.scale(-1, 1);
+        const s = this.spriteScale || 1;
+        ctx.scale(this.facingRight ? -s : s, s);
 
         const frames = this._currentFrames();
         if (frames) {

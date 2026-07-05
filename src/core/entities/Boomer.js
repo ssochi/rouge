@@ -13,7 +13,9 @@ const DEATH_EXPLODE_RADIUS = 42;
 
 export class Boomer extends Enemy {
     constructor(x, y) {
-        super(x, y, 20, 20, 18, 2.2);
+        super(x, y, 26, 26, 18, 2.2);
+
+        this.spriteScale = 1.35; // 体型放大至角色同级（N1）
 
         this.chase = new ChaseBehavior();
         this.fuseTimer = 0;      // >0 引信中
@@ -112,7 +114,8 @@ export class Boomer extends Enemy {
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
-        if (this.facingRight) ctx.scale(-1, 1);
+        const s = this.spriteScale || 1;
+        ctx.scale(this.facingRight ? -s : s, s);
 
         const frames = this._currentFrames();
         if (frames) {

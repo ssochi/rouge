@@ -8,7 +8,9 @@ import { TILE_SIZE } from '../../utils/Constants.js';
 
 export class Summoner extends Enemy {
     constructor(x, y) {
-        super(x, y, 20, 20, 35, 0.8);
+        super(x, y, 26, 26, 35, 0.8);
+
+        this.spriteScale = 1.35; // 体型放大至角色同级（N1）
 
         this.kite = new KiteBehavior({ near: 190, far: 300 });
         this.summon = new SummonBehavior({
@@ -105,7 +107,8 @@ export class Summoner extends Enemy {
 
         ctx.save();
         ctx.translate(Math.floor(this.x), Math.floor(this.y));
-        if (this.facingRight) ctx.scale(-1, 1);
+        const s = this.spriteScale || 1;
+        ctx.scale(this.facingRight ? -s : s, s);
 
         const frames = this._currentFrames();
         if (frames) {
