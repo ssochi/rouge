@@ -5,6 +5,8 @@ import { computeFanAngles, computeRingAngles, RangedPatternBehavior } from '../s
 import { KiteBehavior } from '../src/core/entities/behaviors/KiteBehavior.js';
 import { TelegraphedChargeBehavior } from '../src/core/entities/behaviors/TelegraphedChargeBehavior.js';
 import { SummonBehavior } from '../src/core/entities/behaviors/SummonBehavior.js';
+import { PounceChargeBehavior } from '../src/core/entities/behaviors/PounceChargeBehavior.js';
+import { FlankingBias, setFlankGroupCount } from '../src/core/entities/behaviors/FlankingBias.js';
 
 function mockCtx(enemyPos, playerPos) {
     const moves = [];
@@ -205,6 +207,105 @@ describe('TelegraphedChargeBehavior 状态机', () => {
         charge.update(ctx);
         expect(charge.state).toBe('idle');
         expect(charge.cooldownTimer).toBe(10);
+    });
+});
+
+describe('PounceChargeBehavior 冲刺扑击', () => {
+    it('decideTrigger：仅距离带内且掷点命中概率时触发', () => {
+        const p = new PounceChargeBehavior({ minRange: 100, maxRange: 200, triggerChance: 0.5 });
+        expect(p.decideTrigger(150, 0.4)).toBe(true);   // 带内 + 命中
+        expect(p.decideTrigger(150, 0.6)).toBe(false);  // 带内 + 未命中
+        expect(p.decideTrigger(80, 0.1)).toBe(false);   // 过近（<100）
+        expect(p.decideTrigger(260, 0.1)).toBe(false);  // 过远（>200）
+    });
+
+    it('状态机：idle→telegraph→charge→recover→idle，扑击朝玩家位移并进入冷却', () => {
+        const p = new PounceChargeBehavior({
+            minRange: 50, maxRange: 300, telegraphTime: 3, chargeTime: 2, recoverTime: 2,
+            cooldown: 40, triggerChance: 1, rng: () => 0
+        });
+        p.cooldownTimer = 0;
+        const ctx = mockCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+
+        expect(p.update(ctx)).toBe(true);       // 触发 → telegraph
+        expect(p.state).toBe('telegraph');
+        expect(p.isTelegraphing).toBe(true);
+        expect(p.getTelegraphLine(ctx.enemy)).not.toBeNull();
+
+        for (let i = 0; i < 3; i++) p.update(ctx);
+        expect(p.state).toBe('charge');
+        const xBefore = ctx.enemy.x;
+        p.update(ctx);
+        expect(ctx.enemy.x).toBeGreaterThan(xBefore); // 扑击朝玩家（+x）位移
+
+        p.update(ctx);
+        expect(p.state).toBe('recover');
+        p.update(ctx);
+        p.update(ctx);
+        expect(p.state).toBe('idle');
+        expect(p.cooldownTimer).toBe(40);
+    });
+
+    it('概率判定失败时进入短重试而非立即触发', () => {
+        const p = new PounceChargeBehavior({
+            minRange: 0, maxRange: 500, triggerChance: 0.5, retryDelay: 7, rng: () => 0.9
+        });
+        p.cooldownTimer = 0;
+        const ctx = mockCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        expect(p.update(ctx)).toBe(false);      // 掷点 0.9 ≥ 0.5 → 不触发
+        expect(p.state).toBe('idle');
+        expect(p.cooldownTimer).toBe(7);        // 设置重试间隔
+    });
+
+    it('tryConsumeHit：单次扑击仅结算一次接触伤害', () => {
+        const p = new PounceChargeBehavior({
+            minRange: 0, maxRange: 500, telegraphTime: 1, chargeTime: 5, recoverTime: 1,
+            triggerChance: 1, rng: () => 0
+        });
+        p.cooldownTimer = 0;
+        const ctx = mockCtx({ x: 0, y: 0 }, { x: 100, y: 0 });
+        p.update(ctx); // idle→telegraph
+        p.update(ctx); // telegraph→charge
+        expect(p.isCharging).toBe(true);
+        expect(p.tryConsumeHit()).toBe(true);   // 首次命中
+        expect(p.tryConsumeHit()).toBe(false);  // 同次扑击不再结算
+    });
+});
+
+describe('FlankingBias 包抄偏置', () => {
+    it('rotate：启用时按侧翼角旋转，左右翼分向相反且写入 outX/outY', () => {
+        setFlankGroupCount(3);
+        const left = new FlankingBias({ angleDeg: 25, minGroup: 3, sign: 1 });
+        const right = new FlankingBias({ angleDeg: 25, minGroup: 3, sign: -1 });
+        expect(left.refresh()).toBe(true);
+        right.refresh();
+
+        // 沿 +x 前进：左翼(+25°)→y>0，右翼(-25°)→y<0（分向两侧合围）
+        expect(left.rotate(1, 0)).toBe(true);
+        right.rotate(1, 0);
+        expect(left.outX).toBeCloseTo(Math.cos(25 * Math.PI / 180));
+        expect(left.outY).toBeCloseTo(Math.sin(25 * Math.PI / 180));
+        expect(right.outY).toBeCloseTo(-Math.sin(25 * Math.PI / 180));
+        expect(Math.sign(left.outY)).toBe(-Math.sign(right.outY));
+        // 旋转保持向量长度不变
+        expect(Math.hypot(left.outX, left.outY)).toBeCloseTo(1);
+        setFlankGroupCount(0);
+    });
+
+    it('群体不足阈值时不旋转（原样透传）', () => {
+        setFlankGroupCount(2);
+        const b = new FlankingBias({ angleDeg: 25, minGroup: 3, sign: 1 });
+        expect(b.refresh()).toBe(false);
+        expect(b.rotate(1, 0)).toBe(false);
+        expect(b.outX).toBe(1);
+        expect(b.outY).toBe(0);
+        setFlankGroupCount(0);
+    });
+
+    it('默认按构造顺序奇偶交替分配左右翼', () => {
+        const a = new FlankingBias({});
+        const b = new FlankingBias({});
+        expect(a.sign).toBe(-b.sign); // 相邻两只分属不同翼
     });
 });
 

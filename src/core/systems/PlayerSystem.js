@@ -46,6 +46,7 @@ export class PlayerSystem {
                 this.tryBuyShopItem() ||
                 this.tryOpenChest() ||
                 this.tryUseSlotMachine() || // [depth-batch:gamble]
+                this.tryUseRelicAltar() || // [tension-batch:power]
                 this.tryPickupWeapon() ||
                 this.tryInteractWithObject();
             // 无世界交互目标时，E 键回退为「使用当前选中的消耗品」。
@@ -157,6 +158,20 @@ export class PlayerSystem {
             if (dx * dx + dy * dy < 50 * 50) {
                 machine.tryUse(ws.dungeonRunState, ws);
                 return true; // 消费本次交互（含金币不足/忙碌/爆机的红字反馈）
+            }
+        }
+        return false;
+    }
+
+    // [tension-batch:power] 遗物祭坛交互：靠近某底座时 E 选定该遗物（授予 + 灭二），已选定则跳过。
+    tryUseRelicAltar() {
+        const ws = this.worldSystem;
+        if (!ws || !ws.relicAltars || ws.relicAltars.length === 0) return false;
+
+        for (const altar of ws.relicAltars) {
+            if (altar.resolved) continue;
+            if (altar.nearestPedestal(this.player.x, this.player.y) >= 0) {
+                return altar.tryChoose(ws, this.player.x, this.player.y);
             }
         }
         return false;

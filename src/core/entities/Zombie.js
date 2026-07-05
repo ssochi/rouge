@@ -1,17 +1,22 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
+import { FlankingBias } from './behaviors/FlankingBias.js';
 
 export class Zombie extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 20, 50, 1.0); // Hitbox 20x20, HP 50, Speed 1.0 (Slow)
-        
+
         this.attackRange = 30;
         this.attackCooldown = 0;
         this.damage = 10;
-        
+
         this.isAttacking = false;
         this.attackTimer = 0;
         this.attackDuration = 40; // Frames for attack
+
+        // [tension-batch:ai] 包抄偏置：群体近战从两侧合围
+        this.flankParticipant = true;
+        this.flankBias = new FlankingBias();
     }
 
     update(player, walls, wallQuery, getFlowDirection, getNearbyEnemies, getNavDirection, combatSystem, moveResolver) {
@@ -95,6 +100,12 @@ export class Zombie extends Enemy {
                         vx /= vLen;
                         vy /= vLen;
                     }
+
+                    // [tension-batch:ai] 包抄偏置：近战群体 ≥3 时按左右翼偏转寻路向量（导航前旋转，仍会绕墙）
+                    this.flankBias.refresh();
+                    this.flankBias.rotate(vx, vy);
+                    vx = this.flankBias.outX;
+                    vy = this.flankBias.outY;
 
                     if (getNavDirection) {
                         const nav = getNavDirection(this, vx, vy);

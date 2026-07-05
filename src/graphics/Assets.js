@@ -138,6 +138,8 @@ import { createF1PrisonWatchtowerSprite } from '../assets/objects/dungeon/F1Pris
 import { createF1PrisonBunkSprite } from '../assets/objects/dungeon/F1PrisonBunkSprite.js';
 // [depth-batch:gamble] 老虎机赌博机精灵
 import { createSlotMachineSprites } from '../assets/objects/dungeon/SlotMachineSprite.js';
+// [tension-batch:power] 遗物三选一祭坛底座精灵
+import { createRelicAltarSprites } from '../assets/objects/dungeon/RelicAltarSprite.js';
 // ── F3 深渊实验室层物件 ──
 import { createF3CultureTankSprite } from '../assets/objects/dungeon/f3_culture_tank.js';
 import { createF3CultureTankBrokenSprite } from '../assets/objects/dungeon/f3_culture_tank_broken.js';
@@ -161,6 +163,9 @@ import { createSpikeTrapIdleSprite, createSpikeTrapWarnSprite, createSpikeTrapUp
 import { createRewardCageClosedSprite, createRewardCageOpenSprite } from '../assets/objects/dungeon/DungeonRewardCageSprite.js';
 import { createCageLeverUpSprite, createCageLeverDownSprite } from '../assets/objects/dungeon/DungeonCageLeverSprite.js';
 import { createDecoyStatueSprite } from '../assets/objects/dungeon/DungeonDecoyStatueSprite.js';
+// ── [tension-batch:verbs] 契约拉杆 + 门口预告图标 ──
+import { createPactLeverUpSprite, createPactLeverDownSprite } from '../assets/objects/dungeon/DungeonPactLeverSprite.js';
+import { createDoorPreviewIcons } from '../assets/objects/dungeon/DoorPreviewIconSprites.js';
 import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
@@ -361,12 +366,17 @@ const spikeTrapFrames = [createSpikeTrapIdleSprite(), createSpikeTrapWarnSprite(
 const rewardCageFrames = [createRewardCageClosedSprite(), createRewardCageOpenSprite()];
 const cageLeverFrames = [createCageLeverUpSprite(), createCageLeverDownSprite()];
 const decoyStatueSprite = createDecoyStatueSprite();
+// [tension-batch:verbs] 契约拉杆两态 + 门口预告图标集
+const pactLeverFrames = [createPactLeverUpSprite(), createPactLeverDownSprite()];
+const doorPreviewIconSprites = createDoorPreviewIcons();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
 const dungeonMerchantSprite = createMerchantSprite();
 // [depth-batch:gamble] 老虎机精灵集（多帧动画 + 滚轮图案字典）
 const slotMachineSprites = createSlotMachineSprites();
+// [tension-batch:power] 遗物祭坛底座精灵集（lit 两帧脉动 + broken 碎裂）
+const relicAltarSprites = createRelicAltarSprites();
 const dungeonChestSprites = Object.fromEntries(
     CHEST_TIER_NAMES.map(tier => [tier, {
         closed: createChestSprite(tier, false),
@@ -814,6 +824,8 @@ export const Assets = {
         spike_trap: spikeTrapFrames,
         reward_cage: rewardCageFrames,
         cage_lever: cageLeverFrames,
+        // [tension-batch:verbs] 契约房拉杆（两态：未立约 / 已立约）
+        pact_lever: pactLeverFrames,
         decoy_statue: decoyStatueSprite,
         decoy_statue_flash: PixelDraw.createSilhouette(decoyStatueSprite),
         tree: treeSprite,
@@ -898,8 +910,12 @@ export const Assets = {
     dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
     // [depth-batch:gamble] 老虎机 {frames:{idle,spin,win,bust,dead}, symbols:{...}} 24×32
     slotMachine: slotMachineSprites,
+    // [tension-batch:power] 遗物祭坛底座 {lit:[dim,bright], broken} 20×24（单座；实体侧排三座）
+    relicAltar: relicAltarSprites,
     dungeonWalls: dungeonWallSets, // 楼层主题墙体贴图 {f1|f2|f3: {tops: 4×(32×32), fronts: 4×(32×16)}}
     dungeonDecals: dungeonDecalSets, // 楼层主题地板贴花 {f1|f2|f3: {crack/moss/blood/puddle/web/pages: [...], bossRing}}
+    // [tension-batch:verbs] 门口预告漂浮图标 {survival/hunt/pact/elite/treasure/shop/boss: 16×16 Canvas}
+    doorPreviewIcons: doorPreviewIconSprites,
 
     // Costume Icons
     costume_hair_long: generateHairLongIcon(),

@@ -5,6 +5,7 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
 import { ChaseBehavior } from './behaviors/ChaseBehavior.js';
+import { PounceChargeBehavior } from './behaviors/PounceChargeBehavior.js';
 
 const CORPSE_DURATION = 180;   // 尸体存续 3s
 const CORPSE_HP = 15;          // 尸体血量（补刀阈值）
@@ -20,6 +21,8 @@ export class Revenant extends Enemy {
 
         this.spriteScale = 1.2;
         this.chase = new ChaseBehavior();
+        // [tension-batch:ai] 冲刺扑击：憔悴亡者在距离带内蓄力后直线扑咬
+        this.pounce = new PounceChargeBehavior();
         this.baseSpeed = 1.4;
         this.touchCooldown = 0;
         this.attackAnimTimer = 0;
@@ -127,6 +130,18 @@ export class Revenant extends Enemy {
             enemy: this, player, walls, wallQuery,
             getFlowDirection, getNavDirection, moveResolver, combatSystem
         };
+
+        // [tension-batch:ai] 冲刺扑击优先：距离带内概率蓄力后 1.5x 直线扑击（接触伤害已在上方照常结算）
+        if (this.pounce.update(ctx)) {
+            if (this.pounce.dirX !== 0 || this.pounce.dirY !== 0) {
+                this.facingRight = this.pounce.dirX > 0;
+            }
+            // 蓄力保持扑咬姿态（attackAnim），扑击/硬直走奔跑动画
+            if (this.pounce.isTelegraphing) this.attackAnimTimer = Math.max(this.attackAnimTimer, 2);
+            this.state = 'run';
+            return;
+        }
+
         this.chase.update(ctx);
         this.state = 'run';
     }
@@ -143,6 +158,22 @@ export class Revenant extends Enemy {
         if (this.isCorpse) {
             this._drawCorpse(ctx);
             return;
+        }
+
+        // [tension-batch:ai] 扑击蓄力方向预警线（紫，随蓄力渐亮）
+        const pounceLine = this.pounce && this.pounce.getTelegraphLine(this);
+        if (pounceLine) {
+            ctx.save();
+            ctx.globalAlpha = 0.25 + pounceLine.progress * 0.5;
+            ctx.strokeStyle = '#b04dff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(pounceLine.x1, pounceLine.y1);
+            ctx.lineTo(pounceLine.x2, pounceLine.y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
         }
 
         const set = this._frameSet();
@@ -167,6 +198,15 @@ export class Revenant extends Enemy {
         if (this.hitFlashTimer > 0) {
             ctx.save();
             ctx.filter = 'brightness(500%) sepia(100%) saturate(0%)';
+            ctx.drawImage(sprite, -16, -16);
+            ctx.restore();
+        }
+        // [tension-batch:ai] 扑击蓄力：紫色脉冲变色预警
+        if (this.pounce && this.pounce.isTelegraphing) {
+            const ph = this.pounce.getPhase();
+            ctx.save();
+            ctx.globalAlpha = 0.3 + 0.35 * (ph ? ph.progress : 0);
+            ctx.filter = 'brightness(160%) sepia(100%) saturate(500%) hue-rotate(230deg)';
             ctx.drawImage(sprite, -16, -16);
             ctx.restore();
         }

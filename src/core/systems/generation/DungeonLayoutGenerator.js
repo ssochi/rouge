@@ -571,6 +571,36 @@ function assignRoomCategories(rooms, depths, startIdx, bossIdx, rng) {
             else rooms[i].category = 'challenge_trapline';
         }
     }
+
+    // [tension-batch:verbs] 玩法动词房：从普通战斗房中挑选若干替换为 survival/hunt/pact，
+    // 保底每层至少各出现 1 次（选路才有意义）。普通战斗房不足 3 间时不强插（避免独木桥无常规战斗）。
+    assignVerbRooms(rooms, rng);
+}
+
+/**
+ * [tension-batch:verbs] 在普通战斗房中植入三种玩法动词房。
+ * 洗牌后取前 N 间（N≈35%，下限 3），按 survival/hunt/pact 轮转赋值——
+ * 前三间即覆盖三型，保证同一层三种动词各现 ≥1 次。
+ */
+function assignVerbRooms(rooms, rng) {
+    const COMBAT_CATS = new Set(['combat_open', 'combat_cover', 'combat_maze', 'challenge_trapline']);
+    const combatIds = [];
+    for (let i = 0; i < rooms.length; i++) {
+        if (COMBAT_CATS.has(rooms[i].category)) combatIds.push(i);
+    }
+    if (combatIds.length < 3) return;
+
+    // Fisher-Yates 洗牌（用生成器 rng，保证同种子可复现）
+    for (let i = combatIds.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [combatIds[i], combatIds[j]] = [combatIds[j], combatIds[i]];
+    }
+
+    const nConvert = Math.min(combatIds.length, Math.max(3, Math.round(combatIds.length * 0.35)));
+    const verbs = ['survival', 'hunt', 'pact'];
+    for (let k = 0; k < nConvert; k++) {
+        rooms[combatIds[k]].category = verbs[k % verbs.length];
+    }
 }
 
 /**
@@ -1153,7 +1183,9 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         const isCombatRoom = room.type === 'normal'
             && room.category !== 'treasure'
             && room.category !== 'shop'
-            && room.category !== 'elite';
+            && room.category !== 'elite'
+            // [tension-batch:verbs] 契约房用空旷布景（拉杆居中、开战前可自由穿行），不套遭遇战模板
+            && room.category !== 'pact';
         if (!isCombatRoom) continue;
 
         const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds, floor);

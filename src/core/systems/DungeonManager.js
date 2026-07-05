@@ -2,15 +2,25 @@ import { TILE_SIZE } from '../../utils/Constants.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
-import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
+import { pickRarity, pickWeaponByRarity, weaponRarityWeightsForFloor, shouldForceWeaponDrop } from '../dungeon/LootTable.js';
 import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR, GAMBLE } from '../dungeon/EconomyConfig.js';
-import { getFloorConfig } from '../dungeon/FloorConfigs.js';
+import { getFloorConfig, getDepthTier } from '../dungeon/FloorConfigs.js';
 import { applyAffixes, pickRandomAffixes } from '../dungeon/EnemyAffixSystem.js';
+// [tension-batch:verbs] 房间玩法动词状态机（生存/猎杀/契约）
+import {
+    activateSurvival, updateSurvival,
+    activateHunt, updateHunt,
+    startPact, updatePact,
+    PACT, HUNT
+} from './dungeon/RoomVerbs.js';
 
 // 用户反馈：手枪猎人 / 随机武器士兵手感偏强，F1/F2 枪兵应是稀有强敌，避免一波涌出多只。
 // 每个遭遇战房间限制 hunter+soldier 合计生成 ≤2 只；超额时从同角色池改抽非枪兵类型。
 const GUN_USER_TYPES = new Set(['hunter', 'soldier']);
 const MAX_GUN_USERS_PER_ROOM = 2;
+
+// [tension-batch:verbs] 动词房池化出怪剔除项：盗宝地精（非战斗惊喜怪）、电弧双子（成对刷、数量不可控）
+const VERB_POOL_EXCLUDE = new Set(['loot_goblin', 'arc_twin']);
 
 /**
  * 枪兵限额工具：若 type 为枪兵且本房已达上限，则从同角色池改抽一个非枪兵类型；
@@ -45,6 +55,9 @@ export class DungeonManager {
         this.rooms = new Map(); // roomId → room state
         this.currentFloor = layout.floor || 1;
         this._floorSlotMachines = 0; // [depth-batch:gamble] 本层已在战斗房刷出的老虎机数（DungeonManager 每层重建即归零）
+        // [tension-batch:power] 每层武器保底计数（DungeonManager 每层重建即归零）：已清房数 + 本层是否已掉过武器
+        this._floorRoomsCleared = 0;
+        this._floorWeaponDropped = false;
 
         // Build room grid for O(1) position lookups
         this.gridW = worldSystem?.getWorldTileWidth ? worldSystem.getWorldTileWidth() : 130;
@@ -85,6 +98,29 @@ export class DungeonManager {
         this.gates = []; // { x, y, orientation, roomIds, active, wallRef, alpha, animTimer }
 
         this._frameCount = 0;
+
+        // [tension-batch:verbs] 房间动词状态机副作用注入口（出怪/封门/开门/掉落/遁走）
+        this._verbCtx = this._buildVerbCtx();
+    }
+
+    /**
+     * [tension-batch:verbs] 构造房间动词状态机的副作用回调集。
+     * RoomVerbs 纯逻辑仅决定"何时"，此处提供地牢内真实的"如何"。
+     */
+    _buildVerbCtx() {
+        return {
+            rng: Math.random,
+            aliveCount: (room) => room.enemies.size,
+            lockGates: (room) => { for (const gate of room.gates) this._activateGate(gate); },
+            spawnBatch: (room, count) => this._spawnPooledBatch(room, count, {}),
+            spawnHuntTarget: (room) => this._spawnHuntTarget(room),
+            spawnGuards: (room, n) => this._spawnPooledBatch(room, n, {}),
+            spawnPactEnemies: (room) => this._spawnPactEnemies(room),
+            wipeEnemies: (room) => this._wipeRoomEnemies(room),
+            escapeTarget: (room, target) => this._escapeHuntTarget(room, target),
+            clearWithReward: (room, kind) => this._clearVerbRoom(room, kind),
+            clearNoReward: (room) => this._clearVerbRoom(room, null)
+        };
     }
 
     /**
@@ -148,7 +184,8 @@ export class DungeonManager {
         // 房间激活（出怪）仍受 peace 模式抑制，且需玩家深入（避开门口边缘 tile，避免把玩家挡在门外）
         if (room.state === 'idle') {
             room.visited = true;
-            if (!this.worldSystem.debugPeaceMode) {
+            // [tension-batch:verbs] 契约房进房不封门、不出怪，靠中央拉杆开战——跳过自动激活
+            if (!this.worldSystem.debugPeaceMode && room.category !== 'pact') {
                 const tx = Math.floor(player.x / TILE_SIZE);
                 const ty = Math.floor(player.y / TILE_SIZE);
                 const margin = 2;
@@ -163,6 +200,12 @@ export class DungeonManager {
         for (const [, rs] of this.rooms) {
             if (rs.state !== 'active') continue;
             this._cleanDeadEnemies(rs);
+
+            // [tension-batch:verbs] 玩法动词房走各自状态机（生存计时/猎杀目标/契约拉杆），不进遭遇战波次逻辑
+            if (rs.category === 'survival') { updateSurvival(rs, this._verbCtx); continue; }
+            if (rs.category === 'hunt') { updateHunt(rs, this._verbCtx); continue; }
+            if (rs.category === 'pact') { updatePact(rs, this._verbCtx); continue; }
+
             if (rs.enemies.size > 0) continue;
 
             if (rs.waveTelegraphTimer > 0) {
@@ -174,7 +217,7 @@ export class DungeonManager {
                     rs.wavesSpawned = (rs.wavesSpawned || 0) + 1;
                 }
             } else if (Array.isArray(rs.pendingWaves) && rs.pendingWaves.length > 0) {
-                rs.waveTelegraphTimer = 50; // 增援波预警 ~0.83s
+                rs.waveTelegraphTimer = 32; // [tension-batch:ai] 增援波预警 0.83s→0.53s（缩短波间喘息、制造压迫）
             } else {
                 this.clearRoom(rs);
             }
@@ -207,6 +250,18 @@ export class DungeonManager {
             this._activateGate(gate);
         }
 
+        // [tension-batch:verbs] 生存/猎杀房走各自的出怪节奏（不进遭遇战波次队列）
+        if (room.category === 'survival') {
+            activateSurvival(room, this._verbCtx);
+            this.worldSystem.markWorldStaticDirty();
+            return;
+        }
+        if (room.category === 'hunt') {
+            activateHunt(room, this._verbCtx);
+            this.worldSystem.markWorldStaticDirty();
+            return;
+        }
+
         // 遭遇战房：所有波次（含波1）都走出生魔法阵队列（Gungeon 式读房时间）
         if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
             const firstWave = room.encounterSpawns.filter(s => !s.wave);
@@ -221,6 +276,235 @@ export class DungeonManager {
         }
 
         this.worldSystem.markWorldStaticDirty();
+    }
+
+    // ─────────────────────── [tension-batch:verbs] 房间玩法动词 ───────────────────────
+
+    /** 契约拉杆委托入口：封门 + 刷 ×1.5 全精英敌人（拉杆物件 interact 调用）。 */
+    startPactFight(room) {
+        if (!room || room.category !== 'pact' || room.pactStarted) return false;
+        room.state = 'active';
+        const ok = startPact(room, this._verbCtx);
+        if (ok) this.worldSystem.markWorldStaticDirty();
+        else room.state = 'idle';
+        return ok;
+    }
+
+    /** 按楼层深度池加权随机一个敌人类型（剔除非战斗惊喜怪 / 成对怪，保证批量可控）。 */
+    _pickPooledType(tier) {
+        const entries = Object.entries(tier.weights).filter(([t]) => !VERB_POOL_EXCLUDE.has(t));
+        const pool = entries.length > 0 ? entries : Object.entries(tier.weights);
+        let total = 0;
+        for (const [, w] of pool) total += w;
+        let r = Math.random() * total;
+        for (const [type, w] of pool) {
+            r -= w;
+            if (r <= 0) return type;
+        }
+        return pool[0][0];
+    }
+
+    /**
+     * 池化批量出怪（生存增援 / 猎杀护卫 / 契约敌群）：按楼层深度池加权抽型，
+     * 落在房内随机出怪点（退让避坑），应用楼层缩放 + 出生保护；opts.elite 时叠精英词缀。
+     * @returns {Array} 本批成功生成的敌人
+     */
+    _spawnPooledBatch(room, count, opts = {}) {
+        const floorConfig = getFloorConfig(this.currentFloor);
+        const tier = getDepthTier(floorConfig, room.depth || 1);
+        const points = (room.spawnPoints && room.spawnPoints.length) ? room.spawnPoints : [];
+        const spawned = [];
+        for (let i = 0; i < count; i++) {
+            const type = this._pickPooledType(tier);
+            let enemy = null;
+            for (let a = 0; a < 5 && !enemy; a++) {
+                const sp = points[Math.floor(Math.random() * points.length)];
+                if (!sp) break;
+                if (this.worldSystem.isPitAt && this.worldSystem.isPitAt(sp.x * TILE_SIZE + 16, sp.y * TILE_SIZE + 16)) continue;
+                enemy = this.worldSystem.spawnEnemy(type, { tileX: sp.x, tileY: sp.y, strict: true });
+            }
+            if (!enemy) continue;
+            this._applyFloorScaling(enemy, floorConfig);
+            this._applySpawnGrace(enemy);
+            if (opts.elite && !enemy.isBoss && !enemy.isSegment) {
+                const [minCount, maxCount] = floorConfig.eliteAffixCount || [1, 1];
+                const c = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+                applyAffixes(enemy, pickRandomAffixes(c));
+            }
+            room.enemies.add(enemy);
+            spawned.push(enemy);
+        }
+        const relicSystem = this.worldSystem.relicSystem;
+        if (relicSystem && relicSystem.onWaveSpawned) relicSystem.onWaveSpawned(spawned);
+        return spawned;
+    }
+
+    /** 猎杀目标怪：该层近战池选一只，套精英词缀 + 1.5 倍速 + 加厚血 + 金色描边标记。 */
+    _spawnHuntTarget(room) {
+        const floorConfig = getFloorConfig(this.currentFloor);
+        const meleePool = (floorConfig.roleMap && floorConfig.roleMap.m) || ['zombie'];
+        const type = meleePool[Math.floor(Math.random() * meleePool.length)];
+        // 优先靠近房心刷出（醒目）
+        const cx = room.x + room.w / 2, cy = room.y + room.h / 2;
+        const points = [...(room.spawnPoints || [])].sort(
+            (a, b) => ((a.x - cx) ** 2 + (a.y - cy) ** 2) - ((b.x - cx) ** 2 + (b.y - cy) ** 2)
+        );
+        let enemy = null;
+        for (const sp of points) {
+            if (this.worldSystem.isPitAt && this.worldSystem.isPitAt(sp.x * TILE_SIZE + 16, sp.y * TILE_SIZE + 16)) continue;
+            enemy = this.worldSystem.spawnEnemy(type, { tileX: sp.x, tileY: sp.y, strict: true });
+            if (enemy) break;
+        }
+        if (!enemy) return null;
+        this._applyFloorScaling(enemy, floorConfig);
+        const [minCount, maxCount] = floorConfig.eliteAffixCount || [1, 1];
+        const c = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+        applyAffixes(enemy, pickRandomAffixes(c));
+        enemy.speed *= HUNT.targetSpeedMult;
+        enemy.hp = Math.round(enemy.hp * HUNT.targetHpMult);
+        enemy.maxHp = Math.round(enemy.maxHp * HUNT.targetHpMult);
+        enemy.isHuntTarget = true; // Renderer 据此画金色描边
+        enemy.worldSystem = this.worldSystem;
+        return enemy;
+    }
+
+    /** 契约敌群：以房间常规编成数量 ×1.5 刷池化敌人、全体精英词缀。 */
+    _spawnPactEnemies(room) {
+        const base = (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length)
+            || (room.enemyConfig && room.enemyConfig.count)
+            || 4;
+        const count = Math.max(1, Math.round(base * PACT.countMult));
+        this._spawnPooledBatch(room, count, { elite: true });
+    }
+
+    /** 生存房撑满犒赏：全灭现存敌人（经死亡清扫掉落各自战利品）。 */
+    _wipeRoomEnemies(room) {
+        for (const e of room.enemies) {
+            if (e.hp > 0) e.hp = 0;
+        }
+        room.enemies.clear();
+    }
+
+    /** 猎杀超时：目标遁地逃走——无掉落移除（escaped 语义）+ 尘土迸发。 */
+    _escapeHuntTarget(room, target) {
+        if (!target) return;
+        target.escaped = true; // WorldSystem 死亡清扫据此跳过掉落
+        target.hp = 0;
+        room.enemies.delete(target);
+        const cs = this.worldSystem.combatSystem;
+        if (cs && Array.isArray(cs.particles)) {
+            for (let i = 0; i < 14; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 1.8 + 0.5;
+                cs.particles.push({
+                    x: target.x + (Math.random() - 0.5) * 12,
+                    y: target.y + 8,
+                    vx: Math.cos(a) * spd,
+                    vy: -Math.random() * 2 - 0.5,
+                    life: 20 + Math.random() * 14,
+                    color: Math.random() > 0.5 ? '#8a7048' : '#5c4a2e',
+                    size: Math.random() * 2 + 1,
+                    gravity: 0.15,
+                    friction: 0.95
+                });
+            }
+        }
+    }
+
+    /** 结算动词房：开门、置 cleared；kind 非空时掉落对应丰厚奖励。 */
+    _clearVerbRoom(room, kind) {
+        room.state = 'cleared';
+        for (const gate of room.gates) this._deactivateGate(gate);
+        this._floorRoomsCleared++;
+        if (kind) this._dropVerbRewards(room, kind);
+        this.worldSystem.markWorldStaticDirty();
+    }
+
+    /** 动词房丰厚掉落：生存=金币×2+铁箱 / 猎杀=金币大堆+高稀有武器 / 契约=翻倍+保底遗物。 */
+    _dropVerbRewards(room, kind) {
+        const centerX = (room.x + room.w / 2) * TILE_SIZE;
+        const centerY = (room.y + room.h / 2) * TILE_SIZE;
+        const relicMult = this.worldSystem.relicSystem ? this.worldSystem.relicSystem.roomClearCoinMult() : 1;
+        const baseCoin = ROOM_CLEAR.coinMin + Math.floor(Math.random() * (ROOM_CLEAR.coinMax - ROOM_CLEAR.coinMin + 1));
+
+        if (kind === 'survival') {
+            this.worldSystem.spawnCoinBurst(centerX, centerY, Math.round(baseCoin * 2 * relicMult));
+            this.worldSystem.spawnChest(centerX - 13, centerY - 40, 'iron');
+        } else if (kind === 'hunt') {
+            this.worldSystem.spawnCoinBurst(centerX, centerY, Math.round(baseCoin * 2.5 * relicMult));
+            // 高稀有度武器（rare+ 为主）
+            this._dropWeaponDrop(centerX, centerY, { rare: 45, epic: 35, legendary: 20 });
+            this._floorWeaponDropped = true; // [tension-batch:power] 猎杀房已产出武器，计入每层武器保底
+        } else if (kind === 'pact') {
+            this.worldSystem.spawnCoinBurst(centerX, centerY, Math.round(baseCoin * 2 * relicMult));
+            const chest = this.worldSystem.spawnChest(centerX - 13, centerY - 40, 'silver');
+            chest.guaranteedRelic = true; // 保底遗物
+        }
+    }
+
+    /** 按稀有度权重掉一把武器（复用清房武器掉落管线）。 */
+    _dropWeaponDrop(centerX, centerY, rarityWeights) {
+        const rarity = pickRarity(rarityWeights);
+        const weaponConfigId = pickWeaponByRarity(rarity);
+        const weaponItemId = weaponConfigId ? weaponItemIdFromConfigId(weaponConfigId) : null;
+        if (!weaponItemId) return;
+        const instanceData = createWeaponInstanceData({ weaponConfigId });
+        const offsetX = (Math.random() - 0.5) * 32;
+        const offsetY = (Math.random() - 0.5) * 32;
+        this.worldSystem.droppedItems.push(
+            new DroppedItem(centerX + offsetX, centerY + offsetY, weaponItemId, 1, instanceData)
+        );
+    }
+
+    /**
+     * 玩家当前房间的动词倒计时 HUD 数据（生存 / 猎杀）；无则 null。
+     * @returns {{kind: string, remaining: number, total: number}|null}
+     */
+    getVerbTimer() {
+        const rs = this.rooms.get(this.currentRoomId);
+        if (!rs || rs.state !== 'active') return null;
+        if (rs.category === 'survival' && !rs.survivalComplete && rs.survivalTimer > 0) {
+            return { kind: 'survival', remaining: rs.survivalTimer, total: rs.survivalTimerMax };
+        }
+        if (rs.category === 'hunt' && !rs.huntEscaped && rs.huntTarget && rs.huntTarget.hp > 0 && rs.huntTimer > 0) {
+            return { kind: 'hunt', remaining: rs.huntTimer, total: rs.huntTimerMax };
+        }
+        return null;
+    }
+
+    /** 门口预告：可预告房间（动词/精英/宝藏/商店/Boss）在其门口的世界坐标 + 图标 kind。 */
+    _roomPreviewKind(room) {
+        if (room.type === 'boss') return 'boss';
+        const c = room.category;
+        if (c === 'survival' || c === 'hunt' || c === 'pact' || c === 'elite' || c === 'treasure' || c === 'shop') return c;
+        return null;
+    }
+
+    /**
+     * 门口预告图标数据（Renderer 世界内漂浮绘制）：为每扇通向"可预告房间"的门
+     * 生成 {x, y, kind}。已清房 / 当前所在房不再预告。
+     * @returns {Array<{x: number, y: number, kind: string}>}
+     */
+    getDoorPreviews() {
+        const out = [];
+        for (const gate of this.gates) {
+            if (!gate.tiles || gate.tiles.length === 0) continue;
+            let kind = null;
+            for (const rid of gate.roomIds) {
+                if (rid === this.currentRoomId) continue; // 不预告脚下这间
+                const rs = this.rooms.get(rid);
+                if (!rs || rs.state === 'cleared') continue;
+                const k = this._roomPreviewKind(rs);
+                if (k) { kind = k; break; }
+            }
+            if (!kind) continue;
+            let sx = 0, sy = 0;
+            for (const t of gate.tiles) { sx += t.x; sy += t.y; }
+            const cx = (sx / gate.tiles.length + 0.5) * TILE_SIZE;
+            const cy = (sy / gate.tiles.length + 0.5) * TILE_SIZE;
+            out.push({ x: cx, y: cy, kind });
+        }
+        return out;
     }
 
     /**
@@ -531,6 +815,25 @@ export class DungeonManager {
     }
 
     /**
+     * [tension-batch:power] 掉落一把「当层带宽」武器（稀有度取 weaponRarityWeightsForFloor(currentFloor)）。
+     * 供清房概率掉落与每层保底共用。
+     * @returns {boolean} 是否成功生成武器掉落
+     */
+    _dropFloorWeapon(centerX, centerY) {
+        const rarity = pickRarity(weaponRarityWeightsForFloor(this.currentFloor));
+        const weaponConfigId = pickWeaponByRarity(rarity);
+        const weaponItemId = weaponConfigId ? weaponItemIdFromConfigId(weaponConfigId) : null;
+        if (!weaponItemId) return false;
+        const instanceData = createWeaponInstanceData({ weaponConfigId });
+        const offsetX = (Math.random() - 0.5) * 32;
+        const offsetY = (Math.random() - 0.5) * 32;
+        this.worldSystem.droppedItems.push(
+            new DroppedItem(centerX + offsetX, centerY + offsetY, weaponItemId, 1, instanceData)
+        );
+        return true;
+    }
+
+    /**
      * Drop rewards after clearing a room.
      */
     _dropRoomRewards(room) {
@@ -570,20 +873,17 @@ export class DungeonManager {
             this.worldSystem.spawnChest(centerX + TILE_SIZE, centerY - TILE_SIZE, 'wood');
         }
 
-        // 概率掉武器（稀有度加权抽取）
+        // [tension-batch:power] 概率掉武器（稀有度按当层带宽上移，见 LootTable.weaponRarityWeightsForFloor）
+        let weaponDropped = false;
         if (Math.random() < ROOM_CLEAR.weaponChance) {
-            const rarity = pickRarity(ROOM_CLEAR.weaponRarityWeights);
-            const weaponConfigId = pickWeaponByRarity(rarity);
-            const weaponItemId = weaponConfigId ? weaponItemIdFromConfigId(weaponConfigId) : null;
-            if (weaponItemId) {
-                const instanceData = createWeaponInstanceData({ weaponConfigId });
-                const offsetX = (Math.random() - 0.5) * 32;
-                const offsetY = (Math.random() - 0.5) * 32;
-                this.worldSystem.droppedItems.push(
-                    new DroppedItem(centerX + offsetX, centerY + offsetY, weaponItemId, 1, instanceData)
-                );
-            }
+            weaponDropped = this._dropFloorWeapon(centerX, centerY);
         }
+        // [tension-batch:power] 每层保底：已清 ≥ weaponGuaranteeRooms 房仍未掉过武器 → 本次清房必掉当层带宽武器
+        if (!weaponDropped && shouldForceWeaponDrop(this._floorRoomsCleared, this._floorWeaponDropped)) {
+            weaponDropped = this._dropFloorWeapon(centerX, centerY);
+        }
+        if (weaponDropped) this._floorWeaponDropped = true;
+        this._floorRoomsCleared++;
 
         // [depth-batch:gamble] 普通战斗房清房后 20% 概率在角落刷一台老虎机（每层最多 maxPerFloorBattleRooms 台）
         if (!room.category && this._floorSlotMachines < GAMBLE.maxPerFloorBattleRooms
@@ -599,8 +899,8 @@ export class DungeonManager {
             this._floorSlotMachines++;
         }
 
-        // 50% chance to drop a consumable
-        if (Math.random() < 0.5) {
+        // [tension-batch:ai] 治疗紧缩：清房消耗品掉率 50%→15%（濒死时刻靠稀缺治疗制造）
+        if (Math.random() < 0.15) {
             const consumables = ['consumable:medkit', 'consumable:hamburger'];
             const itemId = consumables[Math.floor(Math.random() * consumables.length)];
             const offsetX = (Math.random() - 0.5) * 48;

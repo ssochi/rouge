@@ -95,6 +95,8 @@ import {
     CageLeverObject,
     DecoyStatueObject
 } from './DungeonTrapObjects.js';
+// ── [tension-batch:verbs] 契约房拉杆 ──
+import { PactLeverObject } from './DungeonPactObjects.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -193,6 +195,8 @@ OBJECT_DEFS.set('spike_trap', SpikeTrapObject);
 OBJECT_DEFS.set('reward_cage', RewardCageObject);
 OBJECT_DEFS.set('cage_lever', CageLeverObject);
 OBJECT_DEFS.set('decoy_statue', DecoyStatueObject);
+// ── [tension-batch:verbs] 契约房拉杆 ──
+OBJECT_DEFS.set('pact_lever', PactLeverObject);
 
 export function getObjectDef(type) {
     return OBJECT_DEFS.get(type) || null;

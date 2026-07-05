@@ -17,7 +17,7 @@ export class Archer extends Enemy {
         super(x, y, 26, 26, 22, 0.85);
 
         this.spriteScale = 1.3; // 体型与角色同级
-        this.kite = new KiteBehavior({ near: 160, far: 280 });
+        this.kite = new KiteBehavior({ near: 150, far: 250 }); // [tension-batch:ai] 远程走位：距离带 150-250（<150 后撤 / >250 逼近）
         this.aimTimer = 0;      // >0 蓄力瞄准中
         this.aimAngle = 0;
         this.shotCooldown = Math.floor(SHOT_COOLDOWN * 0.5);

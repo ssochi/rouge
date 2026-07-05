@@ -13,7 +13,7 @@ export const FLOOR_CONFIGS = {
         hpMult: 1.0,
         dmgMult: 1.0,
         // 精英预算：普通战斗房每只怪成为精英的概率 / 精英词缀数范围
-        eliteChance: 0.06,
+        eliteChance: 0.10, // [tension-batch:ai] 精英上调 0.06→0.10
         eliteAffixCount: [1, 1],
         // [depth-batch:enemies] loot_goblin 三层低权重惊喜怪(0.5)；revenant F1 仅 deep 入池
         depthTiers: {
@@ -35,7 +35,7 @@ export const FLOOR_CONFIGS = {
     2: {
         hpMult: 1.3,
         dmgMult: 1.3,
-        eliteChance: 0.10,
+        eliteChance: 0.15, // [tension-batch:ai] 精英上调 0.10→0.15
         eliteAffixCount: [1, 2],
         // 用户反馈：枪兵（hunter/soldier）应稀有，常规池权重减半，新增 spinner/weeper/splitter 弹幕妖分流
         // [depth-batch:enemies] revenant 全档入池；burrower/arc_twin 进 mid+deep；loot_goblin 低权重惊喜怪。
@@ -61,7 +61,7 @@ export const FLOOR_CONFIGS = {
     3: {
         hpMult: 1.6,
         dmgMult: 1.6,
-        eliteChance: 0.14,
+        eliteChance: 0.20, // [tension-batch:ai] 精英上调 0.14→0.20
         eliteAffixCount: [1, 2],
         // 用户反馈：soldier 权重减半，各档位加入 spinner/weeper/splitter 弹幕妖
         // [depth-batch:enemies] loot_goblin 全档惊喜怪；burrower/arc_twin 进 mid+deep（arc_twin 每计数=一对）

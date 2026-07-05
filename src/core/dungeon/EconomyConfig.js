@@ -14,6 +14,16 @@ export const ROOM_CLEAR = {
     coinMin: 3,
     coinMax: 8,
     weaponRarityWeights: { common: 40, uncommon: 30, rare: 20, epic: 8, legendary: 2 },
+    // [tension-batch:power] 清房武器稀有度按层上移（对齐 COMBAT_BALANCE_METHODOLOGY §4.3）：
+    // F1 以 common/uncommon 为主 → F3 以 rare+ 为主。缺省档位视为 0（LootTable.pickRarity 归一化）。
+    // 消费：DungeonManager._dropRoomRewards 经 LootTable.weaponRarityWeightsForFloor 取当层权重。
+    weaponRarityWeightsByFloor: {
+        1: { common: 55, uncommon: 35, rare: 10 },
+        2: { uncommon: 45, rare: 40, epic: 15 },
+        3: { rare: 45, epic: 40, legendary: 15 },
+    },
+    // [tension-batch:power] 每层武器保底：本层已清房数 ≥ 此阈值仍未掉过武器时，下次清房必掉当层带宽武器。
+    weaponGuaranteeRooms: 4,
     chestChance: 0.08, // 普通房清除后生成木箱的概率（正式宝箱房归 P3，此为过渡曝光）
 };
 
@@ -31,11 +41,14 @@ export const ELITE_CLEAR = { chestTier: 'iron', coinMult: 1.5 };
 
 // 宝箱档位：是否需要钥匙、金币区间、稀有度权重分布。
 // petChance：产出宠物物品的概率（优先级低于遗物、高于武器）。仅高档箱设置，wood/iron 不产宠物。
+// [tension-batch:power] relicChance 整体下调（wood .10→.08 / iron .25→.12 / mithril .45→.24 / dragon .55→.32）：
+//   新增「宝藏房遗物三选一祭坛」每层保底 1 个遗物（3 层共 +3 保底），叠加 Boss 保底宝箱（+3），
+//   期望获取数从 ~10 拉回目标带 6-8（算式见 docs/feature/DUNGEON_RUN_TENSION_BATCH.md 交付报告）。
 export const CHEST_TIERS = {
-    wood: { needsKey: false, coins: [3, 8], relicChance: 0.10, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },
-    iron: { needsKey: true, coins: [6, 14], relicChance: 0.25, rarityWeights: { common: 15, uncommon: 45, rare: 30, epic: 9, legendary: 1 } },
-    mithril: { needsKey: true, coins: [10, 20], relicChance: 0.45, petChance: 0.06, rarityWeights: { common: 0, uncommon: 20, rare: 45, epic: 28, legendary: 7 } },
-    dragon: { needsKey: true, coins: [15, 30], relicChance: 0.55, petChance: 0.10, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
+    wood: { needsKey: false, coins: [3, 8], relicChance: 0.08, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },
+    iron: { needsKey: true, coins: [6, 14], relicChance: 0.12, rarityWeights: { common: 15, uncommon: 45, rare: 30, epic: 9, legendary: 1 } },
+    mithril: { needsKey: true, coins: [10, 20], relicChance: 0.24, petChance: 0.06, rarityWeights: { common: 0, uncommon: 20, rare: 45, epic: 28, legendary: 7 } },
+    dragon: { needsKey: true, coins: [15, 30], relicChance: 0.32, petChance: 0.10, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
 };
 
 // 商店定价与商品权重。
@@ -44,7 +57,7 @@ export const SHOP = {
     weaponRarityWeights: { common: 20, uncommon: 35, rare: 30, epic: 12, legendary: 3 },
     relicPrice: 45,
     keyPrice: 20,
-    medkitPrice: 15,
+    medkitPrice: 25, // [tension-batch:ai] 治疗紧缩：15→25（进商店买药需权衡取舍）
     floorPriceMult: { 1: 1, 2: 1.4, 3: 1.8 },
 };
 

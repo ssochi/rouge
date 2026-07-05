@@ -6,6 +6,9 @@ import { createWeaponInstanceData, weaponItemIdFromConfigId } from '../systems/W
 import { EnemyWeaponController } from '../systems/EnemyWeaponController.js';
 import { MeleeSystem } from '../systems/MeleeSystem.js';
 
+// [tension-batch:ai] 远程走位：玩家逼近此距离内则后撤维持距离带（配合 strafe 拉扯）
+const SOLDIER_RETREAT_DIST = 150;
+
 export class Soldier extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 20, 60, 0.9); // Hitbox 20x20, HP 60, Speed 0.9
@@ -183,7 +186,12 @@ export class Soldier extends Enemy {
                         this.moveTowards(player, walls, wallQuery, getFlowDirection, getNavDirection, moveResolver);
                     } else {
                         this.state = 'combat';
-                        this.strafeMove(player, walls, wallQuery, moveResolver);
+                        // [tension-batch:ai] 远程走位：过近后撤维持距离带，否则横向拉扯（射击节奏不变）
+                        if (dist < SOLDIER_RETREAT_DIST) {
+                            this.retreatMove(player, walls, wallQuery, moveResolver);
+                        } else {
+                            this.strafeMove(player, walls, wallQuery, moveResolver);
+                        }
 
                         if (this.burstCooldown <= 0 &&
                             this.burstRemaining <= 0 &&
@@ -247,6 +255,31 @@ export class Soldier extends Enemy {
 
         const nextX = this.x + vx * this.getEffectiveSpeed();
         const nextY = this.y + vy * this.getEffectiveSpeed();
+        if (moveResolver) {
+            moveResolver(this, nextX, nextY, vx, vy);
+        } else {
+            this.resolveWallCollision(nextX, nextY, walls, wallQuery);
+        }
+    }
+
+    // [tension-batch:ai] 后撤走位：背向玩家 + 沿 strafeDir 横向抖动，维持距离带（0.7x 速度）
+    retreatMove(player, walls, wallQuery, moveResolver) {
+        this.strafeTimer++;
+        if (this.strafeTimer > 90) {
+            this.strafeDir *= -1;
+            this.strafeTimer = 0;
+        }
+        const dx = this.x - player.x;
+        const dy = this.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 0) return;
+        // 背向分量 + 垂直连线的横移分量（拉扯感）
+        let vx = dx / dist + (-dy / dist) * this.strafeDir * 0.5;
+        let vy = dy / dist + (dx / dist) * this.strafeDir * 0.5;
+        const len = Math.sqrt(vx * vx + vy * vy);
+        if (len > 0) { vx /= len; vy /= len; }
+        const nextX = this.x + vx * this.getEffectiveSpeed() * 0.7;
+        const nextY = this.y + vy * this.getEffectiveSpeed() * 0.7;
         if (moveResolver) {
             moveResolver(this, nextX, nextY, vx, vy);
         } else {

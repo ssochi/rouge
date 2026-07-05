@@ -21,7 +21,7 @@ export class Cultist extends Enemy {
         super(x, y, 26, 26, 20, 0.9);
 
         this.spriteScale = 1.3;
-        this.kite = new KiteBehavior({ near: 170, far: 280 });
+        this.kite = new KiteBehavior({ near: 150, far: 250 }); // [tension-batch:ai] 远程走位：距离带 150-250（<150 后撤 / >250 逼近）
         this.castTimer = 0;     // >0 蓄力中
         this.castAngle = 0;
         this.castCooldown = Math.floor(CAST_COOLDOWN * 0.5);

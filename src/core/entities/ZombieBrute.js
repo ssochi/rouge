@@ -1,5 +1,6 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
+import { FlankingBias } from './behaviors/FlankingBias.js';
 
 export class ZombieBrute extends Enemy {
     constructor(x, y) {
@@ -12,6 +13,10 @@ export class ZombieBrute extends Enemy {
         this.isAttacking = false;
         this.attackTimer = 0;
         this.attackDuration = 50; // Slower, heavier swing
+
+        // [tension-batch:ai] 包抄偏置：群体近战从两侧合围
+        this.flankParticipant = true;
+        this.flankBias = new FlankingBias();
     }
 
     // Override: reduce incoming knockback by 70%
@@ -103,6 +108,12 @@ export class ZombieBrute extends Enemy {
                         vx /= vLen;
                         vy /= vLen;
                     }
+
+                    // [tension-batch:ai] 包抄偏置：近战群体 ≥3 时按左右翼偏转寻路向量（导航前旋转，仍会绕墙）
+                    this.flankBias.refresh();
+                    this.flankBias.rotate(vx, vy);
+                    vx = this.flankBias.outX;
+                    vy = this.flankBias.outY;
 
                     if (getNavDirection) {
                         const nav = getNavDirection(this, vx, vy);

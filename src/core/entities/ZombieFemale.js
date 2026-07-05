@@ -1,5 +1,10 @@
 import { Enemy } from './Enemy.js';
 import { Assets } from '../../graphics/Assets.js';
+import { FlankingBias } from './behaviors/FlankingBias.js';
+import { PounceChargeBehavior } from './behaviors/PounceChargeBehavior.js';
+
+// [tension-batch:ai] 扑击接触伤害判定半径
+const POUNCE_HIT_RANGE = 26;
 
 export class ZombieFemale extends Enemy {
     constructor(x, y) {
@@ -24,6 +29,11 @@ export class ZombieFemale extends Enemy {
         // Sprint VFX
         this.afterimages = []; // [{x, y, facingRight, alpha, frameIndex}]
         this.sprintParticles = []; // dust + speed lines
+
+        // [tension-batch:ai] 冲刺扑击（预警蓄力→1.5x 直线扑击→硬直）+ 包抄偏置
+        this.flankParticipant = true;
+        this.flankBias = new FlankingBias();
+        this.pounce = new PounceChargeBehavior();
     }
 
     getEffectiveSpeed() {
@@ -68,6 +78,31 @@ export class ZombieFemale extends Enemy {
         }
 
         if (this.attackCooldown > 0) this.attackCooldown--;
+
+        // [tension-batch:ai] 冲刺扑击优先：距离带内概率蓄力后 1.5x 直线扑击（预警姿态见 draw）
+        const pounceCtx = {
+            enemy: this, player, walls, wallQuery,
+            getFlowDirection, getNavDirection, moveResolver, combatSystem
+        };
+        if (this.pounce.update(pounceCtx)) {
+            this.isSprinting = false; // 扑击不与冲刺加速叠加
+            if (this.pounce.dirX !== 0 || this.pounce.dirY !== 0) {
+                this.facingRight = this.pounce.dirX > 0;
+            }
+            this.state = this.pounce.isCharging ? 'run' : 'idle'; // 蓄力=原地蹲伏(idle)，扑击=run
+            if (this.pounce.isCharging) {
+                const pdx = player.x - this.x;
+                const pdy = player.y - this.y;
+                if (pdx * pdx + pdy * pdy < POUNCE_HIT_RANGE * POUNCE_HIT_RANGE
+                    && player.state !== 'roll' && player.state !== 'driving'
+                    && player.takeDamage && this.pounce.tryConsumeHit()) {
+                    const a = Math.atan2(pdy, pdx);
+                    const mult = Number.isFinite(this.damageMult) ? this.damageMult : 1;
+                    player.takeDamage(Math.round(this.damage * mult), { x: Math.cos(a) * 8, y: Math.sin(a) * 8 });
+                }
+            }
+            return;
+        }
 
         // AI (same as male zombie)
         const dx = player.x - this.x;
@@ -129,6 +164,12 @@ export class ZombieFemale extends Enemy {
                         vx /= vLen;
                         vy /= vLen;
                     }
+
+                    // [tension-batch:ai] 包抄偏置：近战群体 ≥3 时按左右翼偏转寻路向量（导航前旋转，仍会绕墙）
+                    this.flankBias.refresh();
+                    this.flankBias.rotate(vx, vy);
+                    vx = this.flankBias.outX;
+                    vy = this.flankBias.outY;
 
                     if (getNavDirection) {
                         const nav = getNavDirection(this, vx, vy);
@@ -250,6 +291,22 @@ export class ZombieFemale extends Enemy {
     draw(ctx) {
         if (this.hp <= 0) return;
 
+        // [tension-batch:ai] 扑击蓄力方向预警线（世界空间，随蓄力渐亮）
+        const pounceLine = this.pounce && this.pounce.getTelegraphLine(this);
+        if (pounceLine) {
+            ctx.save();
+            ctx.globalAlpha = 0.25 + pounceLine.progress * 0.5;
+            ctx.strokeStyle = '#ff4530';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(pounceLine.x1, pounceLine.y1);
+            ctx.lineTo(pounceLine.x2, pounceLine.y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+
         // Draw afterimages (behind the main sprite)
         this.drawAfterimages(ctx);
 
@@ -292,6 +349,16 @@ export class ZombieFemale extends Enemy {
             ctx.save();
             ctx.globalAlpha = 0.15 + Math.sin(this.sprintTimer * 0.3) * 0.1;
             ctx.filter = 'brightness(150%) sepia(80%) saturate(300%) hue-rotate(-10deg)';
+            ctx.drawImage(frames[frameIndex], -16, -16);
+            ctx.restore();
+        }
+
+        // [tension-batch:ai] 扑击蓄力：红色脉冲变色预警（原地蹲伏时的"要扑了"信号）
+        if (this.pounce && this.pounce.isTelegraphing && frames) {
+            const ph = this.pounce.getPhase();
+            ctx.save();
+            ctx.globalAlpha = 0.3 + 0.35 * (ph ? ph.progress : 0);
+            ctx.filter = 'brightness(180%) sepia(100%) saturate(600%) hue-rotate(-30deg)';
             ctx.drawImage(frames[frameIndex], -16, -16);
             ctx.restore();
         }

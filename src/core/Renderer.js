@@ -332,6 +332,8 @@ export class Renderer {
             renderList.push({
                 y: e.y + e.height/2,
                 draw: () => {
+                    // [tension-batch:verbs] 猎杀目标怪：金色光环标记（画在精英光环/本体之下）
+                    if (e.isHuntTarget) this._drawHuntTargetMark(e);
                     // 精英词缀视觉：体型放大 + 脚下光环 + 头顶词缀名
                     if (e.isElite && e.eliteScale && e.eliteScale !== 1) {
                         this._drawEliteAura(e);
@@ -523,6 +525,17 @@ export class Renderer {
                 renderList.push({
                     y: m.y + m.height,
                     draw: () => m.draw(this.ctx)
+                });
+            });
+        }
+
+        // [tension-batch:power] Draw Relic Altars（遗物三选一祭坛，三座横排 + 悬浮图标，Y 轴 Z-Sort）
+        if (this.worldSystem && this.worldSystem.relicAltars) {
+            this.worldSystem.relicAltars.forEach(altar => {
+                if (!this._isWorldRectVisible(altar.x - 90, altar.y - 48, 180, 80, 48)) return;
+                renderList.push({
+                    y: altar.y + 18, // 底座底部
+                    draw: () => altar.draw(this.ctx)
                 });
             });
         }
@@ -824,7 +837,7 @@ export class Renderer {
 
         renderList.sort((a, b) => a.y - b.y);
         renderList.forEach(item => item.draw());
-        
+
         // Draw Laser Sight
         this.drawLaserSight(this.ctx);
 
@@ -1357,6 +1370,9 @@ export class Renderer {
             if (this.profiler) this.profiler.end('LightingRender');
         }
 
+        // [tension-batch:verbs] 门口预告漂浮图标（世界内，绘于光照之上——即便相邻房间尚在暗雾中也能预告类型）
+        this._drawDoorPreviews(this.ctx);
+
         // Debug Drawing
         if (this.debugMode === 1) {
             this.drawCollisionDebug(this.ctx);
@@ -1385,6 +1401,9 @@ export class Renderer {
         // Boss HP Bar
         this.drawBossHpBar(this.ctx);
 
+        // [tension-batch:verbs] 玩法动词房倒计时条（生存/猎杀）
+        this.drawVerbTimerHud(this.ctx);
+
         // Dungeon Minimap
         this.drawDungeonMinimap(this.ctx);
 
@@ -1396,6 +1415,93 @@ export class Renderer {
         this.uiManager.updatePlayerStatus(this.player);
         this.uiManager.updateWeapon(this.handSystem.currentWeapon, this.handSystem.getWeaponState());
         this.uiManager.updateDungeonStatus();
+    }
+
+    /** [tension-batch:verbs] 门口预告漂浮图标：世界内浮于门口，指示相邻房间类型（生存/猎杀/契约/精英/宝藏/商店/Boss）。 */
+    _drawDoorPreviews(ctx) {
+        const dm = this.worldSystem && this.worldSystem.dungeonManager;
+        if (!dm || !dm.getDoorPreviews) return;
+        const icons = Assets.doorPreviewIcons;
+        if (!icons) return;
+        const previews = dm.getDoorPreviews();
+        if (!previews || previews.length === 0) return;
+        const bob = Math.sin(Date.now() / 320) * 2;
+        for (const p of previews) {
+            const icon = icons[p.kind];
+            if (!icon) continue;
+            const drawX = p.x - icon.width / 2;
+            const drawY = p.y - 22 + bob;
+            if (!this._isWorldRectVisible(drawX, drawY, icon.width, icon.height + 6, 48)) continue;
+            ctx.save();
+            ctx.drawImage(icon, Math.round(drawX), Math.round(drawY));
+            // 指向门口的小三角（把图标"钉"在门上）
+            ctx.fillStyle = 'rgba(20,18,28,0.72)';
+            ctx.beginPath();
+            ctx.moveTo(p.x - 3, drawY + icon.height);
+            ctx.lineTo(p.x + 3, drawY + icon.height);
+            ctx.lineTo(p.x, drawY + icon.height + 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    /** [tension-batch:verbs] 生存/猎杀倒计时条（顶部居中，复用 Boss 血条视觉语言）。 */
+    drawVerbTimerHud(ctx) {
+        const dm = this.worldSystem && this.worldSystem.dungeonManager;
+        if (!dm || !dm.getVerbTimer) return;
+        const t = dm.getVerbTimer();
+        if (!t) return;
+
+        const canvasW = this.canvas.width;
+        const BAR_W = 260;
+        const BAR_H = 12;
+        const x = (canvasW - BAR_W) / 2;
+        const y = 54; // Boss 条下方，二者并存也不重叠
+
+        const secs = Math.ceil(t.remaining / 60);
+        const ratio = Math.max(0, Math.min(1, t.remaining / t.total));
+        const isSurvival = t.kind === 'survival';
+        const label = isSurvival ? '生存 · 撑住' : '猎杀 · 击杀目标';
+        const fill = isSurvival ? '#e0aa4a' : '#e0605a';
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, canvasW / 2, y - 5);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(x - 2, y - 2, BAR_W + 4, BAR_H + 4);
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, BAR_W * ratio, BAR_H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(`${secs}s`, canvasW / 2, y + BAR_H - 2);
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, BAR_W, BAR_H);
+        ctx.restore();
+    }
+
+    /** [tension-batch:verbs] 猎杀目标怪金色地面光环 + 头顶靶标（醒目标记）。 */
+    _drawHuntTargetMark(e) {
+        const ctx = this.ctx;
+        const t = Date.now() / 240;
+        const pulse = 0.5 + 0.5 * Math.sin(t);
+        ctx.save();
+        // 脚下金色光环
+        ctx.globalAlpha = 0.35 + pulse * 0.35;
+        ctx.strokeStyle = '#ffd24a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(e.x, e.y + e.height / 2 - 2, e.width * 0.7, e.width * 0.32, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.16 + pulse * 0.14;
+        ctx.fillStyle = '#ffd24a';
+        ctx.beginPath();
+        ctx.ellipse(e.x, e.y + e.height / 2 - 2, e.width * 0.7, e.width * 0.32, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     drawBossHpBar(ctx) {
@@ -1470,6 +1576,12 @@ export class Renderer {
         if (room.category === 'treasure') return 'rgba(86, 184, 189, 0.88)';
         if (room.category === 'shop') return 'rgba(203, 172, 66, 0.88)';
         if (room.category === 'elite' && room.state !== 'cleared') return 'rgba(176, 84, 148, 0.9)';
+        // [tension-batch:verbs] 玩法动词房底色（未清时突出，便于选路）
+        if (room.state !== 'cleared') {
+            if (room.category === 'survival') return 'rgba(224, 170, 74, 0.9)';
+            if (room.category === 'hunt') return 'rgba(214, 96, 90, 0.9)';
+            if (room.category === 'pact') return 'rgba(160, 108, 208, 0.9)';
+        }
         if (room.state === 'cleared') return room.type === 'start' ? 'rgba(91, 145, 212, 0.82)' : 'rgba(96, 156, 110, 0.85)';
         return 'rgba(96, 112, 130, 0.85)';
     }
@@ -1480,6 +1592,10 @@ export class Renderer {
         if (room.category === 'treasure') return 'treasure';
         if (room.category === 'shop') return 'shop';
         if (room.category === 'elite') return 'elite';
+        // [tension-batch:verbs] 玩法动词房图标（生存/猎杀/契约）
+        if (room.category === 'survival') return 'survival';
+        if (room.category === 'hunt') return 'hunt';
+        if (room.category === 'pact') return 'pact';
         return null;
     }
 
@@ -1542,6 +1658,47 @@ export class Renderer {
             ctx.closePath(); ctx.fill();
             ctx.fillStyle = 'rgba(255,255,255,0.85)';
             ctx.beginPath(); ctx.arc(cx, cy, s * 0.1, 0, Math.PI * 2); ctx.fill();
+        } else if (kind === 'survival') {
+            // [tension-batch:verbs] 生存：沙漏（琥珀）——上下三角 + 横框 + 落沙
+            const hw = s * 0.34;
+            ctx.strokeStyle = '#caa03a';
+            ctx.beginPath();
+            ctx.moveTo(cx - hw, cy - s * 0.42); ctx.lineTo(cx + hw, cy - s * 0.42);
+            ctx.moveTo(cx - hw, cy + s * 0.42); ctx.lineTo(cx + hw, cy + s * 0.42);
+            ctx.stroke();
+            ctx.fillStyle = '#f2c94c';
+            ctx.beginPath();
+            ctx.moveTo(cx - hw, cy - s * 0.4); ctx.lineTo(cx + hw, cy - s * 0.4); ctx.lineTo(cx, cy);
+            ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy); ctx.lineTo(cx - hw, cy + s * 0.4); ctx.lineTo(cx + hw, cy + s * 0.4);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#fff2b0';
+            ctx.fillRect(cx - s * 0.05, cy - s * 0.02, s * 0.1, s * 0.14);
+        } else if (kind === 'hunt') {
+            // [tension-batch:verbs] 猎杀：靶心（红白同心环）
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.44, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#f6f2ee';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.32, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#f6f2ee';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.09, 0, Math.PI * 2); ctx.fill();
+        } else if (kind === 'pact') {
+            // [tension-batch:verbs] 契约：手掌（紫）——掌心 + 五指剪影
+            ctx.fillStyle = '#b070e0';
+            ctx.beginPath(); ctx.roundRect(cx - s * 0.26, cy - s * 0.02, s * 0.52, s * 0.32, s * 0.1); ctx.fill();
+            const fingerW = s * 0.11;
+            for (let i = 0; i < 4; i++) {
+                const fx = cx - s * 0.24 + i * s * 0.16;
+                const fh = (i === 1 || i === 2) ? s * 0.42 : s * 0.34;
+                ctx.fillRect(fx, cy - s * 0.02 - fh, fingerW, fh);
+            }
+            // 拇指
+            ctx.fillRect(cx - s * 0.34, cy + s * 0.06, s * 0.1, s * 0.14);
+            ctx.fillStyle = '#d9a6ff';
+            ctx.beginPath(); ctx.arc(cx, cy + s * 0.14, s * 0.08, 0, Math.PI * 2); ctx.fill();
         }
         ctx.restore();
     }
@@ -1688,8 +1845,9 @@ export class Renderer {
                 if (short >= iconMin) {
                     this._drawRoomIcon(ctx, kind, rx + rw / 2, ry + rh / 2, Math.min(short * 0.78, big ? 26 : 13));
                 } else if (rh >= 9) {
-                    // 回退字符
-                    const glyph = kind === 'boss' ? 'B' : kind === 'treasure' ? '+' : kind === 'shop' ? '$' : '!';
+                    // 回退字符（含玩法动词房：生存/猎杀/契约）
+                    const GLYPHS = { boss: 'B', treasure: '+', shop: '$', survival: 'S', hunt: 'H', pact: 'P' };
+                    const glyph = GLYPHS[kind] || '!';
                     ctx.fillStyle = 'rgba(255,255,255,0.92)';
                     ctx.font = `bold ${Math.min(10, Math.floor(rh - 2))}px monospace`;
                     ctx.textAlign = 'center';
@@ -1833,6 +1991,10 @@ export class Renderer {
             { kind: 'treasure', color: 'rgba(86, 184, 189, 0.88)', label: '宝藏' },
             { kind: 'shop', color: 'rgba(203, 172, 66, 0.88)', label: '商店' },
             { kind: 'elite', color: 'rgba(176, 84, 148, 0.9)', label: '精英' },
+            // [tension-batch:verbs] 玩法动词房图例
+            { kind: 'survival', color: 'rgba(224, 170, 74, 0.9)', label: '生存' },
+            { kind: 'hunt', color: 'rgba(214, 96, 90, 0.9)', label: '猎杀' },
+            { kind: 'pact', color: 'rgba(160, 108, 208, 0.9)', label: '契约' },
             { kind: null, color: 'rgba(86, 97, 120, 0.5)', label: '未探索' }
         ];
         const sw = 16;

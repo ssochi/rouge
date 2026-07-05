@@ -29,6 +29,7 @@ import { Burrower } from '../entities/Burrower.js';
 import { ArcTwin } from '../entities/ArcTwin.js';
 import { Revenant } from '../entities/Revenant.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
+import { setFlankGroupCount } from '../entities/behaviors/FlankingBias.js'; // [tension-batch:ai] 包抄偏置群体计数
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
 import { ShopItem } from '../entities/ShopItem.js';
@@ -57,6 +58,9 @@ import {
 } from './WeaponInstanceUtils.js';
 import { ENEMY_COIN_VALUES, BREAKABLE_COIN, LOOT_WEAPON_BLACKLIST, TREASURE_ROOM_CHESTS } from '../dungeon/EconomyConfig.js';
 import { getDungeonTheme } from '../dungeon/DungeonThemes.js';
+// [tension-batch:power] 遗物三选一祭坛（宝藏房固定摆放）
+import { RelicAltar } from '../entities/RelicAltar.js';
+import { pickRelicChoices } from '../dungeon/LootTable.js';
 
 const ROOM_GUN_SPAWN_CHANCE = 0.05;
 const ENEMY_RECOVERY_NEEDLE_DROP_CHANCE = 0.01;
@@ -106,6 +110,8 @@ export class WorldSystem {
         this.merchants = [];
         // [depth-batch:gamble] 老虎机赌博机（仅地牢内生成，loadMap 时清空）
         this.slotMachines = [];
+        // [tension-batch:power] 遗物三选一祭坛（宝藏房固定 1 座，仅地牢内生成，loadMap 时清空）
+        this.relicAltars = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -182,6 +188,7 @@ export class WorldSystem {
         this.shopItems.length = 0;
         this.merchants.length = 0;
         this.slotMachines.length = 0; // [depth-batch:gamble]
+        this.relicAltars.length = 0; // [tension-batch:power]
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -840,6 +847,7 @@ export class WorldSystem {
         this.updateChests();
         this.updateShopItems();
         this.updateSlotMachines(); // [depth-batch:gamble]
+        this.updateRelicAltars(); // [tension-batch:power]
     }
 
     /**
@@ -895,6 +903,29 @@ export class WorldSystem {
             const dx = px - m.centerX;
             const dy = py - m.centerY;
             m.showHint = (m.state === 'idle' || m.state === 'dead') && (dx * dx + dy * dy) < 50 * 50;
+        }
+    }
+
+    /**
+     * [tension-batch:power] 在世界坐标 (x, y)（三座横排的几何中心 / 顶盘 Y）生成一座遗物三选一祭坛。
+     * candidates 为三个候选遗物 id（外部按已持有排除 + 互不重复抽取）。
+     */
+    spawnRelicAltar(x, y, candidates) {
+        const altar = new RelicAltar(x, y, candidates);
+        this.relicAltars.push(altar);
+        return altar;
+    }
+
+    /**
+     * [tension-batch:power] 更新遗物祭坛：悬浮动画推进 + 玩家靠近的底座计算（供交互与提示）。
+     */
+    updateRelicAltars() {
+        const altars = this.relicAltars;
+        if (altars.length === 0) return;
+        const px = this.player.x;
+        const py = this.player.y;
+        for (const altar of altars) {
+            altar.update(px, py);
         }
     }
 
@@ -1040,11 +1071,18 @@ export class WorldSystem {
             const centerY = (room.y + room.h / 2) * TILE_SIZE;
 
             if (room.category === 'treasure') {
+                // 宝箱上移，为下方的遗物祭坛让出焦点位
                 const tiers = TREASURE_ROOM_CHESTS[floor] || TREASURE_ROOM_CHESTS[1];
                 tiers.forEach((tier, i) => {
                     const offsetX = (i - (tiers.length - 1) / 2) * 48;
-                    this.spawnChest(centerX + offsetX - 13, centerY - 11, tier);
+                    this.spawnChest(centerX + offsetX - 13, centerY - 34, tier);
                 });
+                // [tension-batch:power] 每层宝藏房固定 1 座遗物三选一祭坛（三候选排除已持有、互不重复）
+                const owned = this.dungeonRunState ? this.dungeonRunState.relicIds : [];
+                const candidates = pickRelicChoices(owned, 3);
+                if (candidates.length > 0) {
+                    this.spawnRelicAltar(centerX, centerY + 16, candidates);
+                }
             } else if (room.category === 'shop') {
                 // 商人在房间中上方，货品一排陈列在商人身前
                 this.merchants.push({ x: centerX, y: centerY - 40 });
@@ -1059,6 +1097,12 @@ export class WorldSystem {
                 const slotX = (room.x + 2) * TILE_SIZE;
                 const slotY = (room.y + room.h - 4) * TILE_SIZE;
                 this.spawnSlotMachine(slotX, slotY);
+            } else if (room.category === 'pact') {
+                // [tension-batch:verbs] 契约房中央拉杆：拉下才封门开战（BreakableObject 管线，
+                // worldSystem 注入供拉杆 interact 委托 DungeonManager.startPactFight）
+                const lever = new BreakableObject(centerX - 16, centerY - 16, 'pact_lever');
+                lever.worldSystem = this;
+                this.breakableObjects.push(lever);
             }
         }
     }
@@ -2362,6 +2406,13 @@ export class WorldSystem {
         const resolveEnemyMove = (enemy, nextX, nextY, intentX, intentY) => {
             this.resolveEntityMovement(enemy, nextX, nextY, intentX, intentY, { skipOpenDoors: true });
         };
+
+        // [tension-batch:ai] 包抄偏置：统计存活近战参战数（供 FlankingBias 判定是否两翼合围），每帧一次
+        let flankMeleeCount = 0;
+        for (const e of this.enemies) {
+            if (e.flankParticipant && e.hp > 0) flankMeleeCount++;
+        }
+        setFlankGroupCount(flankMeleeCount);
 
         for (const e of this.enemies) {
             e.tickDpsCap(); // Boss 承伤 DPS 上限的 3 秒窗口计时（非 Boss dpsCap=0 直接返回）
