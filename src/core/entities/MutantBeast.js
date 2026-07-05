@@ -4,12 +4,13 @@ import { BossPhaseController } from './bosses/BossPhaseController.js';
 
 export class MutantBeast extends Enemy {
     constructor(x, y) {
-        super(x, y, 50, 50, 800, 0.5);
+        super(x, y, 50, 50, 900, 0.5);
         this.hitboxWidth = 28;
         this.hitboxHeight = 16;
         this.hitboxOffsetY = 20;
         this.isBoss = true;
         this.name = '变异巨兽';
+        this.dpsCap = 26; // 承伤上限：900HP/35s（COMBAT_BALANCE_METHODOLOGY §3.4）
 
         // Phase system — 调度走 BossPhaseController（优先级链表达原 if-else 距离带选招）
         this.phase = 1;
@@ -101,6 +102,8 @@ export class MutantBeast extends Enemy {
 
     // Override: 90% knockback resistance + phase transition check
     takeDamage(amount, knockback) {
+        amount = this._applyDpsCap(amount); // 承伤上限（COMBAT_BALANCE_METHODOLOGY §3.4）
+        if (amount <= 0) return;
         this.hp -= amount;
         this.hitFlashTimer = 5;
         this.hpBarTimer = 120;

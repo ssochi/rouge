@@ -32,6 +32,31 @@ export class Enemy {
         
         // HP Bar Timer (Show for 2 seconds after hit)
         this.hpBarTimer = 0;
+
+        // Boss 承伤 DPS 上限（0=无上限；Boss 子类设置。方法论见 COMBAT_BALANCE_METHODOLOGY.md §3.4：
+        // 借鉴挺进地牢按 3 秒窗口限制玩家输出，保证神装下 Boss 战最短约 35 秒）
+        this.dpsCap = 0;
+        this._capUsed = 0;
+        this._capWindow = 0;
+    }
+
+    /** 承伤上限结算：返回本次实际允许的伤害。Boss 子类在 takeDamage 首行调用。 */
+    _applyDpsCap(amount) {
+        if (!this.dpsCap || this.dpsCap <= 0) return amount;
+        const budget = this.dpsCap * 3; // 3 秒窗口总预算
+        const allowed = Math.min(amount, Math.max(0, budget - this._capUsed));
+        this._capUsed += allowed;
+        return allowed;
+    }
+
+    /** 每帧由 WorldSystem 更新循环调用：3 秒（180 帧）窗口重置承伤预算。 */
+    tickDpsCap() {
+        if (!this.dpsCap || this.dpsCap <= 0) return;
+        this._capWindow++;
+        if (this._capWindow >= 180) {
+            this._capWindow = 0;
+            this._capUsed = 0;
+        }
     }
 
     update(player, walls, wallQuery) {

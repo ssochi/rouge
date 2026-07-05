@@ -4,7 +4,8 @@ import { BossPhaseController } from './bosses/BossPhaseController.js';
 
 export class MechaGolem extends Enemy {
     constructor(x, y) {
-        super(x, y, 40, 40, 600, 0.4);
+        super(x, y, 40, 40, 900, 0.4);
+        this.dpsCap = 41; // 承伤上限：1440有效HP/35s
         this.hitboxWidth = 20;
         this.hitboxHeight = 12;
         this.hitboxOffsetY = 18;
@@ -73,6 +74,8 @@ export class MechaGolem extends Enemy {
 
     // 80% knockback resistance
     takeDamage(amount, knockback) {
+        amount = this._applyDpsCap(amount);
+        if (amount <= 0) return;
         this.hp -= amount;
         this.hitFlashTimer = 5;
         this.hpBarTimer = 120;

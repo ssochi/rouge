@@ -2364,6 +2364,7 @@ export class WorldSystem {
         };
 
         for (const e of this.enemies) {
+            e.tickDpsCap(); // Boss 承伤 DPS 上限的 3 秒窗口计时（非 Boss dpsCap=0 直接返回）
             e.update(
                 this.player,
                 this.walls,

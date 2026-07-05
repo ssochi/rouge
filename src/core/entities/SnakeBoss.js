@@ -21,6 +21,7 @@ const UNDERGROUND_THRESHOLD = 8;
 export class SnakeBoss extends Enemy {
     constructor(x, y) {
         super(x, y, 30, 30, 1000, 1.5);
+        this.dpsCap = 37; // 承伤上限：1300有效HP/35s
         this.hitboxWidth = 20;
         this.hitboxHeight = 12;
         this.hitboxOffsetY = 14;
@@ -147,6 +148,8 @@ export class SnakeBoss extends Enemy {
 
     // 90% knockback resistance
     takeDamage(amount, knockback) {
+        amount = this._applyDpsCap(amount); // 承伤上限（COMBAT_BALANCE_METHODOLOGY §3.4）
+        if (amount <= 0) return;
         this.hp -= amount;
         this.hitFlashTimer = 5;
         this.hpBarTimer = 120;

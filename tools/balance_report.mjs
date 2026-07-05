@@ -22,9 +22,17 @@ const RARITY_EDPS_BAND = {
     legendary: [85, 125],
 };
 // AOE / 控制 / 特殊机制武器的等效乘数假设（单体EDPS × 乘数 = 等效EDPS）。
-// blastRadius 视为平均命中 2.2 个敌人；控制类给固定等效加值。
+// 多目标（爆炸/破片/黑洞/闪电链）视为平均命中 2.2 个敌人；控制/机动类给固定等效加值。
 const AOE_AVG_TARGETS = 2.2;
-const UTILITY_EDPS_CREDIT = { freeze_ray: 25, black_hole_gun: 60, force_gun: 20, teleport_gun: 15, turret_deployer: 40 };
+const FRAGMENT_HIT_RATE = 0.6;   // 破片弹（cluster）平均命中率：8 片里约 6 成打中东西
+const PUDDLE_UPTIME = 0.5;       // 毒液池：敌人平均只在池里待一半时长
+const UTILITY_EDPS_CREDIT = {
+    freeze_ray: 25,      // 冰冻减速→冻结（硬控）
+    black_hole_gun: 20,  // 聚怪牵引的阵型控制（伤害已按 tick 模型计入）
+    force_gun: 20,       // 强击退清场
+    teleport_gun: 30,    // 玩家瞬移的机动/保命价值（传说级）
+    vampyre_gun: 15,     // 命中吸血的续航（等效防御收益）
+};
 // 近战贴脸风险补偿：无需弹药+但承担贴身风险，允许比同稀有度枪械低 15%（乘 1/0.85 折回）。
 const MELEE_RISK_DISCOUNT = 0.85;
 
@@ -40,31 +48,50 @@ const ENEMY_TIERS = [
 
 // ── 武器表 ──────────────────────────────────────────────────────────────
 
-function effectiveDps(w) {
-    const pellets = w.pelletCount ?? 1;
-    if (!w.damage || !w.fireRate) return 0;
-    const burst = (w.damage * pellets * 1000) / w.fireRate;
+/**
+ * 单发有效载荷：直伤 + 破片 + 黑洞 tick + DoT + 毒液池（游戏内特殊字段全部折算）。
+ * @returns {{payload: number, notes: string[]}}
+ */
+function perShotPayload(w) {
+    const notes = [];
+    let payload = w.damage * (w.pelletCount ?? 1);
+    if (w.fragmentCount && w.fragmentDamage) {
+        const frag = w.fragmentCount * w.fragmentDamage * FRAGMENT_HIT_RATE;
+        payload += frag;
+        notes.push(`破片+${frag.toFixed(0)}`);
+    }
+    if (w.blackHoleDamage && w.blackHoleDuration && w.blackHoleTickInterval) {
+        const bh = w.blackHoleDamage * Math.floor(w.blackHoleDuration / w.blackHoleTickInterval);
+        payload += bh;
+        notes.push(`黑洞+${bh}`);
+    }
+    const dot = (w.burnDamage ? w.burnDamage * Math.floor(w.burnDuration / w.burnTickInterval) : 0)
+        + (w.poisonDamage ? w.poisonDamage * Math.floor(w.poisonDuration / w.poisonTickInterval) : 0);
+    if (dot > 0) notes.push(`DoT+${dot}`);
+    const puddle = w.puddleDamage ? w.puddleDamage * Math.floor(w.puddleDuration / w.puddleTickInterval) * PUDDLE_UPTIME : 0;
+    if (puddle > 0) notes.push(`毒池+${puddle.toFixed(0)}`);
+    return { payload, dot, puddle, notes };
+}
+
+function effectiveDps(w, payload) {
+    if (!w.fireRate) return 0;
+    const burst = (payload * 1000) / w.fireRate;
     if (!w.magazineSize || !w.reloadTime) return burst; // 近战/无换弹
     const cycle = w.magazineSize * w.fireRate + w.reloadTime;
-    return (w.damage * pellets * w.magazineSize * 1000) / cycle;
+    return (payload * w.magazineSize * 1000) / cycle;
 }
 
 const weaponRows = [];
 for (const [id, w] of Object.entries(WEAPONS)) {
     if (!w.damage || !w.fireRate || !w.rarity) continue; // 工具/消耗品跳过
-    const raw = effectiveDps(w);
-    let equivalent = raw;
-    const notes = [];
-    // DoT 折算：单发施加的燃烧/中毒总伤按命中频率折入（帧单位 60fps，duration/tickInterval 为帧数）
-    const dotTotal = (w.burnDamage ? w.burnDamage * Math.floor(w.burnDuration / w.burnTickInterval) : 0)
-        + (w.poisonDamage ? w.poisonDamage * Math.floor(w.poisonDuration / w.poisonTickInterval) : 0);
-    if (dotTotal > 0 && w.fireRate) {
-        // DoT 不叠加时按 min(攻速, DoT持续) 的施加频率计——保守取每 max(fireRate, 500ms) 一次全额
-        const dotDps = dotTotal * 1000 / Math.max(w.fireRate, 500);
-        equivalent += dotDps;
-        notes.push(`DoT+${dotDps.toFixed(0)}`);
-    }
-    if (w.blastRadius) { equivalent = equivalent * AOE_AVG_TARGETS; notes.push(`AOE×${AOE_AVG_TARGETS}`); }
+    const { payload, dot, puddle, notes } = perShotPayload(w);
+    // DoT 不随攻速无限叠加：按 max(fireRate, 500ms) 的保守频率折进每发载荷
+    const dotAdjusted = (dot + puddle) * Math.min(1, w.fireRate / Math.max(w.fireRate, 500));
+    const raw = effectiveDps(w, w.damage * (w.pelletCount ?? 1));
+    let equivalent = effectiveDps(w, payload + dotAdjusted);
+    // 多目标乘区：爆炸 / 破片 / 黑洞 / 闪电链 都按平均 2.2 目标
+    const isMultiTarget = w.blastRadius || w.fragmentCount || w.blackHoleDamage || w.chainCount;
+    if (isMultiTarget) { equivalent *= AOE_AVG_TARGETS; notes.push(`多目标×${AOE_AVG_TARGETS}`); }
     if (UTILITY_EDPS_CREDIT[id]) { equivalent += UTILITY_EDPS_CREDIT[id]; notes.push(`功能+${UTILITY_EDPS_CREDIT[id]}`); }
     const isMelee = !w.magazineSize && !w.reloadTime;
     if (isMelee) { equivalent = equivalent / MELEE_RISK_DISCOUNT; notes.push('近战折算'); }
