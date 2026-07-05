@@ -429,6 +429,7 @@ export class CombatSystem {
             }
 
             this.handSystem.triggerShoot();
+            this.soundSystem?.playWeapon(this.handSystem.currentWeaponId); // [audio-p1] 开火音（玩家自枪，居中）
             const muzzle = this.handSystem.getMuzzleWorldPosition(now);
 
             // Laser beam: hitscan, no bullet (supports spread for shotgun lasers)

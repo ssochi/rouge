@@ -56,6 +56,7 @@ export class MeleeSystem {
         if (now - this.lastAttackTime < (weapon.fireRate || 400)) return false;
 
         this.lastAttackTime = now;
+        this.soundSystem?.playWeapon(this.handSystem.currentWeaponId); // [audio-p1] 近战挥砍破空
         this.aimAngleAtAttack = this.handSystem.angle;
         this.hitTargets = [];
         this.attackTimer = 0;

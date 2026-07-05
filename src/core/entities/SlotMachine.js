@@ -96,6 +96,7 @@ export class SlotMachine {
         this.spinTimer = SPIN_FRAMES;
         this.reelCycleTimer = 0;
         this._scatterReels();
+        worldSystem?.soundSystem?.play('slot_spin', { x: this.centerX, y: this.centerY }); // [audio-p1] 投币/滚轮启动
         return 'spinning';
     }
 
@@ -159,6 +160,10 @@ export class SlotMachine {
     /** 滚轮停稳：结算奖励 + 世界效果，并推进耐久。 */
     _reveal(worldSystem) {
         for (let i = 0; i < 3; i++) this.reelSymbols[i] = this.finalSymbols[i];
+        // [audio-p1] 中奖上行琶音（显著奖励：遗物/武器/大金币）；爆炸奖励由 spawnExplosion 自带轰声
+        if (this.reward && ['relic', 'weapon', 'coins_big'].includes(this.reward.kind)) {
+            worldSystem?.soundSystem?.play('slot_win', { x: this.centerX, y: this.centerY });
+        }
         this._enactReward(this.reward, worldSystem);
         this.core.settle(); // 耐久 -1，归零则爆机
         this.state = 'result';

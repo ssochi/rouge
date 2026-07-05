@@ -121,6 +121,7 @@ export class HandSystem {
         this.isReloading = true;
         this.reloadDuration = this.currentWeapon.reloadTime || 1000;
         this.reloadTimer = this.reloadDuration;
+        this.soundSystem?.play('reload_start'); // [audio-p1] 弹匣抽出咔
     }
 
     update(mouseWorldX, mouseWorldY) {
@@ -154,6 +155,7 @@ export class HandSystem {
 
     completeReload() {
         this.isReloading = false;
+        this.soundSystem?.play('reload_done'); // [audio-p1] 弹匣推入咔嗒
         const state = this.getWeaponState();
         if (state) {
             const needed = state.maxAmmo - state.currentAmmo;

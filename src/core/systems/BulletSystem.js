@@ -1230,6 +1230,8 @@ export class BulletSystem {
                                     this.relicSystem.onCritHit();
                                 }
 
+                                if (b.source === 'player') this.soundSystem?.play(b.isCrit ? 'hit_crit' : 'hit_flesh', { x: e.x, y: e.y }); // [audio-p1] 命中/暴击音
+
                                 // Burn DOT（flame 武器或遗物余烬弹头）
                                 if (b.burnDamage) {
                                     if (!e.burnTimer || e.burnTimer <= 0) {

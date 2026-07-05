@@ -1125,6 +1125,7 @@ export class UIManager {
             // Add Click Event for Selection
             slot.onmousedown = (e) => {
                 e.preventDefault(); // Prevent focus issues
+                this.soundSystem?.play('ui_click'); // [audio-p1] 快捷栏点击哔
                 if (this.onHotbarSlotClick) {
                     this.onHotbarSlotClick(i);
                 }
@@ -1328,6 +1329,7 @@ export class UIManager {
             el.appendChild(desc);
 
             el.addEventListener('click', () => {
+                this.soundSystem?.play('ui_click'); // [audio-p1] 菜单按钮哔
                 if (item.action === 'showKeybinds') {
                     this._showKeybindList();
                 } else if (typeof item.action === 'function') {

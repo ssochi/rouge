@@ -89,6 +89,7 @@ export const SpikeTrapObject = {
             // 进入弹出：重置本轮命中集
             obj._hitPlayer = false;
             obj._hitEnemies = new Set();
+            obj.worldSystem?.soundSystem?.play('spike_out', { x: obj.x + 16, y: obj.y + 16 }); // [audio-p1] 尖刺弹出铿
         }
         obj._spikeState = state;
         if (state === 'up') applySpikeDamage(obj, player);

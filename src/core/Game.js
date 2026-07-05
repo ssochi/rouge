@@ -21,6 +21,7 @@ import { getMapProfile } from './maps/MapProfiles.js';
 import { DungeonRunState } from './dungeon/DungeonRunState.js';
 import { RelicSystem } from './dungeon/RelicSystem.js';
 import { MobileControls, isMobileMode } from '../ui/MobileControls.js';
+import { SoundSystem } from './audio/SoundSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -112,6 +113,7 @@ export class Game {
             }
             this.camera.x += (Math.random() - 0.5) * 5;
             this.camera.y += (Math.random() - 0.5) * 5;
+            this.soundSystem?.play('player_hurt'); // [audio-p1] 受击音（玩家中心，无需定位）
         };
 
         // Unified player hurtbox used by enemy bullet hit detection.
@@ -131,6 +133,9 @@ export class Game {
         });
 
         this.handSystem = new HandSystem(this.player);
+
+        // [audio-p1] 音频系统：懒创建 + 手势解锁；下方统一注入需要它的子系统。
+        this.soundSystem = new SoundSystem({ player: this.player });
 
         this.combatSystem = new CombatSystem({
             bullets: this.bullets,
@@ -432,6 +437,17 @@ export class Game {
         // [depth-batch:relics] 环绕护刃需在世界空间绘制旋转刀刃
         this.renderer.relicSystem = this.relicSystem;
 
+        // [audio-p1] 音频依赖注入：各子系统在事件点单行调用 soundSystem。
+        // 实体（Chest/SlotMachine/Portal/DungeonPickup/机关/gate）经 worldSystem.soundSystem 访问。
+        this.combatSystem.soundSystem = this.soundSystem;
+        this.combatSystem.bulletSystem.soundSystem = this.soundSystem;
+        this.combatSystem.statusEffects.soundSystem = this.soundSystem;
+        this.handSystem.soundSystem = this.soundSystem;
+        this.worldSystem.soundSystem = this.soundSystem;
+        this.playerSystem.soundSystem = this.soundSystem;
+        this.meleeSystem.soundSystem = this.soundSystem;
+        this.uiManager.soundSystem = this.soundSystem;
+
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
         this.inventorySystem.selectHotbarSlot(0);
@@ -654,6 +670,15 @@ export class Game {
             this.uiManager.toggleShortcutMenu(this.isMenuOpen);
         } else if (!this.input.keys.m) {
             this.mPressed = false;
+        }
+
+        // [audio-p1] Toggle Mute（N 键）
+        if (this.input.keys.n && !this.nPressed) {
+            this.nPressed = true;
+            const muted = this.soundSystem.toggleMute();
+            this.uiManager.log?.(muted ? '🔇 静音' : '🔊 音效开');
+        } else if (!this.input.keys.n) {
+            this.nPressed = false;
         }
 
         // Toggle 全屏大地图（Tab）：仅地牢内有意义；不暂停游戏，玩家仍可移动 [depth-batch:minimap]

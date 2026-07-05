@@ -48,6 +48,7 @@ export class Chest {
             }
         }
         this.isOpen = true;
+        worldSystem?.soundSystem?.play('chest_open', { x: this.x + this.width / 2, y: this.y + this.height / 2 }); // [audio-p1] 开箱木吱/铁锵
 
         const ownedRelicIds = runState ? runState.relicIds : [];
         const ownedPetItemIds = this._gatherOwnedPetItemIds(worldSystem);

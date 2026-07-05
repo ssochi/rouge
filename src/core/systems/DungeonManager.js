@@ -514,6 +514,7 @@ export class DungeonManager {
         if (gate.active) return;
         gate.active = true;
         gate.animTimer = 0;
+        if (gate.tiles[0]) this.worldSystem.soundSystem?.play('door_slam', { x: (gate.tiles[0].x + 0.5) * TILE_SIZE, y: (gate.tiles[0].y + 0.5) * TILE_SIZE }); // [audio-p1] 封门石门隆隆
 
         // Add wall rect for each tile in the gate
         gate.wallRefs = [];
@@ -537,6 +538,7 @@ export class DungeonManager {
     _deactivateGate(gate) {
         if (!gate.active) return;
         gate.active = false;
+        if (gate.tiles[0]) this.worldSystem.soundSystem?.play('door_open', { x: (gate.tiles[0].x + 0.5) * TILE_SIZE, y: (gate.tiles[0].y + 0.5) * TILE_SIZE }); // [audio-p1] 开门石门隆隆
 
         // Remove all wall rects
         for (const wallRef of gate.wallRefs) {

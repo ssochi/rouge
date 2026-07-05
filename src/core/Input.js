@@ -13,6 +13,7 @@ export class InputHandler {
             b: false, // Backpack
             l: false, // Test Panel
             m: false, // Shortcut Menu
+            n: false, // [audio-p1] 静音切换（M 已占用为快捷菜单，故用 N=No sound）
             p: false, // Debug Toggle
             tab: false, // Toggle full-screen dungeon map [depth-batch:minimap]
             escape: false, // Close overlay

@@ -314,6 +314,7 @@ export class PlayerSystem {
         if (closestItem.isRelic && this.worldSystem && this.worldSystem.relicSystem) {
             const relicId = closestItem.itemId.replace('relic:', '');
             this.worldSystem.relicSystem.addRelic(relicId);
+            this.soundSystem?.play('pickup_relic'); // [audio-p1] 遗物神圣和弦
             if (this.inventorySystem) {
                 this.inventorySystem.add(closestItem.itemId, 1);
             }
@@ -352,6 +353,7 @@ export class PlayerSystem {
                 if (index > -1) {
                     this.droppedItems.splice(index, 1);
                 }
+                if (closestItem.itemId?.startsWith('weapon:')) this.soundSystem?.play('pickup_weapon'); // [audio-p1] 武器拾取
                 console.log(`Picked up ${closestItem.name}`);
             } else if (remaining < closestItem.count) {
                 // Partially picked up
@@ -479,6 +481,7 @@ export class PlayerSystem {
 
         if (keys.space && this.player.rollCooldown <= 0 && isMoving && effectiveSpeed > 0) {
             this._spawnRollDust(this.player.x, this.player.y, false, Math.atan2(dy, dx));
+            this.soundSystem?.play('player_roll'); // [audio-p1] 翻滚布料嗖
             this.player.state = 'roll';
             this.player.rollDuration = 15;
             this.player.angle = Math.atan2(dy, dx);

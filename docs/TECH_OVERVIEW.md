@@ -348,6 +348,23 @@
 - **画面适配**：移动模式 `Game.scale` 用 2（桌面 2.5）扩大视野；`html/body { touch-action:none }` + viewport `maximum-scale=1,user-scalable=no` 阻止页面滚动/缩放。
 - **调试**：`tools/screenshot_mobile.mjs`（puppeteer 移动视口 + 触摸仿真截图，横屏会注入按住触摸以显形浮动摇杆）。
 
+## 音频系统 (SoundSystem / SynthEngine)
+
+全部声音由 Web Audio API 数学合成，**零外部音频文件、零 npm 音频依赖**，与"美术全程序化生成"哲学同构（引擎手写 + 音色数据化，类比 PixelDraw + 绘制参数）。方案文档 `docs/feature/AUDIO_SYSTEM_PLAN.md`（P1 已完成）。
+
+- **合成核心** `src/core/audio/SynthEngine.js`：参数 spec → mono `Float32Array` 采样缓冲，逐采样数学运算（不建 Web Audio 节点图），因此可在 Node/vitest 离线渲染并断言峰值/时长。五原语：振荡器（sine/square/saw/triangle + 频率包络滑音）、噪声源（确定性 mulberry32 PRNG，缓存可复现）、ADSR 增益包络、状态变量滤波器 SVF（lowpass/highpass/bandpass 逐采样扫频）、tanh WaveShaper 失真。多 layer 叠加出厚度（枪声=低频冲击+中频噪声瞬态+高频啪）。渲染后按 `spec.gain` 做峰值归一化（保证无静音条/无爆音条，跨音效音量由各自 gain 掌控）。首次渲染后按 `id@sampleRate` 缓存 `Float32`。
+- **音色数据** `src/assets/audio/SfxData.js`：33 条纯参数音效（禁逻辑），含 10 个枪械音色族 + 近战 + 换弹/命中/死亡（肉/机械/幽体三类）/爆炸/受击/翻滚/拾取/开箱/门/UI/老虎机/尖刺/传送门。爆炸 5 层含 <100Hz 低频体。`ENEMY_DEATH_SFX` 把敌人 `spawnType` 粗分三类死亡音。
+- **武器映射** `src/assets/audio/WeaponSfxMap.js`：36 把武器 id → 音色族 + `pitch`/`decay` 个性偏移（纯数据，`resolveWeaponSfx` 永不落空，单测断言全覆盖）。
+- **运行时** `src/core/audio/SoundSystem.js`：
+  - **生命周期**：`AudioContext` 懒创建 + 手势解锁（桌面 keydown/mousedown、移动 touchend），解锁前丢弃播放请求；`visibilitychange` suspend/resume。
+  - **总线**：sfx 子总线 → master（含静音）→ `DynamicsCompressor`（防叠加爆音）→ destination。
+  - **节流三件套**（纯逻辑 `VoiceThrottle`/`VoicePool`，导出供单测）：同音效最小重触发间隔 30ms（天然吞同帧重复）、全局 16 voices 上限带优先级抢占（最低优先级+最老者被挤掉）、连发音量递减 + ±5% 音高抖动（金币连拾则改为逐级升调）。
+  - **空间**：`StereoPanner` 按声源相对玩家 x 定位 + 距离线性衰减（超 760px 丢弃不占 voice）；音高抖动/武器 pitch 用 `playbackRate`（不破坏缓存），武器 decay 用增益提前淡出。
+  - **持久化**：master/sfx/music 音量存 `localStorage`；`N` 键静音切换（`M` 已占用为快捷菜单）。
+  - **传送门嗡鸣**：单条循环 voice，按最近传送门距离渐入音量（整数 Hz + 恒定包络保证 1s 缓冲无缝循环）。
+- **接线**（15+ 处单行调用，锚点 `[audio-p1]`）：CombatSystem 开火、HandSystem 换弹、BulletSystem 命中/暴击、WorldSystem 敌人死亡/金币拾取/传送门、StatusEffectSystem 爆炸、Game 受击、PlayerSystem 翻滚/遗物/武器拾取、MeleeSystem 挥砍、Chest 开箱、DungeonManager 封门/开门、UIManager 按钮、SlotMachine 投币/中奖、DungeonTrapObjects 尖刺。实体经 `worldSystem.soundSystem` 访问，子系统由 `Game` 构造尾部依赖注入。
+- **测试**：`tests/audio-system.test.js`（18 例：SfxData 结构+离线峰值、WeaponSfxMap 覆盖、节流/抢占/衰减纯逻辑）；浏览器实测走 `OfflineAudioContext` 逐条渲染 + 实开一局 instrument `play` 断言事件触发（`window.game` 暴露实例供自动化访问）。
+
 ## 战斗数值方法论与审计工具
 
 - **方法论**：`docs/feature/COMBAT_BALANCE_METHODOLOGY.md` —— 锚点体系（初始手枪有效 DPS 38 / 玩家 100 HP）、敌人角色档位（炮灰 1 枪 / 标准 2-3 枪 / 重装 4-6 枪 / Boss 按 TTK 反推）、武器稀有度→等效 DPS 带宽（成本曲线）、特效折算（AOE×2.2 / DoT / 控制加值 / 近战风险折扣）、楼层 hpMult 与掉落稀有度同步防"海绵感"。

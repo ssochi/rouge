@@ -942,6 +942,7 @@ export class WorldSystem {
             const p = pickups[i];
             p.update(this.player, this.dungeonRunState, magnetMult, coinValueMult);
             if (p.collected) {
+                this.soundSystem?.playPickup(p.kind, { x: p.x, y: p.y }); // [audio-p1] 金币叮(连拾升调)/钥匙锵
                 pickups.splice(i, 1);
             }
         }
@@ -1185,12 +1186,17 @@ export class WorldSystem {
     }
 
     updatePortals() {
+        // [audio-p1] 传送门循环嗡鸣：按最近传送门距离渐入音量、按相对 x 定位。
+        let humDist = Infinity;
+        let humPan = 0;
         for (const p of this.portals) {
             p.update(this.player);
-            // Collision logic moved to PlayerSystem or handled here if purely collision based.
-            // But we want 'E' interaction now.
-            // Keeping collision check for proximity detection only if needed.
+            const cx = p.x + p.width / 2;
+            const cy = p.y + p.height / 2;
+            const d = Math.hypot(cx - this.player.x, cy - this.player.y);
+            if (d < humDist) { humDist = d; humPan = (cx - this.player.x) / 420; }
         }
+        this.soundSystem?.updatePortalHum(humDist, humPan);
     }
 
     _shuffleInPlace(list) {
@@ -2345,6 +2351,7 @@ export class WorldSystem {
                 // Skip loot drops for boss segments (SnakeSegment etc.)
                 if (!this.enemies[i].isSegment) {
                     const deadEnemy = this.enemies[i];
+                    this.soundSystem?.playEnemyDeath(deadEnemy.spawnType, { x: deadEnemy.x, y: deadEnemy.y }); // [audio-p1] 敌人死亡音（肉/机械/幽体）
                     if (this._isDungeonMapType(this.currentMapType)) {
                         // 地牢内：金币掉落；Boss 武器掉落改由清房宝箱承接；精英金币 ×3 + 30% 钥匙
                         let coinValue = deadEnemy.isBoss

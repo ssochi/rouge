@@ -12,6 +12,7 @@ export class StatusEffectSystem {
     }
 
     spawnExplosion(x, y, damage, radius, knockback) {
+        this.soundSystem?.play('explosion', { x, y }); // [audio-p1] 低频轰 + 碎片沙
         this.particles.push({
             type: 'shockwave',
             x: x,
