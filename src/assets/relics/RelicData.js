@@ -2,7 +2,7 @@
 // 地牢遗物定义（纯数据，无逻辑）。effect 字段由 RelicSystem 消费。
 // 三类：stat（属性乘区）/ ballistic（弹道改造）/ trigger（事件触发）。
 // 数值为初值，P6 统一调参。
-// 当前 34 个：属性 10 / 弹道 9 / 触发 15（P8 追加 8 个，见文件末 P8 扩展块）。
+// 当前 46 个：属性 10 / 弹道 10 / 触发 26（P8 追加 8 个、P9 追加 12 个机制型遗物，见文件末扩展块）。
 
 export const RELIC_CATEGORIES = ['stat', 'ballistic', 'trigger'];
 // 稀有度（P7 扩展遗物起标注；数值平衡与掉落加权后续接入）。
@@ -277,6 +277,116 @@ export const RELICS = {
         rarity: 'epic',
         desc: '每 8 秒充能一层护罩，抵挡下一次受到的伤害',
         effect: { barrier: { cooldown: 480 } },
+    },
+
+    // ── P9 扩展（12）：机制型遗物，改变行为方式 / 制造新场面，禁纯数值乘区 ──
+    // 幽灵弹头：每第 7 发子弹变幽灵弹——穿墙穿敌、伤害 ×2、蓝光（复用 BulletSystem phaseThrough）。
+    ghost_rounds: {
+        id: 'ghost_rounds',
+        name: '幽灵弹头',
+        category: 'ballistic',
+        rarity: 'rare',
+        desc: '每第 7 发子弹化为幽灵弹：穿墙穿敌、伤害 ×2',
+        effect: { ghost: { everyNth: 7, damageMult: 2, color: '#4db8ff' } },
+    },
+    // 金币护盾：受击时若持币 ≥5，改为散落 5 金币于脚下（可捡回）而不扣血，内置 3 秒冷却。
+    coin_ward: {
+        id: 'coin_ward',
+        name: '金币护盾',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '受击时若持有 ≥5 金币，改为散落 5 金币护体而不扣血（冷却 3 秒）',
+        effect: { coinWard: { minCoins: 5, dropCoins: 5, cooldown: 180 } },
+    },
+    // 血肉契约：商店金币不足时可用 HP 补足差额（1 金 = 2 HP），不能买到自杀（至少保留 1 HP）。
+    blood_pact: {
+        id: 'blood_pact',
+        name: '血肉契约',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '商店金币不足时可用生命补足差额（1 金 = 2 HP，不会致死）',
+        effect: { bloodPact: { hpPerCoin: 2 } },
+    },
+    // 命运骰子：每进入新房间随机掷出一个临时增益（伤害/移速/暴击/护盾），离房失效。
+    fate_dice: {
+        id: 'fate_dice',
+        name: '命运骰子',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '每进入新房间随机获得一个临时增益（伤害/移速/暴击/护盾），离房失效',
+        effect: { fateDice: { damageMult: 1.25, moveSpeedMult: 1.2, critChance: 0.15 } },
+    },
+    // 磁暴线圈：静止蓄能 1 秒后每 0.8 秒对最近敌人放一道链状电击。
+    tesla_coil: {
+        id: 'tesla_coil',
+        name: '磁暴线圈',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '静止 1 秒后开始蓄能，每 0.8 秒对最近敌人放一道电击（伤害 12）',
+        effect: { tesla: { chargeFrames: 60, zapInterval: 48, damage: 12, range: 220 } },
+    },
+    // 环绕护刃：一把刀绕玩家旋转，碰到敌人造成伤害（同一敌人 0.5 秒内不重复）。
+    orbit_blade: {
+        id: 'orbit_blade',
+        name: '环绕护刃',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '一把利刃绕身旋转，碰敌造成 10 伤害（同一敌人 0.5 秒内不重复）',
+        effect: { orbitBlade: { radius: 40, damage: 10, hitCooldown: 30, spinSpeed: 0.12 } },
+    },
+    // 收割回响：击杀敌人 12% 概率从尸体迸发数道追魂弹袭击附近敌人（可连锁）。
+    reaper_echo: {
+        id: 'reaper_echo',
+        name: '收割回响',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '击杀敌人 12% 概率从尸体迸发 3 道亡魂弹袭击附近敌人',
+        effect: { reaperEcho: { chance: 0.12, boltCount: 3, damage: 14, speed: 6, life: 55, range: 260 } },
+    },
+    // 时间沙漏：战斗房出怪时，新生成的敌人凝滞 2 秒（复用 frozenTimer 冻结）。
+    time_hourglass: {
+        id: 'time_hourglass',
+        name: '时间沙漏',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '战斗房出怪时敌人凝滞 2 秒',
+        effect: { timeFreeze: { duration: 120 } },
+    },
+    // 保险柜：每局一次，死亡时以 50% 生命复活并保留金币，触发后图标变灰。
+    safe_vault: {
+        id: 'safe_vault',
+        name: '保险柜',
+        category: 'trigger',
+        rarity: 'legendary',
+        desc: '每局一次：死亡时以 50% 生命复活并保留金币',
+        effect: { safeVault: { reviveHpRatio: 0.5 } },
+    },
+    // 弹壳回收：击杀敌人 20% 概率返还 1 发当前弹匣子弹。
+    shell_reclaim: {
+        id: 'shell_reclaim',
+        name: '弹壳回收',
+        category: 'trigger',
+        rarity: 'uncommon',
+        desc: '击杀敌人 20% 概率返还 1 发当前弹匣子弹',
+        effect: { shellReclaim: { chance: 0.2, amount: 1 } },
+    },
+    // 末日怀表：每 8 秒你的下一发子弹必定暴击（暴击造成双倍伤害）。
+    doomsday_watch: {
+        id: 'doomsday_watch',
+        name: '末日怀表',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '每 8 秒你的下一发子弹必定暴击（造成双倍伤害）',
+        effect: { doomsdayWatch: { interval: 480 } },
+    },
+    // 深渊之契：拾取时随机销毁你的另一个遗物，换取三倍强度的全能增益（无其他遗物则无副作用）。
+    abyss_pact: {
+        id: 'abyss_pact',
+        name: '深渊之契',
+        category: 'trigger',
+        rarity: 'legendary',
+        desc: '拾取时随机献祭你的另一件遗物，换取全能强化：伤害 +45%、移速 +45%、开火 -40%、暴击 +30%',
+        effect: { abyssPact: { damageMult: 1.45, moveSpeedMult: 1.45, fireIntervalMult: 0.6, critChance: 0.30 } },
     },
 };
 

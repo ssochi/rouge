@@ -12,7 +12,9 @@ const F1_KNOWN_PROPS = new Set([
     'prison_cell_door', 'prison_file_cabinet', 'prison_locker', 'prison_dirt_mound',
     'prison_visit_booth', 'prison_watchtower', 'prison_bunk',
     'dungeon_bars', 'dungeon_bone_pile', 'dungeon_iron_cage', 'dungeon_rack',
-    'table', 'chair', 'computer_desk', 'tv_stand'
+    'table', 'chair', 'computer_desk', 'tv_stand',
+    // [depth-batch:rooms] 房间机关
+    'spike_trap', 'reward_cage', 'cage_lever', 'decoy_statue'
 ]);
 
 describe('F1 监狱层模板', () => {

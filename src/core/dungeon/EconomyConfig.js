@@ -2,7 +2,7 @@
 // 所有掉落/奖励相关的数值均在此定义，供 P6 数值调优时统一调整。
 
 // 敌人死亡掉落金币基准值（按敌人类型），default 为兜底值。
-export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, default: 2, boss: 50 };
+export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, /* [depth-batch:enemies] loot_goblin 死亡金币由实体 getDungeonCoinValue 覆盖 */ loot_goblin: 2, burrower: 5, arc_twin: 3, revenant: 4, default: 2, boss: 50 };
 
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
 export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };
@@ -50,3 +50,38 @@ export const SHOP = {
 
 // 掉落池黑名单：非战斗/特殊拾取武器 id，唯一权威来源（WorldSystem 房间刷枪池同样引用此处）。
 export const LOOT_WEAPON_BLACKLIST = new Set(['hammer', 'boomerang', 'recovery_needle', 'hamburger', 'medkit']);
+
+// [depth-batch:gamble] 老虎机赌博玩法配置：投币价、耐久区间、加权结果表、武器稀有度权重、放置规则。
+// 结果表权重之和无需为 100，抽取时按总权重归一化（见 GambleTable.pickGambleOutcome）。
+// kind 语义见 GambleTable.resolveGambleReward / SlotMachine：
+//   empty        空奖（三个不同图案，无产出）
+//   coins_small  小额金币返还
+//   coins_big    金币大奖
+//   medkit       医疗包
+//   key          钥匙
+//   weapon       武器（稀有度加权）
+//   relic        遗物（三个 7！大奖特效）
+//   bomb         爆炸惩罚（小范围爆炸，伤玩家）
+export const GAMBLE = {
+    coinCost: 8,          // 每次投币价（金币）
+    durabilityMin: 3,     // 单台机器最少可玩次数
+    durabilityMax: 8,     // 单台机器最多可玩次数
+    // 加权结果表（约：空奖35% / 小额25% / 大奖15% / medkit8% / 钥匙6% / 武器5% / 遗物3% / 爆炸3%）
+    outcomes: [
+        { kind: 'empty',       weight: 35 },
+        { kind: 'coins_small', weight: 25, coinMin: 3,  coinMax: 5 },
+        { kind: 'coins_big',   weight: 15, coinMin: 15, coinMax: 25 },
+        { kind: 'medkit',      weight: 8 },
+        { kind: 'key',         weight: 6 },
+        { kind: 'weapon',      weight: 5 },
+        { kind: 'relic',       weight: 3 },
+        { kind: 'bomb',        weight: 3, damage: 10, radius: 56, knockback: 6 },
+    ],
+    // 非中奖结果集合：耗尽保底（最后一次）时从结果表中剔除，确保「中奖及以上」。
+    nonRewardKinds: ['empty', 'bomb'],
+    // 武器稀有度权重（略偏保守，低于宝箱）。
+    weaponRarityWeights: { common: 45, uncommon: 30, rare: 18, epic: 6, legendary: 1 },
+    // 放置：每层随机战斗房清房后角落刷机的概率 + 每层战斗房最多刷几台。
+    battleRoomChance: 0.20,
+    maxPerFloorBattleRooms: 2,
+};

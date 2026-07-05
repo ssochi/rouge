@@ -3,7 +3,7 @@ import { DroppedItem } from '../entities/DroppedItem.js';
 import { Portal } from '../entities/Portal.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from './WeaponInstanceUtils.js';
 import { pickRarity, pickWeaponByRarity } from '../dungeon/LootTable.js';
-import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR } from '../dungeon/EconomyConfig.js';
+import { ROOM_CLEAR, BOSS_CHEST_TIER, ELITE_CLEAR, FINAL_FLOOR, GAMBLE } from '../dungeon/EconomyConfig.js';
 import { getFloorConfig } from '../dungeon/FloorConfigs.js';
 import { applyAffixes, pickRandomAffixes } from '../dungeon/EnemyAffixSystem.js';
 
@@ -44,6 +44,7 @@ export class DungeonManager {
         this.worldSystem = worldSystem;
         this.rooms = new Map(); // roomId → room state
         this.currentFloor = layout.floor || 1;
+        this._floorSlotMachines = 0; // [depth-batch:gamble] 本层已在战斗房刷出的老虎机数（DungeonManager 每层重建即归零）
 
         // Build room grid for O(1) position lookups
         this.gridW = worldSystem?.getWorldTileWidth ? worldSystem.getWorldTileWidth() : 130;
@@ -138,18 +139,23 @@ export class DungeonManager {
         if (room.id !== this.currentRoomId) {
             this.prevRoomId = this.currentRoomId;
             this.currentRoomId = room.id;
+            // [depth-batch:relics] 命运骰子：进入新房间随机掷出临时增益（离房失效）
+            const relicSystem = this.worldSystem.relicSystem;
+            if (relicSystem && relicSystem.onRoomEnter) relicSystem.onRoomEnter();
         }
 
-        // Activate room on first entry - only when player is well inside
-        // (not at edge tiles where gates are, to avoid trapping player outside)
-        if (room.state === 'idle' && !this.worldSystem.debugPeaceMode) {
+        // 进入任意 idle 房间即标记已探索（供小地图/大地图着色）；peace 布景模式同样记录 [depth-batch:minimap]
+        // 房间激活（出怪）仍受 peace 模式抑制，且需玩家深入（避开门口边缘 tile，避免把玩家挡在门外）
+        if (room.state === 'idle') {
             room.visited = true;
-            const tx = Math.floor(player.x / TILE_SIZE);
-            const ty = Math.floor(player.y / TILE_SIZE);
-            const margin = 2;
-            if (tx >= room.x + margin && tx < room.x + room.w - margin &&
-                ty >= room.y + margin && ty < room.y + room.h - margin) {
-                this.activateRoom(room);
+            if (!this.worldSystem.debugPeaceMode) {
+                const tx = Math.floor(player.x / TILE_SIZE);
+                const ty = Math.floor(player.y / TILE_SIZE);
+                const margin = 2;
+                if (tx >= room.x + margin && tx < room.x + room.w - margin &&
+                    ty >= room.y + margin && ty < room.y + room.h - margin) {
+                    this.activateRoom(room);
+                }
             }
         }
 
@@ -579,6 +585,20 @@ export class DungeonManager {
             }
         }
 
+        // [depth-batch:gamble] 普通战斗房清房后 20% 概率在角落刷一台老虎机（每层最多 maxPerFloorBattleRooms 台）
+        if (!room.category && this._floorSlotMachines < GAMBLE.maxPerFloorBattleRooms
+            && Math.random() < GAMBLE.battleRoomChance) {
+            const corners = [
+                { x: room.x + 2, y: room.y + 2 },
+                { x: room.x + room.w - 4, y: room.y + 2 },
+                { x: room.x + 2, y: room.y + room.h - 4 },
+                { x: room.x + room.w - 4, y: room.y + room.h - 4 },
+            ];
+            const c = corners[Math.floor(Math.random() * corners.length)];
+            this.worldSystem.spawnSlotMachine(c.x * TILE_SIZE, c.y * TILE_SIZE);
+            this._floorSlotMachines++;
+        }
+
         // 50% chance to drop a consumable
         if (Math.random() < 0.5) {
             const consumables = ['consumable:medkit', 'consumable:hamburger'];
@@ -589,6 +609,91 @@ export class DungeonManager {
                 new DroppedItem(centerX + offsetX, centerY + offsetY, itemId)
             );
         }
+    }
+
+    /** 规范化无向边 key（房间 id 排序拼接）。 */
+    _edgeKey(a, b) {
+        return a < b ? `${a}|${b}` : `${b}|${a}`;
+    }
+
+    /**
+     * 复刻 DungeonLayoutGenerator.closestEdgePoints：从两房矩形推出走廊真实门位（tile 坐标）。
+     * @returns {{ ax, ay, bx, by, horizontal }} horizontal 表示主导轴为水平（门在左右面）。
+     */
+    _closestEdgePoints(a, b) {
+        const acx = Math.floor(a.x + a.w / 2);
+        const acy = Math.floor(a.y + a.h / 2);
+        const bcx = Math.floor(b.x + b.w / 2);
+        const bcy = Math.floor(b.y + b.h / 2);
+        const dx = bcx - acx;
+        const dy = bcy - acy;
+        let ax, ay, bx, by;
+        const horizontal = Math.abs(dx) >= Math.abs(dy);
+        if (horizontal) {
+            if (dx > 0) { ax = a.x + a.w; bx = b.x; } else { ax = a.x; bx = b.x + b.w; }
+            const overlapTop = Math.max(a.y + 2, b.y + 2);
+            const overlapBottom = Math.min(a.y + a.h - 2, b.y + b.h - 2);
+            if (overlapTop <= overlapBottom) { ay = by = Math.floor((overlapTop + overlapBottom) / 2); }
+            else { ay = acy; by = bcy; }
+        } else {
+            if (dy > 0) { ay = a.y + a.h; by = b.y; } else { ay = a.y; by = b.y + b.h; }
+            const overlapLeft = Math.max(a.x + 2, b.x + 2);
+            const overlapRight = Math.min(a.x + a.w - 2, b.x + b.w - 2);
+            if (overlapLeft <= overlapRight) { ax = bx = Math.floor((overlapLeft + overlapRight) / 2); }
+            else { ax = acx; bx = bcx; }
+        }
+        return { ax, ay, bx, by, horizontal };
+    }
+
+    /**
+     * 为一条边构造正交折线（L 形肘线）：落在真实门位，拐弯方向优先匹配真实走廊 tile。
+     * @param {Object} a - 房间 A（含 x/y/w/h）
+     * @param {Object} b - 房间 B
+     * @param {Set<string>|undefined} tileSet - 该走廊 tile 集合 "x,y"（用于判定拐弯朝向）
+     * @returns {Array<{x,y}>} tile 空间折线（2 点直线或 3 点 L 形）
+     */
+    _buildElbowPath(a, b, tileSet) {
+        const { ax, ay, bx, by, horizontal } = this._closestEdgePoints(a, b);
+        // 沿走廊轴取 tile 中心（+0.5），垂直于门面的坐标取房块边界值
+        const pA = horizontal ? { x: ax, y: ay + 0.5 } : { x: ax + 0.5, y: ay };
+        const pB = horizontal ? { x: bx, y: by + 0.5 } : { x: bx + 0.5, y: by };
+
+        const aligned = horizontal ? (ay === by) : (ax === bx);
+        if (aligned) return [pA, pB];
+
+        // 默认：水平主导先走水平段，垂直主导先走垂直段（门面法向优先）
+        let horizFirst = horizontal;
+        if (tileSet) {
+            if (tileSet.has(`${bx},${ay}`)) horizFirst = true;
+            else if (tileSet.has(`${ax},${by}`)) horizFirst = false;
+        }
+        const elbow = horizFirst ? { x: pB.x, y: pA.y } : { x: pA.x, y: pB.y };
+        return [pA, elbow, pB];
+    }
+
+    /** 预计算全部图边的正交折线（每层一次，缓存于实例）。 */
+    _getMinimapEdgePaths() {
+        if (this._minimapEdgePaths) return this._minimapEdgePaths;
+        const paths = new Map();
+        // 真实走廊 tile 集合（判定 L 形拐弯朝向）：edgeKey → Set("x,y")
+        const corridorTiles = new Map();
+        for (const c of (this.layout && this.layout.corridors) || []) {
+            if (!c || !Array.isArray(c.connectsRooms) || c.connectsRooms.length < 2) continue;
+            if (!Array.isArray(c.tiles) || c.tiles.length === 0) continue;
+            corridorTiles.set(
+                this._edgeKey(c.connectsRooms[0], c.connectsRooms[1]),
+                new Set(c.tiles.map(t => `${t.x},${t.y}`))
+            );
+        }
+        for (const edge of this.graphEdges || []) {
+            const a = this.rooms.get(edge.a);
+            const b = this.rooms.get(edge.b);
+            if (!a || !b) continue;
+            const key = this._edgeKey(edge.a, edge.b);
+            paths.set(key, this._buildElbowPath(a, b, corridorTiles.get(key)));
+        }
+        this._minimapEdgePaths = paths;
+        return paths;
     }
 
     /**
@@ -638,9 +743,17 @@ export class DungeonManager {
             });
         }
 
+        // 附带正交折线几何（供小地图/大地图绘制 L 形走廊）
+        const edgePaths = this._getMinimapEdgePaths();
+        const edges = (this.graphEdges || []).map(e => ({
+            a: e.a,
+            b: e.b,
+            path: edgePaths.get(this._edgeKey(e.a, e.b)) || null
+        }));
+
         return {
             rooms: roomData,
-            edges: this.graphEdges,
+            edges,
             currentRoomId: this.currentRoomId,
             playerTileX: Math.floor(player.x / TILE_SIZE),
             playerTileY: Math.floor(player.y / TILE_SIZE),

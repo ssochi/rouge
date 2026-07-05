@@ -15,10 +15,16 @@ const P8_RELIC_IDS = [
     'momentum_totem', 'war_horn', 'collector_eye', 'energy_barrier',
 ];
 
+// P9 新增遗物（12 个）：机制型，改变行为方式 / 制造新场面。
+const P9_RELIC_IDS = [
+    'ghost_rounds', 'coin_ward', 'blood_pact', 'fate_dice', 'tesla_coil', 'orbit_blade',
+    'reaper_echo', 'time_hourglass', 'safe_vault', 'shell_reclaim', 'doomsday_watch', 'abyss_pact',
+];
+
 describe('RelicData', () => {
-    it('共 34 个遗物且 id 唯一', () => {
-        expect(RELIC_IDS.length).toBe(34);
-        expect(new Set(RELIC_IDS).size).toBe(34);
+    it('共 46 个遗物且 id 唯一', () => {
+        expect(RELIC_IDS.length).toBe(46);
+        expect(new Set(RELIC_IDS).size).toBe(46);
     });
 
     it('每个遗物 schema 完整（id/name/category/desc）且分类合法', () => {
@@ -32,12 +38,12 @@ describe('RelicData', () => {
         }
     });
 
-    it('分类数量：属性 10 / 弹道 9 / 触发 15', () => {
+    it('分类数量：属性 10 / 弹道 10 / 触发 26', () => {
         const count = { stat: 0, ballistic: 0, trigger: 0 };
         for (const id of RELIC_IDS) count[RELICS[id].category]++;
         expect(count.stat).toBe(10);
-        expect(count.ballistic).toBe(9);
-        expect(count.trigger).toBe(15);
+        expect(count.ballistic).toBe(10);
+        expect(count.trigger).toBe(26);
     });
 
     it('新增 8 遗物均存在、字段完备且 effect 非空', () => {
@@ -88,6 +94,38 @@ describe('RelicData', () => {
         expect(rarityCount.uncommon).toBe(3);
         expect(rarityCount.rare).toBe(3);
         expect(rarityCount.epic).toBe(2);
+    });
+
+    it('P9 新增 12 遗物均存在、字段完备且 effect 非空', () => {
+        for (const id of P9_RELIC_IDS) {
+            const r = RELICS[id];
+            expect(r).toBeTruthy();
+            expect(r.id).toBe(id);
+            expect(r.name.length).toBeGreaterThan(0);
+            expect(r.desc.length).toBeGreaterThan(0);
+            expect(RELIC_CATEGORIES).toContain(r.category);
+            expect(r.effect && typeof r.effect === 'object').toBe(true);
+            expect(Object.keys(r.effect).length).toBeGreaterThan(0);
+        }
+    });
+
+    it('P9 新增 12 遗物 rarity 合法且平衡为 uncommon 1 / rare 5 / epic 4 / legendary 2', () => {
+        const rarityCount = {};
+        for (const id of P9_RELIC_IDS) {
+            const r = RELICS[id];
+            expect(RELIC_RARITIES).toContain(r.rarity);
+            rarityCount[r.rarity] = (rarityCount[r.rarity] || 0) + 1;
+        }
+        expect(rarityCount.uncommon).toBe(1);
+        expect(rarityCount.rare).toBe(5);
+        expect(rarityCount.epic).toBe(4);
+        expect(rarityCount.legendary).toBe(2);
+    });
+
+    it('P9 遗物均为机制型（无纯数值乘区 stat 分类）', () => {
+        for (const id of P9_RELIC_IDS) {
+            expect(RELICS[id].category).not.toBe('stat');
+        }
     });
 
     it('图标齐全：每个遗物都有对应绘制函数', () => {

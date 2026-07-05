@@ -985,17 +985,24 @@ export class UIManager {
             this._lastDungeonKeys = rs.keys;
             this.dungeonKeyText.innerText = `${rs.keys}`;
         }
-        if (this._lastRelicCount !== rs.relicIds.length) {
+        // [depth-batch:relics] 遗物数量或耗尽状态（保险柜触发灰化）变化时重绘遗物栏
+        const depletedVer = this.relicSystem && this.relicSystem.depletedVersion
+            ? this.relicSystem.depletedVersion() : 0;
+        if (this._lastRelicCount !== rs.relicIds.length || this._lastRelicDepletedVer !== depletedVer) {
             this._lastRelicCount = rs.relicIds.length;
+            this._lastRelicDepletedVer = depletedVer;
             this.dungeonRelicBar.innerHTML = '';
             for (const id of rs.relicIds) {
                 const relic = RELICS[id];
                 const icon = Assets.relicIcons && Assets.relicIcons[id];
                 if (!relic || !icon) continue;
+                const depleted = this.relicSystem && this.relicSystem.isRelicDepleted
+                    && this.relicSystem.isRelicDepleted(id);
                 const img = document.createElement('img');
                 img.src = icon.toDataURL();
-                img.title = `${relic.name}：${relic.desc}`;
-                img.style.cssText = 'width:24px; height:24px; image-rendering:pixelated; background:rgba(0,0,0,0.35); border:1px solid #6d5a65; border-radius:3px;';
+                img.title = depleted ? `${relic.name}（已耗尽）：${relic.desc}` : `${relic.name}：${relic.desc}`;
+                img.style.cssText = 'width:24px; height:24px; image-rendering:pixelated; background:rgba(0,0,0,0.35); border:1px solid #6d5a65; border-radius:3px;'
+                    + (depleted ? ' filter:grayscale(1); opacity:0.4;' : '');
                 this.dungeonRelicBar.appendChild(img);
             }
         }

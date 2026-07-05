@@ -15,7 +15,9 @@ const KNOWN_ENEMY_TYPES = new Set([
     'warlock', 'boomer', 'summoner', 'shieldbearer', 'sentry', 'lobber',
     'wraith', 'archer',
     'hellhound', 'flail_warden', 'plague_rat', 'cultist', 'gargoyle',
-    'spinner', 'weeper', 'splitter'
+    'spinner', 'weeper', 'splitter',
+    // [depth-batch:enemies] 机制型敌人 ×4
+    'loot_goblin', 'burrower', 'arc_twin', 'revenant'
 ]);
 
 /** 模板网格 BFS：所有非墙非坑格必须连通（不允许墙/坑封死区域）。 */

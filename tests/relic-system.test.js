@@ -290,6 +290,191 @@ describe('RelicSystem', () => {
         expect(blocks).toBe(2);
     });
 
+    // ── P9 新增遗物 ──
+
+    it('ghost_rounds：每第 7 发子弹化为幽灵弹（phaseThrough + 伤害 ×2 + 蓝光）', () => {
+        rs.addRelic('ghost_rounds');
+        let ghostSeen = null;
+        for (let i = 1; i <= 7; i++) {
+            const b = { damage: 50, size: 4, piercing: 0, type: 'standard' };
+            rs.modifyPlayerBullet(b, () => 0.99); // 不触发随机暴击
+            if (i < 7) {
+                expect(b.phaseThrough).toBeUndefined();
+                expect(b.damage).toBe(50);
+            } else {
+                ghostSeen = b;
+            }
+        }
+        expect(ghostSeen.phaseThrough).toBe(true);
+        expect(ghostSeen.ghostRelic).toBe(true);
+        expect(ghostSeen.color).toBe('#4db8ff');
+        expect(ghostSeen.damage).toBe(100); // 50 × 2
+    });
+
+    it('doomsday_watch：每 8 秒（480 帧）备好一次保证暴击，命中下一发即消耗', () => {
+        rs.addRelic('doomsday_watch');
+        const before = { damage: 40, size: 4, piercing: 0, type: 'standard' };
+        rs.modifyPlayerBullet(before, () => 0.99); // 未充能，普通伤害
+        expect(before.damage).toBe(40);
+        for (let i = 0; i < 480; i++) rs.tick();
+        const crit = { damage: 40, size: 4, piercing: 0, type: 'standard' };
+        rs.modifyPlayerBullet(crit, () => 0.99); // 保证暴击
+        expect(crit.isCrit).toBe(true);
+        expect(crit.damage).toBe(80);
+        const next = { damage: 40, size: 4, piercing: 0, type: 'standard' };
+        rs.modifyPlayerBullet(next, () => 0.99); // 已消耗，恢复普通
+        expect(next.damage).toBe(40);
+    });
+
+    it('coin_ward：持币 ≥5 且冷却就绪时散币免伤，冷却内不再触发，币不足不触发', () => {
+        rs.addRelic('coin_ward');
+        let drops = 0;
+        rs.setCoinDropHandler(() => drops++);
+        runState.coins = 10;
+        expect(rs.mitigateDamage(20)).toBe(0); // 触发免伤
+        expect(drops).toBe(1);
+        expect(runState.coins).toBe(5); // 散落 5 金币
+        expect(rs.mitigateDamage(20)).toBe(20); // 冷却内正常受伤
+        for (let i = 0; i < 180; i++) rs.tick();
+        runState.coins = 4; // 币不足
+        expect(rs.mitigateDamage(20)).toBe(20);
+        expect(drops).toBe(1);
+    });
+
+    it('fate_dice：进房随机掷出增益并生效，离房（再次进房）重掷/清空', () => {
+        rs.addRelic('fate_dice');
+        // rng=0 → 'damage'
+        expect(rs.onRoomEnter(() => 0)).toBe('damage');
+        expect(rs.damageMult()).toBeCloseTo(1.25);
+        // rng≈0.3 → 'speed'（清空上一房 damage）
+        expect(rs.onRoomEnter(() => 0.3)).toBe('speed');
+        expect(rs.damageMult()).toBeCloseTo(1);
+        expect(rs.moveSpeedMult()).toBeCloseTo(1.2);
+        // rng≈0.6 → 'crit'
+        expect(rs.onRoomEnter(() => 0.6)).toBe('crit');
+        expect(rs.critChance()).toBeCloseTo(0.15);
+        // rng≈0.9 → 'shield'，在 mitigateDamage 完全抵挡一次
+        expect(rs.onRoomEnter(() => 0.9)).toBe('shield');
+        expect(rs.mitigateDamage(30)).toBe(0);
+        expect(rs.mitigateDamage(30)).toBe(30); // 护盾已消耗
+    });
+
+    it('tesla_coil：静止蓄能满后周期放电，移动重置蓄能', () => {
+        player.x = 100; player.y = 100;
+        rs.addRelic('tesla_coil');
+        let zaps = 0;
+        rs.setTeslaHandler(() => zaps++);
+        // 静止蓄能满 60 帧（1s）即首次放电，之后每 48 帧（0.8s）一次
+        for (let i = 0; i < 60; i++) rs.tick();
+        expect(zaps).toBe(1);
+        for (let i = 0; i < 48; i++) rs.tick();
+        expect(zaps).toBe(2);
+        // 移动：重置蓄能，短时间内不再放电
+        player.x = 200;
+        rs.tick();
+        for (let i = 0; i < 40; i++) { player.x += 5; rs.tick(); }
+        expect(zaps).toBe(2);
+    });
+
+    it('orbit_blade：tick 推进旋转角，命中冷却 0.5 秒内同敌不重复', () => {
+        rs.addRelic('orbit_blade');
+        const a0 = rs.orbitBladeAngle();
+        rs.tick();
+        expect(rs.orbitBladeAngle()).toBeGreaterThan(a0);
+        const enemy = { id: 'e1' };
+        expect(rs.orbitBladeCanHit(enemy)).toBe(true);  // 首次命中
+        expect(rs.orbitBladeCanHit(enemy)).toBe(false); // 冷却内
+        for (let i = 0; i < 30; i++) rs.tick();
+        expect(rs.orbitBladeCanHit(enemy)).toBe(true);  // 冷却结束
+    });
+
+    it('reaper_echo：击杀概率迸发亡魂弹（rng 注入）', () => {
+        rs.addRelic('reaper_echo');
+        let bursts = 0;
+        rs.setSoulBurstHandler(() => bursts++);
+        rs.onKill(10, 10, () => 0.05); // < 0.12 触发
+        expect(bursts).toBe(1);
+        rs.onKill(10, 10, () => 0.5);  // 不触发
+        expect(bursts).toBe(1);
+    });
+
+    it('shell_reclaim：击杀概率返还弹药（rng 注入）', () => {
+        rs.addRelic('shell_reclaim');
+        let refunds = 0;
+        rs.setAmmoRefundHandler(() => refunds++);
+        rs.onKill(0, 0, () => 0.1);  // < 0.2 触发
+        expect(refunds).toBe(1);
+        rs.onKill(0, 0, () => 0.5);  // 不触发
+        expect(refunds).toBe(1);
+    });
+
+    it('time_hourglass：出怪时冻结新生成敌人，未持有不改动', () => {
+        const enemies = [{ frozenTimer: 0 }, { frozenTimer: 0 }];
+        rs.onWaveSpawned(enemies);
+        expect(enemies[0].frozenTimer).toBe(0); // 未持有
+        rs.addRelic('time_hourglass');
+        rs.onWaveSpawned(enemies);
+        for (const e of enemies) expect(e.frozenTimer).toBe(120);
+    });
+
+    it('safe_vault：每局一次死亡半血复活并置灰，第二次不触发', () => {
+        rs.addRelic('safe_vault');
+        let revives = 0;
+        rs.setReviveHandler(() => revives++);
+        player.hp = 0;
+        expect(rs.isRelicDepleted('safe_vault')).toBe(false);
+        expect(rs.tryRevive()).toBe(true);
+        expect(player.hp).toBe(50); // ceil(100 × 0.5)
+        expect(revives).toBe(1);
+        expect(rs.isRelicDepleted('safe_vault')).toBe(true);
+        player.hp = 0;
+        expect(rs.tryRevive()).toBe(false); // 本局已用
+    });
+
+    it('blood_pact：金币不足以血补差额，会致死时拒绝', () => {
+        rs.addRelic('blood_pact');
+        runState.coins = 3;
+        player.hp = 100;
+        // 价格 10，差额 7 → 14 HP；扣光 3 金 + 14 HP
+        expect(rs.tryBloodPactPurchase(runState, 10)).toBe(true);
+        expect(runState.coins).toBe(0);
+        expect(player.hp).toBe(86);
+        // 会致死：价格 100，差额 100 → 200 HP > 现有生命，拒绝且不改动
+        runState.coins = 0;
+        const hpBefore = player.hp;
+        expect(rs.tryBloodPactPurchase(runState, 100)).toBe(false);
+        expect(player.hp).toBe(hpBefore);
+    });
+
+    it('abyss_pact：拾取时随机献祭其他遗物并提供全能强化；无其他遗物无副作用', () => {
+        // 有其他遗物：献祭一件
+        rs.addRelic('power_core');
+        rs.addRelic('swift_boots');
+        rs.addRelic('abyss_pact', () => 0); // rng=0 → 献祭第一件（power_core）
+        expect(runState.hasRelic('abyss_pact')).toBe(true);
+        expect(runState.hasRelic('power_core')).toBe(false); // 已献祭
+        expect(runState.hasRelic('swift_boots')).toBe(true);
+        expect(rs.damageMult()).toBeCloseTo(1.45); // 全能强化（power_core 已被献祭）
+        expect(rs.moveSpeedMult()).toBeCloseTo(1.15 * 1.45); // swift_boots × abyss
+
+        // 无其他遗物：无副作用
+        const runState2 = new DungeonRunState();
+        runState2.start(1);
+        const p2 = makePlayer();
+        const rs2 = new RelicSystem({ runState: runState2, player: p2 });
+        rs2.addRelic('abyss_pact', () => 0.9);
+        expect(runState2.relicIds).toEqual(['abyss_pact']);
+    });
+
+    it('abyss_pact：献祭 vital_heart 时回退其 maxHp 加成', () => {
+        player.hp = 100; player.maxHp = 100;
+        rs.addRelic('vital_heart'); // +25 maxHp
+        expect(player.maxHp).toBe(125);
+        rs.addRelic('abyss_pact', () => 0); // 献祭 vital_heart
+        expect(player.maxHp).toBe(100); // maxHp 回退
+        expect(player.hp).toBeLessThanOrEqual(100);
+    });
+
     it('runState.end() 后效果消失（以 relicIds 为事实源）', () => {
         rs.addRelic('swift_boots');
         rs.addRelic('vital_heart');

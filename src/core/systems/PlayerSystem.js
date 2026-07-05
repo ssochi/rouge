@@ -45,6 +45,7 @@ export class PlayerSystem {
                 this.tryEnterPortal() ||
                 this.tryBuyShopItem() ||
                 this.tryOpenChest() ||
+                this.tryUseSlotMachine() || // [depth-batch:gamble]
                 this.tryPickupWeapon() ||
                 this.tryInteractWithObject();
             // 无世界交互目标时，E 键回退为「使用当前选中的消耗品」。
@@ -140,6 +141,22 @@ export class PlayerSystem {
                 // 缺钥匙时 tryOpen 返回 need_key 并触发红字提示；同样消费本次交互
                 chest.tryOpen(ws.dungeonRunState, ws);
                 return true;
+            }
+        }
+        return false;
+    }
+
+    // [depth-batch:gamble] 老虎机交互：50px 半径内 E 键投币开抽（金币不足/爆机由实体给红字提示）。
+    tryUseSlotMachine() {
+        const ws = this.worldSystem;
+        if (!ws || !ws.slotMachines || ws.slotMachines.length === 0) return false;
+
+        for (const machine of ws.slotMachines) {
+            const dx = this.player.x - machine.centerX;
+            const dy = this.player.y - machine.centerY;
+            if (dx * dx + dy * dy < 50 * 50) {
+                machine.tryUse(ws.dungeonRunState, ws);
+                return true; // 消费本次交互（含金币不足/忙碌/爆机的红字反馈）
             }
         }
         return false;

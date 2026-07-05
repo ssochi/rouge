@@ -13,7 +13,9 @@ const F2_FLOOR_TYPES = ['TEMPLE_TILES', 'TEMPLE_CARPET', 'RITUAL_DARK'];
 const ALLOWED_PROPS = new Set([
     'temple_pew', 'temple_pulpit', 'alchemy_cauldron', 'potion_shelf',
     'temple_candelabra', 'broken_organ', 'reliquary_case', 'sacrifice_slab',
-    'dungeon_altar', 'dungeon_banner', 'bookshelf', 'dungeon_iron_cage', 'workbench'
+    'dungeon_altar', 'dungeon_banner', 'bookshelf', 'dungeon_iron_cage', 'workbench',
+    // [depth-batch:rooms] 房间机关
+    'spike_trap', 'reward_cage', 'cage_lever', 'decoy_statue'
 ]);
 
 describe('F2 圣殿层模板', () => {

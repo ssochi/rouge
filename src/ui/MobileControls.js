@@ -45,6 +45,7 @@ export class MobileControls {
         this._bindShoot();
         this._bindButtons();
         this._installTouchMouseBridge();
+        this._bindMinimapTap();
         this._bindOrientation();
     }
 
@@ -478,6 +479,40 @@ export class MobileControls {
                 if (t.identifier === this.bridgeTouchId) finishTouch(t, true);
             }
         }, { passive: false });
+    }
+
+    // [depth-batch:minimap] 小地图 tap → 切换全屏大地图（复用触屏桥的 tap 位移判定）。
+    // 画布右上角约 190×190 客户端像素为小地图区；大地图开启时点非操作区（摇杆/按钮外）亦关闭，
+    // 保证开图期间玩家仍可移动/射击（点摇杆或射击按钮不触发关闭）。
+    _bindMinimapTap() {
+        let start = null;
+        document.addEventListener('touchstart', (e) => {
+            const t = e.changedTouches[0];
+            start = { id: t.identifier, x: t.clientX, y: t.clientY };
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (!start) return;
+            const t = [...e.changedTouches].find(ct => ct.identifier === start.id);
+            const s = start;
+            start = null;
+            if (!t) return;
+            if (Math.hypot(t.clientX - s.x, t.clientY - s.y) > TAP_MOVE_TOL) return; // 非 tap
+            const open = !!(this.input && this.input.bigMapOpen);
+            if (this._inMinimapRegion(t.clientX, t.clientY)) {
+                if (this.input) this.input.bigMapOpen = !open;
+                return;
+            }
+            if (open) {
+                const el = document.elementFromPoint(t.clientX, t.clientY);
+                if (el && this.root && this.root.contains(el)) return; // 操作控件：不关闭
+                this.input.bigMapOpen = false;
+            }
+        }, { passive: true });
+    }
+
+    // 小地图面板固定于画布右上角（约 190×190 客户端像素）
+    _inMinimapRegion(clientX, clientY) {
+        return clientX >= window.innerWidth - 190 && clientY <= 190;
     }
 
     _clearLongPress() {

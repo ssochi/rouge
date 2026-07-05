@@ -53,9 +53,13 @@ export class ShopItem {
         }
 
         if (!runState || !runState.spendCoins(this.price)) {
-            this.deniedTimer = 90;
-            this.deniedReason = 'NEED GOLD';
-            return 'no_gold';
+            // [depth-batch:relics] 血肉契约：金币不足时以 HP 补足差额（不会致死）
+            const relics = worldSystem && worldSystem.relicSystem;
+            if (!(relics && relics.tryBloodPactPurchase(runState, this.price))) {
+                this.deniedTimer = 90;
+                this.deniedReason = 'NEED GOLD';
+                return 'no_gold';
+            }
         }
 
         this.sold = true;

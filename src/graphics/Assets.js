@@ -56,6 +56,19 @@ import { GARGOYLE_ATTACK_FRAMES } from '../assets/characters/enemies/gargoyle/Ga
 import { GARGOYLE_DORMANT_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleDormant.js';
 import { LOBBER_RUN_FRAMES } from '../assets/characters/enemies/lobber/LobberRun.js';
 import { LOBBER_ATTACK_FRAMES } from '../assets/characters/enemies/lobber/LobberAttack.js';
+// [depth-batch:enemies] 机制型敌人 ×4：盗宝地精 / 掘地虫 / 电弧双子(蓝紫镜像) / 复生亡灵(常态+复活)
+import { LOOT_GOBLIN_IDLE_FRAMES } from '../assets/characters/enemies/loot_goblin/LootGoblinIdle.js';
+import { LOOT_GOBLIN_RUN_FRAMES } from '../assets/characters/enemies/loot_goblin/LootGoblinRun.js';
+import { LOOT_GOBLIN_ATTACK_FRAMES } from '../assets/characters/enemies/loot_goblin/LootGoblinAttack.js';
+import { BURROWER_IDLE_FRAMES } from '../assets/characters/enemies/burrower/BurrowerIdle.js';
+import { BURROWER_RUN_FRAMES } from '../assets/characters/enemies/burrower/BurrowerRun.js';
+import { BURROWER_ATTACK_FRAMES } from '../assets/characters/enemies/burrower/BurrowerAttack.js';
+import { ARC_TWIN_IDLE_FRAMES, ARC_TWIN_IDLE_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinIdle.js';
+import { ARC_TWIN_RUN_FRAMES, ARC_TWIN_RUN_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinRun.js';
+import { ARC_TWIN_ATTACK_FRAMES, ARC_TWIN_ATTACK_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinAttack.js';
+import { REVENANT_IDLE_FRAMES, REVENANT_IDLE_FRAMES_REVIVED } from '../assets/characters/enemies/revenant/RevenantIdle.js';
+import { REVENANT_RUN_FRAMES, REVENANT_RUN_FRAMES_REVIVED } from '../assets/characters/enemies/revenant/RevenantRun.js';
+import { REVENANT_ATTACK_FRAMES, REVENANT_ATTACK_FRAMES_REVIVED } from '../assets/characters/enemies/revenant/RevenantAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
 import { PISTOL_SPRITE } from '../assets/weapons/PistolGenerator.js';
 import { ROCKET_LAUNCHER_SPRITE } from '../assets/weapons/RocketLauncherGenerator.js';
@@ -123,6 +136,8 @@ import { createF1PrisonDirtMoundSprite } from '../assets/objects/dungeon/F1Priso
 import { createF1PrisonVisitBoothSprite } from '../assets/objects/dungeon/F1PrisonVisitBoothSprite.js';
 import { createF1PrisonWatchtowerSprite } from '../assets/objects/dungeon/F1PrisonWatchtowerSprite.js';
 import { createF1PrisonBunkSprite } from '../assets/objects/dungeon/F1PrisonBunkSprite.js';
+// [depth-batch:gamble] 老虎机赌博机精灵
+import { createSlotMachineSprites } from '../assets/objects/dungeon/SlotMachineSprite.js';
 // ── F3 深渊实验室层物件 ──
 import { createF3CultureTankSprite } from '../assets/objects/dungeon/f3_culture_tank.js';
 import { createF3CultureTankBrokenSprite } from '../assets/objects/dungeon/f3_culture_tank_broken.js';
@@ -141,6 +156,11 @@ import { createF2CandelabraSprite } from '../assets/objects/dungeon/F2Candelabra
 import { createF2OrganSprite } from '../assets/objects/dungeon/F2OrganSprite.js';
 import { createF2ReliquarySprite } from '../assets/objects/dungeon/F2ReliquarySprite.js';
 import { createF2SacrificeSlabSprite } from '../assets/objects/dungeon/F2SacrificeSlabSprite.js';
+// ── [depth-batch:rooms] 房间机关精灵 ──
+import { createSpikeTrapIdleSprite, createSpikeTrapWarnSprite, createSpikeTrapUpSprite } from '../assets/objects/dungeon/DungeonSpikeTrapSprite.js';
+import { createRewardCageClosedSprite, createRewardCageOpenSprite } from '../assets/objects/dungeon/DungeonRewardCageSprite.js';
+import { createCageLeverUpSprite, createCageLeverDownSprite } from '../assets/objects/dungeon/DungeonCageLeverSprite.js';
+import { createDecoyStatueSprite } from '../assets/objects/dungeon/DungeonDecoyStatueSprite.js';
 import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
@@ -336,10 +356,17 @@ const f2CandelabraSprite = createF2CandelabraSprite();
 const f2OrganSprite = createF2OrganSprite();
 const f2ReliquarySprite = createF2ReliquarySprite();
 const f2SacrificeSlabSprite = createF2SacrificeSlabSprite();
+// [depth-batch:rooms] 房间机关精灵（尖刺三态 / 奖励笼两态 / 拉杆两态 / 诱饵雕像）
+const spikeTrapFrames = [createSpikeTrapIdleSprite(), createSpikeTrapWarnSprite(), createSpikeTrapUpSprite()];
+const rewardCageFrames = [createRewardCageClosedSprite(), createRewardCageOpenSprite()];
+const cageLeverFrames = [createCageLeverUpSprite(), createCageLeverDownSprite()];
+const decoyStatueSprite = createDecoyStatueSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
 const dungeonMerchantSprite = createMerchantSprite();
+// [depth-batch:gamble] 老虎机精灵集（多帧动画 + 滚轮图案字典）
+const slotMachineSprites = createSlotMachineSprites();
 const dungeonChestSprites = Object.fromEntries(
     CHEST_TIER_NAMES.map(tier => [tier, {
         closed: createChestSprite(tier, false),
@@ -483,6 +510,25 @@ export const Assets = {
         idle: SPLITTER_IDLE_FRAMES,
         run: SPLITTER_RUN_FRAMES,
         attack: SPLITTER_ATTACK_FRAMES
+    },
+    // [depth-batch:enemies] 机制型敌人 ×4 帧注册
+    lootGoblin: {
+        idle: LOOT_GOBLIN_IDLE_FRAMES,
+        run: LOOT_GOBLIN_RUN_FRAMES,
+        attack: LOOT_GOBLIN_ATTACK_FRAMES
+    },
+    burrower: {
+        idle: BURROWER_IDLE_FRAMES,
+        run: BURROWER_RUN_FRAMES,
+        attack: BURROWER_ATTACK_FRAMES
+    },
+    arcTwin: {
+        blue: { idle: ARC_TWIN_IDLE_FRAMES, run: ARC_TWIN_RUN_FRAMES, attack: ARC_TWIN_ATTACK_FRAMES },
+        purple: { idle: ARC_TWIN_IDLE_FRAMES_PURPLE, run: ARC_TWIN_RUN_FRAMES_PURPLE, attack: ARC_TWIN_ATTACK_FRAMES_PURPLE }
+    },
+    revenant: {
+        normal: { idle: REVENANT_IDLE_FRAMES, run: REVENANT_RUN_FRAMES, attack: REVENANT_ATTACK_FRAMES },
+        revived: { idle: REVENANT_IDLE_FRAMES_REVIVED, run: REVENANT_RUN_FRAMES_REVIVED, attack: REVENANT_ATTACK_FRAMES_REVIVED }
     },
     gargoyle: {
         idle: GARGOYLE_IDLE_FRAMES,
@@ -764,6 +810,12 @@ export const Assets = {
         reliquary_case_flash: PixelDraw.createSilhouette(f2ReliquarySprite),
         sacrifice_slab: f2SacrificeSlabSprite,
         sacrifice_slab_flash: PixelDraw.createSilhouette(f2SacrificeSlabSprite),
+        // ── [depth-batch:rooms] 房间机关 ──
+        spike_trap: spikeTrapFrames,
+        reward_cage: rewardCageFrames,
+        cage_lever: cageLeverFrames,
+        decoy_statue: decoyStatueSprite,
+        decoy_statue_flash: PixelDraw.createSilhouette(decoyStatueSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,
@@ -844,6 +896,8 @@ export const Assets = {
     // 遗物图标平铺键（背包物品 icon 查找用：relic_<id>）
     ...Object.fromEntries(Object.entries(relicIconSprites).map(([id, canvas]) => [`relic_${id}`, canvas])),
     dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
+    // [depth-batch:gamble] 老虎机 {frames:{idle,spin,win,bust,dead}, symbols:{...}} 24×32
+    slotMachine: slotMachineSprites,
     dungeonWalls: dungeonWallSets, // 楼层主题墙体贴图 {f1|f2|f3: {tops: 4×(32×32), fronts: 4×(32×16)}}
     dungeonDecals: dungeonDecalSets, // 楼层主题地板贴花 {f1|f2|f3: {crack/moss/blood/puddle/web/pages: [...], bossRing}}
 

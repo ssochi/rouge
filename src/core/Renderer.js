@@ -516,6 +516,17 @@ export class Renderer {
             });
         }
 
+        // [depth-batch:gamble] Draw Slot Machines（老虎机，Y 轴 Z-Sort 同宝箱）
+        if (this.worldSystem && this.worldSystem.slotMachines) {
+            this.worldSystem.slotMachines.forEach(m => {
+                if (!this._isWorldRectVisible(m.x, m.y - 16, m.width, m.height + 16, 32)) return;
+                renderList.push({
+                    y: m.y + m.height,
+                    draw: () => m.draw(this.ctx)
+                });
+            });
+        }
+
         // Draw Pets
         this.pets.forEach(pet => {
             if (!this._isEntityVisible(pet, 96)) return;
@@ -1195,6 +1206,24 @@ export class Renderer {
                 this.ctx.fillStyle = b.color || '#00e5ff';
                 this.ctx.fillRect(-boltLen - 4, -1, 5, 2);
                 this.ctx.restore();
+            } else if (b.ghostRelic) {
+                // [depth-batch:relics] 幽灵弹头：蓝色发光弹体（穿墙穿敌）
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.35;
+                this.ctx.fillStyle = '#74d0f0';
+                this.ctx.beginPath();
+                this.ctx.arc(b.x, b.y, (b.size || 5) * 2.2, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.fillStyle = b.color || '#4db8ff';
+                this.ctx.beginPath();
+                this.ctx.arc(b.x, b.y, b.size || 5, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.fillStyle = '#dff6fc';
+                this.ctx.beginPath();
+                this.ctx.arc(b.x, b.y, Math.max(1, (b.size || 5) * 0.4), 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
             } else {
                 this.ctx.fillStyle = b.color || '#f1c40f';
                 this.ctx.beginPath();
@@ -1205,6 +1234,39 @@ export class Renderer {
                 this.ctx.stroke();
             }
         });
+
+        // [depth-batch:relics] 环绕护刃：绕玩家旋转的银色利刃（世界空间，位于子弹层之上）
+        if (this.relicSystem && this.relicSystem.has && this.relicSystem.has('orbit_blade') && this.player) {
+            const conf = this.relicSystem.orbitBladeConfig();
+            const angle = this.relicSystem.orbitBladeAngle();
+            const bx = this.player.x + Math.cos(angle) * conf.radius;
+            const by = this.player.y + Math.sin(angle) * conf.radius;
+            this.ctx.save();
+            this.ctx.translate(bx, by);
+            this.ctx.rotate(angle + Math.PI / 2);
+            // 冷光拖影
+            this.ctx.globalAlpha = 0.25;
+            this.ctx.fillStyle = '#aee6f7';
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, 9, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1.0;
+            // 刀身
+            this.ctx.fillStyle = '#ecf0f1';
+            this.ctx.fillRect(-2, -10, 4, 14);
+            // 刀尖
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.moveTo(-2, -10);
+            this.ctx.lineTo(2, -10);
+            this.ctx.lineTo(0, -15);
+            this.ctx.closePath();
+            this.ctx.fill();
+            // 护柄
+            this.ctx.fillStyle = '#b8860b';
+            this.ctx.fillRect(-4, 3, 8, 2);
+            this.ctx.restore();
+        }
 
         // Draw laser beam particles (on top of everything)
         this.particles.forEach(p => {
@@ -1395,6 +1457,256 @@ export class Renderer {
         ctx.restore();
     }
 
+    /** 楼层名（结合层号与故事主题）。 */
+    _dungeonFloorName(floor) {
+        const NAMES = { 1: '监狱层', 2: '圣殿层', 3: '实验室层' };
+        return NAMES[floor] || '地牢';
+    }
+
+    /** 房间填充色（小地图/大地图共用）。 */
+    _roomFillColor(room) {
+        if (room.type === 'boss') return room.state === 'cleared' ? 'rgba(130, 88, 92, 0.85)' : 'rgba(188, 74, 84, 0.9)';
+        if (room.state === 'active') return 'rgba(226, 183, 68, 0.9)';
+        if (room.category === 'treasure') return 'rgba(86, 184, 189, 0.88)';
+        if (room.category === 'shop') return 'rgba(203, 172, 66, 0.88)';
+        if (room.category === 'elite' && room.state !== 'cleared') return 'rgba(176, 84, 148, 0.9)';
+        if (room.state === 'cleared') return room.type === 'start' ? 'rgba(91, 145, 212, 0.82)' : 'rgba(96, 156, 110, 0.85)';
+        return 'rgba(96, 112, 130, 0.85)';
+    }
+
+    /** 房间类别键（决定图标），无特殊类别返回 null。 */
+    _roomIconKind(room) {
+        if (room.type === 'boss') return 'boss';
+        if (room.category === 'treasure') return 'treasure';
+        if (room.category === 'shop') return 'shop';
+        if (room.category === 'elite') return 'elite';
+        return null;
+    }
+
+    /**
+     * 房型手绘像素微图标：骷髅/宝箱/金币/星，居中于 (cx, cy)，边长 s。
+     * s 过小的场景由调用方回退字符。
+     */
+    _drawRoomIcon(ctx, kind, cx, cy, s) {
+        ctx.save();
+        ctx.lineWidth = Math.max(1, s * 0.09);
+        if (kind === 'boss') {
+            // 骷髅：颅骨圆顶 + 下颌 + 黑眼窝 + 鼻
+            const r = s * 0.42;
+            ctx.fillStyle = '#f2ede4';
+            ctx.beginPath(); ctx.arc(cx, cy - s * 0.08, r, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(cx - r * 0.62, cy + s * 0.1, r * 1.24, s * 0.3, r * 0.35); ctx.fill();
+            ctx.fillStyle = '#17121c';
+            const ey = cy - s * 0.1;
+            const ex = r * 0.44;
+            ctx.beginPath(); ctx.arc(cx - ex, ey, r * 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + ex, ey, r * 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx, ey + r * 0.18);
+            ctx.lineTo(cx - r * 0.18, ey + r * 0.56);
+            ctx.lineTo(cx + r * 0.18, ey + r * 0.56);
+            ctx.closePath(); ctx.fill();
+        } else if (kind === 'treasure') {
+            // 宝箱：木箱身 + 拱盖 + 金箍 + 锁扣
+            const hw = s * 0.42;
+            ctx.fillStyle = '#7a4f28';
+            ctx.beginPath(); ctx.roundRect(cx - hw, cy - s * 0.14, hw * 2, s * 0.42, 1.4); ctx.fill();
+            ctx.fillStyle = '#96622f';
+            ctx.beginPath(); ctx.roundRect(cx - hw * 1.04, cy - s * 0.36, hw * 2.08, s * 0.26, s * 0.12); ctx.fill();
+            ctx.fillStyle = '#e8c14a';
+            ctx.fillRect(cx - s * 0.05, cy - s * 0.36, s * 0.1, s * 0.64);
+            ctx.beginPath(); ctx.arc(cx, cy - s * 0.02, s * 0.09, 0, Math.PI * 2); ctx.fill();
+        } else if (kind === 'shop') {
+            // 金币：金盘 + 内圈 + 中心竖槽 + 高光
+            ctx.fillStyle = '#e0aa2c';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.44, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#f6d873';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#a5720f';
+            ctx.fillRect(cx - s * 0.06, cy - s * 0.2, s * 0.12, s * 0.4);
+            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+            ctx.beginPath(); ctx.arc(cx - s * 0.14, cy - s * 0.15, s * 0.08, 0, Math.PI * 2); ctx.fill();
+        } else if (kind === 'elite') {
+            // 精英：四角星（闪光），紫粉呼应精英底色
+            const R = s * 0.5;
+            const r = s * 0.16;
+            ctx.fillStyle = '#e79cf4';
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const ang = (Math.PI / 4) * i - Math.PI / 2;
+                const rad = i % 2 === 0 ? R : r;
+                const px = cx + Math.cos(ang) * rad;
+                const py = cy + Math.sin(ang) * rad;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.beginPath(); ctx.arc(cx, cy, s * 0.1, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    /** 玩家朝向箭头（小地图/大地图共用）。 */
+    _drawMapPlayerArrow(ctx, px, py, facing, radius) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(facing);
+        ctx.fillStyle = 'rgba(255,255,255,0.98)';
+        ctx.strokeStyle = 'rgba(20,24,32,0.9)';
+        ctx.lineWidth = Math.max(1, radius * 0.22);
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(-radius, -radius * 0.7);
+        ctx.lineTo(-radius * 0.6, 0);
+        ctx.lineTo(-radius, radius * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    /** 可见房间 tile 包围盒。 */
+    _dungeonMapBounds(rooms) {
+        let minTX = Infinity, minTY = Infinity, maxTX = -Infinity, maxTY = -Infinity;
+        for (const room of rooms) {
+            minTX = Math.min(minTX, room.x);
+            minTY = Math.min(minTY, room.y);
+            maxTX = Math.max(maxTX, room.x + room.w);
+            maxTY = Math.max(maxTY, room.y + room.h);
+        }
+        return { minTX, minTY, rangeW: Math.max(1, maxTX - minTX), rangeH: Math.max(1, maxTY - minTY) };
+    }
+
+    /**
+     * 渲染地牢布局（走廊折线 + 房间块 + 图标 + 玩家箭头）到给定视图。
+     * @param {Object} view - { ox, oy, scale, minTX, minTY, big }
+     */
+    _renderDungeonMap(ctx, data, view) {
+        const { ox, oy, scale, minTX, minTY, big } = view;
+        const toPx = (tx, ty) => ({ x: ox + (tx - minTX) * scale, y: oy + (ty - minTY) * scale });
+        const roomById = new Map(data.rooms.map(r => [r.id, r]));
+
+        // 走廊：正交折线（L 形肘线），垫底
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        for (const edge of data.edges || []) {
+            const a = roomById.get(edge.a);
+            const b = roomById.get(edge.b);
+            if (!a || !b) continue;
+            const aVisited = a.visibilityState === 'visited';
+            const bVisited = b.visibilityState === 'visited';
+            if (!aVisited && !bVisited) continue;
+
+            // 优先真实门位折线；缺失时回退房心-房心正交肘线
+            let pts = edge.path;
+            if (!pts || pts.length < 2) {
+                const c1 = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+                const c2 = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+                pts = [c1, { x: c2.x, y: c1.y }, c2];
+            }
+            if (aVisited && bVisited) {
+                ctx.strokeStyle = 'rgba(130, 170, 200, 0.6)';
+                ctx.setLineDash([]);
+            } else {
+                ctx.strokeStyle = 'rgba(120, 130, 150, 0.42)';
+                ctx.setLineDash(big ? [6, 5] : [3, 3]);
+            }
+            ctx.lineWidth = big ? Math.max(2, scale * 0.5) : 2;
+            ctx.beginPath();
+            for (let i = 0; i < pts.length; i++) {
+                const p = toPx(pts[i].x, pts[i].y);
+                if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        // 房间块
+        const minBlock = big ? 12 : 6;
+        const iconMin = big ? 16 : 8;
+        const radius = big ? 4 : 2;
+        for (const room of data.rooms) {
+            const p = toPx(room.x, room.y);
+            const rw = Math.max(minBlock, room.w * scale - (big ? 3 : 1.5));
+            const rh = Math.max(minBlock, room.h * scale - (big ? 3 : 1.5));
+            const rx = p.x;
+            const ry = p.y;
+
+            if (room.visibilityState === 'frontier') {
+                ctx.fillStyle = 'rgba(86, 97, 120, 0.28)';
+                ctx.beginPath();
+                ctx.roundRect(rx, ry, rw, rh, radius);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(142, 157, 182, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 2]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                // 未探索问号（大地图上更明显）
+                if (big && Math.min(rw, rh) >= 18) {
+                    ctx.fillStyle = 'rgba(180, 192, 214, 0.55)';
+                    ctx.font = `bold ${Math.min(20, rh * 0.55)}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('?', rx + rw / 2, ry + rh / 2 + 1);
+                }
+                continue;
+            }
+
+            ctx.fillStyle = this._roomFillColor(room);
+            ctx.beginPath();
+            ctx.roundRect(rx, ry, rw, rh, radius);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(30, 36, 48, 0.9)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 当前房间：白色呼吸脉冲边框（与锁定橙框区分）
+            if (room.id === data.currentRoomId) {
+                const bp = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(Date.now() / 480));
+                ctx.strokeStyle = `rgba(255, 255, 255, ${bp.toFixed(3)})`;
+                ctx.lineWidth = big ? 2.5 : 1.8;
+                ctx.beginPath();
+                ctx.roundRect(rx - 0.5, ry - 0.5, rw + 1, rh + 1, radius);
+                ctx.stroke();
+            }
+
+            // 锁定：橙色脉冲外框
+            if (room.locked) {
+                const lp = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(Date.now() / 220));
+                ctx.strokeStyle = `rgba(240, 150, 70, ${lp.toFixed(3)})`;
+                ctx.lineWidth = big ? 2 : 1;
+                ctx.beginPath();
+                ctx.roundRect(rx - 2, ry - 2, rw + 4, rh + 4, radius + 1);
+                ctx.stroke();
+            }
+
+            const kind = this._roomIconKind(room);
+            if (kind) {
+                const short = Math.min(rw, rh);
+                if (short >= iconMin) {
+                    this._drawRoomIcon(ctx, kind, rx + rw / 2, ry + rh / 2, Math.min(short * 0.78, big ? 26 : 13));
+                } else if (rh >= 9) {
+                    // 回退字符
+                    const glyph = kind === 'boss' ? 'B' : kind === 'treasure' ? '+' : kind === 'shop' ? '$' : '!';
+                    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                    ctx.font = `bold ${Math.min(10, Math.floor(rh - 2))}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(glyph, rx + rw / 2, ry + rh / 2 + 0.5);
+                }
+            }
+        }
+
+        // 玩家箭头
+        const playerP = toPx(data.playerTileX + 0.5, data.playerTileY + 0.5);
+        const facing = Number.isFinite(data.playerFacingAngle)
+            ? data.playerFacingAngle
+            : (this.player.facingRight ? 0 : Math.PI);
+        this._drawMapPlayerArrow(ctx, playerP.x, playerP.y, facing, big ? 8 : 4.5);
+    }
+
     drawDungeonMinimap(ctx) {
         const dm = this.worldSystem && this.worldSystem.dungeonManager;
         if (!dm) return;
@@ -1405,6 +1717,7 @@ export class Renderer {
         const MINIMAP_SIZE = 168;
         const PANEL_PADDING = 10;
         const INNER_PADDING = 14;
+        const INFO_BAR_H = 14;
         const canvasW = this.canvas.width;
         const mx = canvasW - MINIMAP_SIZE - PANEL_PADDING;
         const my = PANEL_PADDING;
@@ -1420,151 +1733,136 @@ export class Renderer {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // 已见房间（visited + frontier）的 tile 包围盒 → 等比缩放
-        let minTX = Infinity;
-        let minTY = Infinity;
-        let maxTX = -Infinity;
-        let maxTY = -Infinity;
-        for (const room of data.rooms) {
-            minTX = Math.min(minTX, room.x);
-            minTY = Math.min(minTY, room.y);
-            maxTX = Math.max(maxTX, room.x + room.w);
-            maxTY = Math.max(maxTY, room.y + room.h);
-        }
-        const rangeW = Math.max(1, maxTX - minTX);
-        const rangeH = Math.max(1, maxTY - minTY);
-        const usable = MINIMAP_SIZE - INNER_PADDING * 2;
-        const scale = Math.min(usable / rangeW, usable / rangeH, 3.2);
+        // 布局：预留底部信息条，等比缩放
+        const { minTX, minTY, rangeW, rangeH } = this._dungeonMapBounds(data.rooms);
+        const usableW = MINIMAP_SIZE - INNER_PADDING * 2;
+        const usableH = MINIMAP_SIZE - INNER_PADDING * 2 - INFO_BAR_H;
+        const scale = Math.min(usableW / rangeW, usableH / rangeH, 3.2);
         const ox = mx + (MINIMAP_SIZE - rangeW * scale) / 2;
-        const oy = my + (MINIMAP_SIZE - rangeH * scale) / 2 + 3;
+        const oy = my + INNER_PADDING + (usableH - rangeH * scale) / 2;
 
-        const toPx = (tx, ty) => ({ x: ox + (tx - minTX) * scale, y: oy + (ty - minTY) * scale });
+        // 裁剪到面板内，避免走廊/箭头溢出
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(mx - 2, my - 2, MINIMAP_SIZE + 4, MINIMAP_SIZE + 4 - INFO_BAR_H);
+        ctx.clip();
+        this._renderDungeonMap(ctx, data, { ox, oy, scale, minTX, minTY, big: false });
+        ctx.restore();
 
-        const roomById = new Map(data.rooms.map(r => [r.id, r]));
+        // 底部信息条：楼层名 + 探索度
+        const barY = my + MINIMAP_SIZE - INFO_BAR_H + 1;
+        ctx.strokeStyle = 'rgba(150, 165, 190, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mx + 2, barY);
+        ctx.lineTo(mx + MINIMAP_SIZE - 2, barY);
+        ctx.stroke();
 
-        // 走廊连线（房心-房心，垫底）
-        for (const edge of data.edges || []) {
-            const a = roomById.get(edge.a);
-            const b = roomById.get(edge.b);
-            if (!a || !b) continue;
-            const aVisited = a.visibilityState === 'visited';
-            const bVisited = b.visibilityState === 'visited';
-            if (!aVisited && !bVisited) continue;
-
-            const p1 = toPx(a.x + a.w / 2, a.y + a.h / 2);
-            const p2 = toPx(b.x + b.w / 2, b.y + b.h / 2);
-            if (aVisited && bVisited) {
-                ctx.strokeStyle = 'rgba(130, 170, 200, 0.55)';
-                ctx.setLineDash([]);
-            } else {
-                ctx.strokeStyle = 'rgba(120, 130, 150, 0.4)';
-                ctx.setLineDash([3, 3]);
-            }
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-        }
-        ctx.setLineDash([]);
-
-        // 房间块（按真实形状等比绘制）
-        for (const room of data.rooms) {
-            const p = toPx(room.x, room.y);
-            const rw = Math.max(6, room.w * scale - 1.5);
-            const rh = Math.max(6, room.h * scale - 1.5);
-            const rx = p.x;
-            const ry = p.y;
-
-            if (room.visibilityState === 'frontier') {
-                ctx.fillStyle = 'rgba(86, 97, 120, 0.28)';
-                ctx.beginPath();
-                ctx.roundRect(rx, ry, rw, rh, 2);
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(142, 157, 182, 0.6)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([3, 2]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                continue;
-            }
-
-            let fill = 'rgba(96, 112, 130, 0.85)';
-            if (room.type === 'boss') fill = room.state === 'cleared' ? 'rgba(130, 88, 92, 0.85)' : 'rgba(188, 74, 84, 0.9)';
-            else if (room.state === 'active') fill = 'rgba(226, 183, 68, 0.9)';
-            else if (room.category === 'treasure') fill = 'rgba(86, 184, 189, 0.88)';
-            else if (room.category === 'shop') fill = 'rgba(203, 172, 66, 0.88)';
-            else if (room.category === 'elite' && room.state !== 'cleared') fill = 'rgba(176, 84, 148, 0.9)';
-            else if (room.state === 'cleared') fill = room.type === 'start' ? 'rgba(91, 145, 212, 0.82)' : 'rgba(96, 156, 110, 0.85)';
-
-            ctx.fillStyle = fill;
-            ctx.beginPath();
-            ctx.roundRect(rx, ry, rw, rh, 2);
-            ctx.fill();
-
-            const isCurrent = room.id === data.currentRoomId;
-            ctx.strokeStyle = isCurrent ? 'rgba(255,255,255,0.95)' : 'rgba(30, 36, 48, 0.9)';
-            ctx.lineWidth = isCurrent ? 2 : 1;
-            ctx.stroke();
-
-            if (room.locked) {
-                const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(Date.now() / 220));
-                ctx.strokeStyle = `rgba(240, 150, 70, ${pulse.toFixed(3)})`;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.roundRect(rx - 2, ry - 2, rw + 4, rh + 4, 3);
-                ctx.stroke();
-            }
-
-            const glyph = room.type === 'boss' ? 'B'
-                : room.category === 'treasure' ? '+'
-                : room.category === 'shop' ? '$'
-                : room.category === 'elite' ? '!'
-                : null;
-            if (glyph && rh >= 9) {
-                ctx.fillStyle = 'rgba(255,255,255,0.92)';
-                ctx.font = `bold ${Math.min(10, Math.floor(rh - 2))}px monospace`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(glyph, rx + rw / 2, ry + rh / 2 + 0.5);
-            }
-        }
-
-        // 玩家箭头（房间内真实相对位置）
-        const playerP = toPx(data.playerTileX + 0.5, data.playerTileY + 0.5);
-        if (playerP.x > mx && playerP.x < mx + MINIMAP_SIZE && playerP.y > my && playerP.y < my + MINIMAP_SIZE) {
-            const facing = Number.isFinite(data.playerFacingAngle)
-                ? data.playerFacingAngle
-                : (this.player.facingRight ? 0 : Math.PI);
-            const radius = 4.5;
-            ctx.save();
-            ctx.translate(playerP.x, playerP.y);
-            ctx.rotate(facing);
-            ctx.fillStyle = 'rgba(255,255,255,0.98)';
-            ctx.strokeStyle = 'rgba(20,24,32,0.9)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(-radius, -radius * 0.7);
-            ctx.lineTo(-radius * 0.6, 0);
-            ctx.lineTo(-radius, radius * 0.7);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        // 标题
-        ctx.fillStyle = 'rgba(230, 238, 252, 0.78)';
+        const floorName = this._dungeonFloorName(data.floor);
+        ctx.textBaseline = 'middle';
         ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const floorLabel = data.floor
-            ? `F${data.floor}  ${data.visitedCount}/${data.totalRooms}`
-            : 'DUNGEON';
-        ctx.fillText(floorLabel, mx + MINIMAP_SIZE / 2, my + 1);
+        ctx.fillStyle = 'rgba(214, 224, 242, 0.9)';
+        ctx.textAlign = 'left';
+        ctx.fillText(`F${data.floor || 1} ${floorName}`, mx + 4, barY + INFO_BAR_H / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(150, 200, 168, 0.95)';
+        ctx.fillText(`${data.visitedCount}/${data.totalRooms}`, mx + MINIMAP_SIZE - 4, barY + INFO_BAR_H / 2);
 
         ctx.restore();
+
+        // 全屏大地图覆盖层
+        if (this.input && this.input.bigMapOpen) {
+            this._drawDungeonBigMap(ctx, data);
+        }
+    }
+
+    /** 全屏大地图覆盖层（Tab / 移动端点小地图开关；游戏不暂停）。 */
+    _drawDungeonBigMap(ctx, data) {
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+
+        ctx.save();
+        // 半透明暗底
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // 标题
+        const floorName = this._dungeonFloorName(data.floor);
+        const seed = this.worldSystem && Number.isFinite(this.worldSystem.debugDungeonSeed)
+            ? this.worldSystem.debugDungeonSeed : null;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = 'rgba(236, 242, 255, 0.96)';
+        ctx.font = 'bold 26px monospace';
+        ctx.fillText(`第 ${data.floor || 1} 层 · ${floorName}`, cw / 2, 26);
+        ctx.font = '13px monospace';
+        ctx.fillStyle = 'rgba(160, 200, 176, 0.92)';
+        const sub = `探索度 ${data.visitedCount}/${data.totalRooms}` + (seed !== null ? `    种子 ${seed}` : '');
+        ctx.fillText(sub, cw / 2, 56);
+
+        // 关闭提示（标题区内，避开底部快捷栏）
+        const isTouch = typeof navigator !== 'undefined'
+            && (((navigator.maxTouchPoints || 0) > 0) || ('ontouchstart' in window));
+        ctx.font = '12px monospace';
+        ctx.fillStyle = 'rgba(200, 210, 228, 0.7)';
+        ctx.fillText(isTouch ? '点击任意处关闭' : 'Tab 关闭地图', cw / 2, 76);
+
+        // 地图绘制区（预留标题/图例边距）
+        const marginTop = 100;
+        const marginBottom = 44;
+        const marginX = 70;
+        const areaW = cw - marginX * 2;
+        const areaH = ch - marginTop - marginBottom;
+        const { minTX, minTY, rangeW, rangeH } = this._dungeonMapBounds(data.rooms);
+        const scale = Math.min(areaW / rangeW, areaH / rangeH, 16);
+        const ox = marginX + (areaW - rangeW * scale) / 2;
+        const oy = marginTop + (areaH - rangeH * scale) / 2;
+
+        this._renderDungeonMap(ctx, data, { ox, oy, scale, minTX, minTY, big: true });
+
+        // 图例
+        this._drawBigMapLegend(ctx, ch);
+
+        ctx.restore();
+    }
+
+    /** 大地图图例：色块 + 图标 + 文字（锚定左下）。 */
+    _drawBigMapLegend(ctx, ch) {
+        const items = [
+            { kind: 'boss', color: 'rgba(188, 74, 84, 0.9)', label: 'Boss' },
+            { kind: 'treasure', color: 'rgba(86, 184, 189, 0.88)', label: '宝藏' },
+            { kind: 'shop', color: 'rgba(203, 172, 66, 0.88)', label: '商店' },
+            { kind: 'elite', color: 'rgba(176, 84, 148, 0.9)', label: '精英' },
+            { kind: null, color: 'rgba(86, 97, 120, 0.5)', label: '未探索' }
+        ];
+        const sw = 16;
+        const rowH = 22;
+        const x0 = 24;
+        let y = ch - 40 - (items.length - 1) * rowH;
+
+        ctx.textBaseline = 'middle';
+        for (const it of items) {
+            ctx.fillStyle = it.color;
+            ctx.beginPath();
+            ctx.roundRect(x0, y - sw / 2, sw, sw, 3);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(30,36,48,0.9)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            if (it.kind) {
+                this._drawRoomIcon(ctx, it.kind, x0 + sw / 2, y, sw * 0.82);
+            } else {
+                ctx.fillStyle = 'rgba(180, 192, 214, 0.8)';
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('?', x0 + sw / 2, y + 0.5);
+            }
+            ctx.fillStyle = 'rgba(224, 232, 246, 0.9)';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(it.label, x0 + sw + 8, y + 0.5);
+            y += rowH;
+        }
     }
 
     /** 精英光环：脚下椭圆描边（首词缀色）+ 微光填充。 */

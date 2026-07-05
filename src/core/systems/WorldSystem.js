@@ -23,11 +23,17 @@ import { Gargoyle } from '../entities/Gargoyle.js';
 import { Spinner } from '../entities/Spinner.js';
 import { Weeper } from '../entities/Weeper.js';
 import { Splitter } from '../entities/Splitter.js';
+// [depth-batch:enemies] 机制型敌人 ×4
+import { LootGoblin } from '../entities/LootGoblin.js';
+import { Burrower } from '../entities/Burrower.js';
+import { ArcTwin } from '../entities/ArcTwin.js';
+import { Revenant } from '../entities/Revenant.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
 import { ShopItem } from '../entities/ShopItem.js';
 import { generateShopInventory } from '../dungeon/DungeonShop.js';
+import { SlotMachine } from '../entities/SlotMachine.js'; // [depth-batch:gamble]
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { Carpet } from '../entities/Carpet.js';
 import { Enemy } from '../entities/Enemy.js';
@@ -98,6 +104,8 @@ export class WorldSystem {
         // 商店房货品与商人（仅地牢内生成，loadMap 时清空）
         this.shopItems = [];
         this.merchants = [];
+        // [depth-batch:gamble] 老虎机赌博机（仅地牢内生成，loadMap 时清空）
+        this.slotMachines = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -173,6 +181,7 @@ export class WorldSystem {
         this.chests.length = 0;
         this.shopItems.length = 0;
         this.merchants.length = 0;
+        this.slotMachines.length = 0; // [depth-batch:gamble]
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -198,6 +207,11 @@ export class WorldSystem {
                 // 进入地牢系任意层（含调试直达 ?map=dungeon_f2/f3）→ 开新局，记录种子（调试种子优先）
                 this.dungeonRunState.start(this.debugDungeonSeed ?? Date.now());
                 this.dungeonRunState.floor = this._dungeonFloorFromMapType(mapType);
+                // [depth-batch:gamble] 调试：?coins=N 预充金币（老虎机实机自查用；正常玩无此参数不生效）
+                if (typeof window !== 'undefined' && window.location) {
+                    const dbgCoins = parseInt(new URLSearchParams(window.location.search).get('coins'), 10);
+                    if (Number.isFinite(dbgCoins) && dbgCoins > 0) this.dungeonRunState.addCoins(dbgCoins);
+                }
             } else if (prevIsDungeon && !nextIsDungeon) {
                 // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
                 if (this.relicSystem) this.relicSystem.clear();
@@ -707,11 +721,14 @@ export class WorldSystem {
 
         // Place dungeon decor objects (visual identity + light tactical noise)
         for (const decor of (layout.decorObjects || [])) {
-            this.breakableObjects.push(new BreakableObject(
+            const decorObj = new BreakableObject(
                 decor.x * TILE_SIZE,
                 decor.y * TILE_SIZE,
                 decor.type
-            ));
+            );
+            // [depth-batch:rooms] 房间机关（尖刺/奖励笼/拉杆）需读房间清怪态与生成宝箱/敌人判定
+            decorObj.worldSystem = this;
+            this.breakableObjects.push(decorObj);
         }
 
         // 氛围光源：壁挂火把 + 特殊房火盆（火光色随楼层主题）
@@ -822,6 +839,7 @@ export class WorldSystem {
         this.updatePickups();
         this.updateChests();
         this.updateShopItems();
+        this.updateSlotMachines(); // [depth-batch:gamble]
     }
 
     /**
@@ -853,6 +871,31 @@ export class WorldSystem {
         const chest = new Chest(x, y, tier);
         this.chests.push(chest);
         return chest;
+    }
+
+    /**
+     * [depth-batch:gamble] 在世界坐标 (x, y)（机柜左上角）生成一台老虎机。
+     */
+    spawnSlotMachine(x, y) {
+        const machine = new SlotMachine(x, y);
+        this.slotMachines.push(machine);
+        return machine;
+    }
+
+    /**
+     * [depth-batch:gamble] 更新老虎机：接近提示 + 动画状态推进（转动结束时结算掉落 / 爆炸）。
+     */
+    updateSlotMachines() {
+        const machines = this.slotMachines;
+        if (machines.length === 0) return;
+        const px = this.player.x;
+        const py = this.player.y;
+        for (const m of machines) {
+            m.update(this);
+            const dx = px - m.centerX;
+            const dy = py - m.centerY;
+            m.showHint = (m.state === 'idle' || m.state === 'dead') && (dx * dx + dy * dy) < 50 * 50;
+        }
     }
 
     /**
@@ -1012,6 +1055,10 @@ export class WorldSystem {
                 offers.forEach((offer, i) => {
                     this.shopItems.push(new ShopItem(startX + i * spacing, centerY + 4, offer));
                 });
+                // [depth-batch:gamble] 商店房固定 1 台老虎机（房间下方一角，避开商品陈列排）
+                const slotX = (room.x + 2) * TILE_SIZE;
+                const slotY = (room.y + room.h - 4) * TILE_SIZE;
+                this.spawnSlotMachine(slotX, slotY);
             }
         }
     }
@@ -1038,6 +1085,17 @@ export class WorldSystem {
 
     _onBreakableBroken(obj) {
         if (!this._isDungeonMapType(this.currentMapType)) return;
+        // [depth-batch:rooms] 诱饵雕像：击破 70% 掉金币簇 / 30% 小爆炸
+        if (obj.type === 'decoy_statue') {
+            const dcx = obj.x + (obj.width || TILE_SIZE) / 2;
+            const dcy = obj.y + (obj.height || TILE_SIZE) / 2;
+            if (Math.random() < 0.7) {
+                this.spawnCoinBurst(dcx, dcy, 10 + Math.floor(Math.random() * 11)); // 10~20
+            } else if (this.combatSystem && this.combatSystem.spawnExplosion) {
+                this.combatSystem.spawnExplosion(dcx, dcy, 18, 44, 4);
+            }
+            return;
+        }
         // 墙体/门破坏不掉落，只有箱桶等普通可破坏物掉金币
         if (obj.type === 'wall' || obj.baseType === 'door_h' || obj.baseType === 'door_v') return;
         if (Math.random() >= BREAKABLE_COIN.chance) return;
@@ -1156,6 +1214,11 @@ export class WorldSystem {
         if (type === 'spinner') return new Spinner(x, y);
         if (type === 'weeper') return new Weeper(x, y);
         if (type === 'splitter') return new Splitter(x, y);
+        // [depth-batch:enemies] 机制型敌人 ×4（arc_twin 成对逻辑在 spawnEnemy 中就近处理）
+        if (type === 'loot_goblin') return new LootGoblin(x, y);
+        if (type === 'burrower') return new Burrower(x, y);
+        if (type === 'arc_twin') return new ArcTwin(x, y);
+        if (type === 'revenant') return new Revenant(x, y);
         return new Zombie(x, y);
     }
 
@@ -1439,10 +1502,39 @@ export class WorldSystem {
                 enemy.worldSystem = this;
             }
 
+            // [depth-batch:enemies] 电弧双子必须成对：主体落位后自动生成伴生体并互相引用。
+            // count 语义：池中每 1 个 arc_twin 计数 = 生成一对（2 只）。
+            if (type === 'arc_twin' && !options._twinPartner) {
+                this._spawnArcTwinPartner(enemy);
+            }
+
             return enemy;
         }
 
         return null;
+    }
+
+    // [depth-batch:enemies] 在主体附近（约 4-8 tiles，落在 15 tiles 内）生成电弧双子的伴生体并互链。
+    _spawnArcTwinPartner(primary) {
+        let partner = null;
+        for (let a = 0; a < 6 && !partner; a++) {
+            const ang = Math.random() * Math.PI * 2;
+            const dist = (4 + Math.random() * 4) * TILE_SIZE;
+            partner = this.spawnEnemy('arc_twin', {
+                x: primary.x + Math.cos(ang) * dist,
+                y: primary.y + Math.sin(ang) * dist,
+                _twinPartner: true,
+                strict: true
+            });
+        }
+        // 附近均被阻挡：退化为任意可用出生点
+        if (!partner) {
+            partner = this.spawnEnemy('arc_twin', { _twinPartner: true });
+        }
+        if (partner) {
+            primary.setTwinIdentity(0, partner);
+            partner.setTwinIdentity(1, primary);
+        }
     }
 
     checkRectCollision(rect1, rect2) {
@@ -2200,6 +2292,11 @@ export class WorldSystem {
 
         // Filter dead enemies and remove them from the array
         for (let i = this.enemies.length - 1; i >= 0; i--) {
+            // [depth-batch:enemies] 盗宝地精遁地逃走：直接移除，不触发任何掉落 / onKill
+            if (this.enemies[i].escaped) {
+                this.enemies.splice(i, 1);
+                continue;
+            }
             if (this.enemies[i].hp <= 0) {
                 // Skip loot drops for boss segments (SnakeSegment etc.)
                 if (!this.enemies[i].isSegment) {
@@ -2209,6 +2306,11 @@ export class WorldSystem {
                         let coinValue = deadEnemy.isBoss
                             ? ENEMY_COIN_VALUES.boss
                             : (ENEMY_COIN_VALUES[deadEnemy.spawnType] ?? ENEMY_COIN_VALUES.default);
+                        // [depth-batch:enemies] 敌人自定义地牢金币覆盖（盗宝地精：所偷 ×2 + 固定奖励）
+                        if (!deadEnemy.isBoss && typeof deadEnemy.getDungeonCoinValue === 'function') {
+                            const ov = deadEnemy.getDungeonCoinValue();
+                            if (Number.isFinite(ov)) coinValue = ov;
+                        }
                         if (deadEnemy.isElite) {
                             coinValue *= 3;
                             if (Math.random() < 0.3) {

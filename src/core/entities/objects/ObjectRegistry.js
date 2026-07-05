@@ -88,6 +88,13 @@ import {
     ReliquaryCaseObject,
     SacrificeSlabObject
 } from './F2TempleObjects.js';
+// ── [depth-batch:rooms] 房间机关物件 ──
+import {
+    SpikeTrapObject,
+    RewardCageObject,
+    CageLeverObject,
+    DecoyStatueObject
+} from './DungeonTrapObjects.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -180,6 +187,12 @@ OBJECT_DEFS.set('temple_candelabra', TempleCandelabraObject);
 OBJECT_DEFS.set('broken_organ', BrokenOrganObject);
 OBJECT_DEFS.set('reliquary_case', ReliquaryCaseObject);
 OBJECT_DEFS.set('sacrifice_slab', SacrificeSlabObject);
+
+// ── [depth-batch:rooms] 房间机关（尖刺陷阱 / 奖励笼 / 拉杆 / 诱饵雕像）──
+OBJECT_DEFS.set('spike_trap', SpikeTrapObject);
+OBJECT_DEFS.set('reward_cage', RewardCageObject);
+OBJECT_DEFS.set('cage_lever', CageLeverObject);
+OBJECT_DEFS.set('decoy_statue', DecoyStatueObject);
 
 export function getObjectDef(type) {
     return OBJECT_DEFS.get(type) || null;

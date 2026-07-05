@@ -1,5 +1,5 @@
 // RelicIcons.js
-// 纯美术：34 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
+// 纯美术：46 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
 
 import { PixelDraw } from '../../utils/PixelDraw.js';
 
@@ -379,6 +379,151 @@ const DRAWERS = {
         d.rect(4, 4, 4, 4, '#2a3f6a');
         d.pixel(5, 5, '#aee6f7');
         d.pixel(6, 6, '#dff6fc');
+    },
+
+    // ── P9 扩展图标（12）──
+    // 幽灵弹头：蓝色幽灵子弹 + 半透明尾焰
+    ghost_rounds: d => {
+        d.rect(6, 4, 4, 3, '#dff6fc');
+        d.pixel(10, 5, '#ffffff');
+        d.rect(2, 4, 4, 3, '#4db8ff');
+        d.pixel(1, 4, '#74d0f0');
+        d.pixel(1, 6, '#74d0f0');
+        d.pixel(0, 5, '#aee6f7');
+        d.pixel(3, 3, '#aee6f7');
+        d.pixel(3, 7, '#2a7fc0');
+        d.pixel(6, 4, '#ffffff');
+    },
+    // 金币护盾：盾形轮廓 + 中央金币
+    coin_ward: d => {
+        d.rect(3, 2, 6, 5, '#4a7fb5');
+        d.vLine(3, 7, 2, '#4a7fb5');
+        d.vLine(8, 7, 2, '#2f5a8a');
+        d.hLine(4, 9, 4, '#2f5a8a');
+        d.pixel(5, 10, '#2f5a8a');
+        d.pixel(6, 10, '#2f5a8a');
+        d.rect(4, 3, 4, 4, '#f1c40f');
+        d.rect(5, 4, 2, 2, '#b8860b');
+        d.pixel(5, 3, '#fff3b0');
+    },
+    // 血肉契约：暗红契约卷轴 + 血滴
+    blood_pact: d => {
+        d.rect(3, 1, 6, 9, '#c0a080');
+        d.rect(3, 1, 6, 1, '#e0c8a8');
+        d.rect(3, 9, 6, 1, '#8a6d4a');
+        d.hLine(4, 3, 4, '#922b21');
+        d.hLine(4, 5, 4, '#922b21');
+        d.pixel(6, 7, '#e74c3c');
+        d.pixel(6, 8, '#c0392b');
+        d.pixel(6, 10, '#e74c3c');
+        d.pixel(6, 11, '#922b21');
+    },
+    // 命运骰子：紫色骰子 + 高光问号点
+    fate_dice: d => {
+        d.rect(2, 2, 8, 8, '#8e44ad');
+        d.rect(2, 2, 8, 1, '#a569bd');
+        d.vLine(9, 2, 8, '#6c3483');
+        d.hLine(2, 9, 8, '#5b2c6f');
+        d.pixel(4, 4, '#fff3b0');
+        d.pixel(7, 4, '#fff3b0');
+        d.pixel(6, 6, '#fff3b0');
+        d.pixel(4, 7, '#fff3b0');
+        d.pixel(7, 7, '#fff3b0');
+    },
+    // 磁暴线圈：铜色线圈 + 顶端电弧
+    tesla_coil: d => {
+        d.rect(4, 5, 4, 5, '#b8860b');
+        d.hLine(4, 5, 4, '#f1c40f');
+        d.hLine(4, 7, 4, '#8a6d1a');
+        d.hLine(4, 9, 4, '#8a6d1a');
+        d.rect(5, 2, 2, 3, '#bdc3c7');
+        d.pixel(6, 1, '#dff6fc');
+        d.pixel(4, 1, '#74d0f0');
+        d.pixel(8, 2, '#74d0f0');
+        d.pixel(3, 3, '#aee6f7');
+        d.pixel(9, 3, '#aee6f7');
+    },
+    // 环绕护刃：中心点 + 绕行的银刃 + 轨迹
+    orbit_blade: d => {
+        d.pixel(6, 6, '#f1c40f');
+        d.pixel(5, 6, '#d4a017');
+        d.rect(8, 3, 2, 4, '#ecf0f1');
+        d.pixel(9, 2, '#ffffff');
+        d.pixel(8, 7, '#bdc3c7');
+        d.pixel(2, 8, '#7f8c8d');
+        d.pixel(3, 3, '#95a5a6');
+        d.pixel(2, 5, '#7f8c8d');
+        d.pixel(10, 9, '#95a5a6');
+    },
+    // 收割回响：紫色亡魂头 + 迸发火花
+    reaper_echo: d => {
+        d.rect(4, 3, 4, 4, '#6c3483');
+        d.rect(4, 3, 4, 1, '#8e44ad');
+        d.pixel(5, 5, '#dff6fc');
+        d.pixel(7, 5, '#dff6fc');
+        d.rect(5, 7, 2, 2, '#5b2c6f');
+        d.pixel(2, 2, '#a569bd');
+        d.pixel(9, 2, '#a569bd');
+        d.pixel(1, 6, '#a569bd');
+        d.pixel(10, 6, '#a569bd');
+        d.pixel(5, 10, '#a569bd');
+    },
+    // 时间沙漏：木框沙漏 + 蓝色流沙
+    time_hourglass: d => {
+        d.hLine(3, 1, 6, '#8b5a2b');
+        d.hLine(3, 10, 6, '#8b5a2b');
+        d.vLine(4, 2, 3, '#a8713a');
+        d.vLine(7, 2, 3, '#a8713a');
+        d.vLine(4, 7, 3, '#a8713a');
+        d.vLine(7, 7, 3, '#a8713a');
+        d.pixel(5, 5, '#6e4520');
+        d.pixel(6, 5, '#6e4520');
+        d.rect(5, 2, 2, 2, '#74d0f0');
+        d.rect(5, 8, 2, 1, '#aee6f7');
+    },
+    // 保险柜：铁灰保险箱 + 金色转盘
+    safe_vault: d => {
+        d.rect(2, 2, 8, 8, '#5d6d6e');
+        d.rect(2, 2, 8, 1, '#7f8c8d');
+        d.rect(3, 3, 6, 6, '#34495e');
+        d.rect(5, 4, 2, 2, '#f1c40f');
+        d.pixel(6, 6, '#d4a017');
+        d.vLine(6, 6, 2, '#f1c40f');
+        d.pixel(4, 8, '#95a5a6');
+        d.pixel(8, 8, '#95a5a6');
+    },
+    // 弹壳回收：铜色弹壳 + 回收环箭
+    shell_reclaim: d => {
+        d.rect(5, 3, 3, 6, '#b8860b');
+        d.rect(5, 3, 3, 1, '#f1c40f');
+        d.rect(5, 8, 3, 1, '#8a6d1a');
+        d.pixel(6, 4, '#fff3b0');
+        d.hLine(2, 2, 3, '#2ecc71');
+        d.vLine(2, 2, 3, '#2ecc71');
+        d.pixel(1, 4, '#27ae60');
+        d.pixel(3, 4, '#27ae60');
+    },
+    // 末日怀表：金框怀表 + 归零的指针
+    doomsday_watch: d => {
+        d.rect(3, 3, 6, 6, '#f1c40f');
+        d.rect(4, 4, 4, 4, '#2d3436');
+        d.rect(5, 1, 2, 2, '#d4a017');
+        d.vLine(6, 4, 3, '#e74c3c');
+        d.pixel(6, 4, '#ffffff');
+        d.pixel(4, 3, '#fff3b0');
+        d.pixel(8, 8, '#b8860b');
+    },
+    // 深渊之契：紫黑裂隙 + 献祭红核
+    abyss_pact: d => {
+        d.rect(3, 1, 6, 10, '#1a1220');
+        d.rect(4, 2, 4, 8, '#4a235a');
+        d.vLine(6, 1, 10, '#8e44ad');
+        d.rect(5, 4, 2, 3, '#e74c3c');
+        d.pixel(6, 5, '#ff8a80');
+        d.pixel(6, 3, '#a569bd');
+        d.pixel(6, 8, '#a569bd');
+        d.pixel(3, 5, '#6c3483');
+        d.pixel(8, 6, '#6c3483');
     },
 };
 

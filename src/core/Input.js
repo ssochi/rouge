@@ -14,6 +14,7 @@ export class InputHandler {
             l: false, // Test Panel
             m: false, // Shortcut Menu
             p: false, // Debug Toggle
+            tab: false, // Toggle full-screen dungeon map [depth-batch:minimap]
             escape: false, // Close overlay
             space: false,
             '1': false, '2': false, '3': false, '4': false, '5': false,
@@ -31,6 +32,10 @@ export class InputHandler {
         this.moveVector = null;
         // 滚轮累积量（Game.update 每帧消费后清零；用于快捷栏滚轮切换）
         this.wheelDelta = 0;
+        // 全屏大地图开关状态（Tab 键 / 移动端点小地图切换）。Renderer 读取此值绘制，
+        // 不暂停游戏；桌面由 Game 边沿检测 keys.tab 翻转，移动端由 MobileControls 翻转。
+        // [depth-batch:minimap]
+        this.bigMapOpen = false;
         this.canvas = canvas;
 
         this._initListeners();
@@ -40,6 +45,8 @@ export class InputHandler {
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             if (this.keys.hasOwnProperty(key) || key === ' ') {
+                // Tab 默认切换页面焦点，游戏内用作大地图开关，须阻止默认行为
+                if (key === 'tab') e.preventDefault();
                 if (key === ' ') this.keys.space = true;
                 else this.keys[key] = true;
             }

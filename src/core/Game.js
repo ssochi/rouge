@@ -232,6 +232,91 @@ export class Game {
             }
         });
 
+        // [depth-batch:relics] P9 机制型遗物副作用接线
+        // 金币护盾：在玩家脚下散落金币（可捡回）
+        this.relicSystem.setCoinDropHandler((amount) => {
+            this.worldSystem.spawnCoinBurst(this.player.x, this.player.y, amount);
+        });
+        // 磁暴线圈：对最近敌人放电（伤害 + 链状电弧视觉）
+        this.relicSystem.setTeslaHandler((conf) => {
+            let nearest = null;
+            let bestD = conf.range * conf.range;
+            for (const e of this.enemies) {
+                if (!e || e.hp <= 0) continue;
+                const dx = e.x - this.player.x;
+                const dy = e.y - this.player.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < bestD) { bestD = d2; nearest = e; }
+            }
+            if (!nearest) return;
+            if (nearest.takeDamage) nearest.takeDamage(conf.damage, { x: 0, y: 0 });
+            else nearest.hp -= conf.damage;
+            this.particles.push({
+                type: 'lightning_arc',
+                x1: this.player.x, y1: this.player.y - 8,
+                x2: nearest.x, y2: nearest.y,
+                life: 12, maxLife: 12, color: '#74d0f0'
+            });
+        });
+        // 收割回响：从尸体迸发亡魂弹，射向附近敌人（不足则径向散射）
+        this.relicSystem.setSoulBurstHandler((x, y, conf) => {
+            const targets = [];
+            for (const e of this.enemies) {
+                if (!e || e.hp <= 0) continue;
+                const dx = e.x - x, dy = e.y - y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 <= conf.range * conf.range) targets.push({ tx: e.x, ty: e.y, d2 });
+            }
+            targets.sort((a, b) => a.d2 - b.d2);
+            for (let i = 0; i < conf.boltCount; i++) {
+                let vx, vy;
+                if (i < targets.length) {
+                    const a = Math.atan2(targets[i].ty - y, targets[i].tx - x);
+                    vx = Math.cos(a) * conf.speed;
+                    vy = Math.sin(a) * conf.speed;
+                } else {
+                    const a = (Math.PI * 2 * i) / conf.boltCount;
+                    vx = Math.cos(a) * conf.speed;
+                    vy = Math.sin(a) * conf.speed;
+                }
+                this.bullets.push({
+                    x, y, vx, vy,
+                    life: conf.life, maxLife: conf.life,
+                    damage: conf.damage, color: '#a29bfe', size: 4,
+                    type: 'standard', source: 'player', owner: null, team: null, hitList: []
+                });
+            }
+        });
+        // 弹壳回收：返还当前弹匣 1 发（非满、有弹匣时）
+        this.relicSystem.setAmmoRefundHandler((amount = 1) => {
+            const st = this.handSystem && this.handSystem.currentWeaponState;
+            if (!st || !Number.isFinite(st.currentAmmo) || !Number.isFinite(st.maxAmmo)) return;
+            if (st.maxAmmo <= 0) return;
+            st.currentAmmo = Math.min(st.maxAmmo, st.currentAmmo + amount);
+        });
+        // 保险柜：复活瞬间金色护环
+        this.relicSystem.setReviveHandler(() => {
+            for (let i = 0; i < 20; i++) {
+                const a = (Math.PI * 2 * i) / 20;
+                this.particles.push({
+                    x: this.player.x + Math.cos(a) * 10,
+                    y: this.player.y + Math.sin(a) * 10,
+                    vx: Math.cos(a) * 3.5, vy: Math.sin(a) * 3.5,
+                    life: 30, color: '#f1c40f', size: 4, friction: 0.9
+                });
+            }
+        });
+        // 血肉契约 / 命运骰子 / 深渊之契：toast 提示（复用遗物 toast）
+        this.relicSystem.setBloodPactHandler((hpCost) => {
+            this.uiManager.showRelicToast({ id: 'blood_pact', name: '血肉契约', desc: `以 ${hpCost} 点生命完成交易` });
+        });
+        this.relicSystem.setFateHandler((label) => {
+            this.uiManager.showRelicToast({ id: 'fate_dice', name: '命运骰子', desc: `本房增益：${label}` });
+        });
+        this.relicSystem.setSacrificeHandler((victim) => {
+            this.uiManager.showRelicToast({ id: 'abyss_pact', name: '深渊之契', desc: `献祭了「${victim.name}」` });
+        });
+
         this.worldSystem = new WorldSystem({
             navGrid: this.navGrid,
             walls: this.walls,
@@ -344,6 +429,8 @@ export class Game {
             costumeSystem: this.costumeSystem,
             lightSystem: this.lightSystem
         });
+        // [depth-batch:relics] 环绕护刃需在世界空间绘制旋转刀刃
+        this.renderer.relicSystem = this.relicSystem;
 
         // Initial Inventory
         this.inventorySystem.add('weapon:pistol', 1);
@@ -500,10 +587,35 @@ export class Game {
         return this._isWorldRectNearCamera(minX, minY, width, height, pad);
     }
 
+    // [depth-batch:relics] 环绕护刃：按 relicSystem 提供的旋转角计算刀刃世界坐标，
+    // 对触碰到的敌人结算伤害（同一敌人 0.5s 内不重复，冷却由 relicSystem 记账）。
+    _updateOrbitBlade() {
+        if (!this.relicSystem || !this.relicSystem.has('orbit_blade')) return;
+        const conf = this.relicSystem.orbitBladeConfig();
+        const angle = this.relicSystem.orbitBladeAngle();
+        const bx = this.player.x + Math.cos(angle) * conf.radius;
+        const by = this.player.y + Math.sin(angle) * conf.radius;
+        for (const e of this.enemies) {
+            if (!e || e.hp <= 0) continue;
+            const reach = (e.width ? e.width / 2 : 12) + 6;
+            const dx = e.x - bx;
+            const dy = e.y - by;
+            if (dx * dx + dy * dy > reach * reach) continue;
+            if (!this.relicSystem.orbitBladeCanHit(e)) continue;
+            const a = Math.atan2(e.y - this.player.y, e.x - this.player.x);
+            const kb = 3;
+            if (e.takeDamage) e.takeDamage(conf.damage, { x: Math.cos(a) * kb, y: Math.sin(a) * kb });
+            else e.hp -= conf.damage;
+        }
+    }
+
     update() {
         if (this.player.hp <= 0) {
-            this.uiManager.showGameOver();
-            return;
+            // [depth-batch:relics] 保险柜：每局一次死亡时半血复活并保留金币
+            if (!(this.relicSystem && this.relicSystem.tryRevive())) {
+                this.uiManager.showGameOver();
+                return;
+            }
         }
 
         // Toggle Inventory
@@ -542,6 +654,16 @@ export class Game {
             this.uiManager.toggleShortcutMenu(this.isMenuOpen);
         } else if (!this.input.keys.m) {
             this.mPressed = false;
+        }
+
+        // Toggle 全屏大地图（Tab）：仅地牢内有意义；不暂停游戏，玩家仍可移动 [depth-batch:minimap]
+        if (this.input.keys.tab && !this.tabPressed) {
+            this.tabPressed = true;
+            if (this.worldSystem.dungeonManager) {
+                this.input.bigMapOpen = !this.input.bigMapOpen;
+            }
+        } else if (!this.input.keys.tab) {
+            this.tabPressed = false;
         }
 
         if (this.isComputerOpen || this.isInventoryOpen || this.testPanel.isOpen || this.isMenuOpen) {
@@ -657,6 +779,7 @@ export class Game {
         this.profiler.begin('Dungeon');
         this.worldSystem.updateDungeon();
         this.relicSystem.tick();
+        this._updateOrbitBlade(); // [depth-batch:relics] 环绕护刃碰撞结算
         this.profiler.end('Dungeon');
 
         // --- Lighting ---
