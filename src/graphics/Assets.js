@@ -651,6 +651,8 @@ export const Assets = {
     dungeonKey: dungeonKeySprite,   // 古铜色钥匙
     dungeonChests: dungeonChestSprites, // 四档宝箱 {tier: {closed, open}}
     relicIcons: relicIconSprites, // 遗物图标 {relicId: 12×12 Canvas}
+    // 遗物图标平铺键（背包物品 icon 查找用：relic_<id>）
+    ...Object.fromEntries(Object.entries(relicIconSprites).map(([id, canvas]) => [`relic_${id}`, canvas])),
     dungeonMerchant: dungeonMerchantSprite, // 地牢商人 NPC 32×32
     dungeonWalls: dungeonWallSets, // 楼层主题墙体贴图 {f1|f2|f3: {tops: 4×(32×32), fronts: 4×(32×16)}}
     dungeonDecals: dungeonDecalSets, // 楼层主题地板贴花 {f1|f2|f3: {crack/moss/blood/puddle/web/pages: [...], bossRing}}

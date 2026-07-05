@@ -262,10 +262,13 @@ export class PlayerSystem {
 
         if (!closestItem) return false;
 
-        // 遗物：直接生效，不入背包
+        // 遗物：效果立即生效，同时以凭证形式自动入背包（可查看效果，不可丢弃）
         if (closestItem.isRelic && this.worldSystem && this.worldSystem.relicSystem) {
             const relicId = closestItem.itemId.replace('relic:', '');
             this.worldSystem.relicSystem.addRelic(relicId);
+            if (this.inventorySystem) {
+                this.inventorySystem.add(closestItem.itemId, 1);
+            }
             const index = this.droppedItems.indexOf(closestItem);
             if (index > -1) this.droppedItems.splice(index, 1);
             return true;
@@ -298,6 +301,13 @@ export class PlayerSystem {
     // New Drop Interface
     dropItem(itemData) {
         if (!itemData || !itemData.itemId) return;
+
+        // 不可丢弃物品（遗物凭证等）：塞回背包而不是丢地上
+        const def = this.inventorySystem && this.inventorySystem.getItemDef(itemData.itemId);
+        if (def && def.undroppable) {
+            this.inventorySystem.add(itemData.itemId, itemData.count || 1, itemData.instanceData);
+            return;
+        }
 
         let dropX = this.player.x + (Math.random() - 0.5) * 30;
         let dropY = this.player.y + (Math.random() - 0.5) * 30;

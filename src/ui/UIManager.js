@@ -501,7 +501,9 @@ export class UIManager {
         
         const hint = def.type === 'costume'
             ? '拖拽到槽位装备'
-            : 'L-Click: Move | R-Click: Split';
+            : def.type === 'relic'
+                ? '遗物效果已生效 · 单局有效 · 不可丢弃'
+                : 'L-Click: Move | R-Click: Split';
         this.tooltip.innerHTML = `
             <div class="tooltip-title">${def.name}</div>
             <div class="tooltip-type">${def.type.toUpperCase()}</div>

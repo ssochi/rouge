@@ -1,6 +1,7 @@
 import { Assets } from '../../graphics/Assets.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { FLOOR_TYPES } from '../../utils/FloorTypes.js';
+import { RELICS } from '../../assets/relics/RelicData.js';
 import {
     cloneWeaponInstanceData,
     createWeaponInstanceData,
@@ -633,6 +634,21 @@ export class InventorySystem {
             });
         }
 
+        // 4. Register Relics（地牢遗物凭证：拾取自动入包可查看，效果由 RelicSystem 生效；
+        //    不可丢弃，离开地牢随 run 清算移除，见 WorldSystem.loadMap / PlayerSystem.dropItem）
+        for (const [relicId, relic] of Object.entries(RELICS)) {
+            this.registerItem({
+                id: `relic:${relicId}`,
+                type: 'relic',
+                name: relic.name,
+                description: relic.desc,
+                icon: `relic_${relicId}`,
+                maxStack: 1,
+                undroppable: true,
+                data: { relicId }
+            });
+        }
+
         // Auto-register others
         objectKeys.forEach(key => {
             // Skip if already registered (like doors if we did above, or excluded ones)
@@ -895,6 +911,25 @@ export class InventorySystem {
         }
 
         return itemData;
+    }
+
+    /**
+     * 移除全部指定类型的物品（如离开地牢清算遗物凭证）。
+     * @returns {number} 移除的格子数
+     */
+    removeAllOfType(type) {
+        let removed = 0;
+        for (const slot of this.slots) {
+            if (!slot.itemId) continue;
+            const def = this.items.get(slot.itemId);
+            if (def && def.type === type) {
+                slot.itemId = null;
+                slot.count = 0;
+                slot.instanceData = null;
+                removed++;
+            }
+        }
+        return removed;
     }
 
     // --- Hotbar Operations ---

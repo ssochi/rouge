@@ -189,6 +189,8 @@ export class WorldSystem {
             } else if (prevIsDungeon && !nextIsDungeon) {
                 // 从地牢系离开（回 hub / 通关）→ 遗物清算（回退 maxHp 等）后结束本局
                 if (this.relicSystem) this.relicSystem.clear();
+                // 背包中的遗物凭证随本局清算移除
+                if (this.inventorySystem) this.inventorySystem.removeAllOfType('relic');
                 this.dungeonRunState.end();
             } else if (prevIsDungeon && nextIsDungeon) {
                 // 层间下潜，保持种子不变，仅推进楼层（dungeon→f2→f3 通用）
