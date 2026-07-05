@@ -288,6 +288,10 @@ export class PlayerSystem {
                     }
                     const index = this.droppedItems.indexOf(closestItem);
                     if (index > -1) this.droppedItems.splice(index, 1);
+                    // 穿戴提示（名称+属性加成）
+                    if (this.onCostumeEquipped) {
+                        this.onCostumeEquipped(pickupDef.name, pickupDef.description || null);
+                    }
                     return true;
                 }
             }

@@ -2,6 +2,7 @@ import { Assets } from '../graphics/Assets.js';
 import { SLOT_COUNT, HOTBAR_SIZE } from '../core/systems/InventorySystem.js';
 import { generateAvatar } from '../assets/characters/player/AvatarSprite.js';
 import { RELICS } from '../assets/relics/RelicData.js';
+import { costumeStatsDescription } from '../assets/characters/player/costumes/CostumeStats.js';
 
 // UIManager.js
 // Manages the DOM-based UI updates
@@ -316,9 +317,13 @@ export class UIManager {
             if (def) pieceName = def.name;
         }
 
+        // 属性加成描述（CostumeStats）
+        const statsDesc = pieceId ? costumeStatsDescription(pieceId) : null;
+
         this.tooltip.innerHTML = `
             <div class="tooltip-title">${slotName}</div>
             <div class="tooltip-desc">${pieceName}</div>
+            ${statsDesc ? `<div class="tooltip-desc" style="color:#7ec8ff">${statsDesc}</div>` : ''}
             <div class="tooltip-hint">${pieceId ? '点击拾取' : '拖拽装备到此处'}</div>
         `;
         this.tooltip.style.display = 'block';
@@ -906,6 +911,31 @@ export class UIManager {
     /**
      * 遗物拾取 toast：屏幕上方居中，2.5 秒淡出。
      */
+    /** 服装自动穿戴提示：名称 + 属性加成（无属性只报名称）。 */
+    showCostumeToast(name, statsDesc) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+            z-index: 120; background: rgba(16,24,20,0.92);
+            border: 2px solid #7ec8ff; border-radius: 8px; padding: 8px 18px;
+            font-family: monospace; text-align: center; color: #fff;
+            pointer-events: none; transition: opacity 0.5s;
+        `;
+        const title = document.createElement('div');
+        title.innerText = `穿上了 ${name}`;
+        title.style.cssText = 'font-size:14px; font-weight:bold; color:#7ec8ff;';
+        toast.appendChild(title);
+        if (statsDesc) {
+            const desc = document.createElement('div');
+            desc.innerText = statsDesc;
+            desc.style.cssText = 'font-size:12px; color:#d5e8f5; margin-top:2px;';
+            toast.appendChild(desc);
+        }
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; }, 1600);
+        setTimeout(() => { toast.remove(); }, 2200);
+    }
+
     showRelicToast(relic) {
         const toast = document.createElement('div');
         toast.style.cssText = `

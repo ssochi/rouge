@@ -310,6 +310,11 @@ export class Game {
             }
         };
         
+        // 服装自动穿戴提示（名称+属性）
+        this.playerSystem.onCostumeEquipped = (name, statsDesc) => {
+            this.uiManager.showCostumeToast(name, statsDesc);
+        };
+
         // Bind Hotbar Click (HUD)
         this.uiManager.onHotbarSlotClick = (index) => {
             if (this.inventorySystem.selectHotbarSlot(index)) {
