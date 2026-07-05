@@ -199,6 +199,97 @@ describe('RelicSystem', () => {
         expect(bursts).toBe(2);
     });
 
+    // ── P8 新增遗物 ──
+
+    it('tycoon_ring：伤害随持有金币阶梯提升并封顶 +30%', () => {
+        rs.addRelic('tycoon_ring');
+        runState.coins = 0;
+        expect(rs.damageMult()).toBeCloseTo(1);
+        runState.coins = 100; // floor(100/25)=4 → +8%
+        expect(rs.damageMult()).toBeCloseTo(1.08);
+        runState.coins = 1000; // 阶梯超上限 → +30%
+        expect(rs.damageMult()).toBeCloseTo(1.30);
+    });
+
+    it('stoneskin_charm：受伤 -15% 且保底 1 点，未持有原样返回', () => {
+        expect(rs.mitigateDamage(10)).toBe(10); // 未持有
+        rs.addRelic('stoneskin_charm');
+        expect(rs.mitigateDamage(10)).toBeCloseTo(8.5);
+        expect(rs.mitigateDamage(1)).toBe(1); // 原伤害 ≤1 不再削减
+    });
+
+    it('windrunner_cloak：翻滚结束下降沿触发移速 buff 并随时间衰减', () => {
+        rs.addRelic('windrunner_cloak');
+        player.state = 'roll';
+        rs.tick();               // prev null→roll，不触发
+        expect(rs.moveSpeedMult()).toBeCloseTo(1);
+        player.state = 'idle';
+        rs.tick();               // roll→idle 下降沿，触发移速 buff
+        expect(rs.moveSpeedMult()).toBeCloseTo(1.25);
+        for (let i = 0; i < 90; i++) rs.tick(); // buff 衰减
+        expect(rs.moveSpeedMult()).toBeCloseTo(1);
+    });
+
+    it('abyss_echo：坠坑坠杀回血且封顶，未持有返回 0', () => {
+        player.hp = 50;
+        expect(rs.onPitKill()).toBe(0); // 未持有
+        expect(player.hp).toBe(50);
+        rs.addRelic('abyss_echo');
+        expect(rs.onPitKill()).toBe(4);
+        expect(player.hp).toBe(54);
+        player.hp = 99;
+        rs.onPitKill();
+        expect(player.hp).toBe(100); // 不超过 maxHp
+    });
+
+    it('momentum_totem：连续击杀叠加伤害层数、封顶 6 层、无击杀衰减清空', () => {
+        rs.addRelic('momentum_totem');
+        expect(rs.damageMult()).toBeCloseTo(1);
+        rs.onKill(0, 0, () => 0.99);
+        rs.onKill(0, 0, () => 0.99);
+        expect(rs.damageMult()).toBeCloseTo(1 + 2 * 0.04); // 2 层 → +8%
+        for (let i = 0; i < 10; i++) rs.onKill(0, 0, () => 0.99);
+        expect(rs.damageMult()).toBeCloseTo(1 + 6 * 0.04); // 封顶 6 层 → +24%
+        for (let i = 0; i < 151; i++) rs.tick();
+        expect(rs.damageMult()).toBeCloseTo(1); // 超时清空
+    });
+
+    it('war_horn：波次刷新后开火间隔 -25% 并随时间衰减', () => {
+        rs.addRelic('war_horn');
+        expect(rs.fireIntervalMult()).toBeCloseTo(1);
+        rs.onWaveSpawned([]);
+        expect(rs.fireIntervalMult()).toBeCloseTo(0.75);
+        for (let i = 0; i < 150; i++) rs.tick();
+        expect(rs.fireIntervalMult()).toBeCloseTo(1);
+    });
+
+    it('collector_eye：暴击率随持有遗物数量增长并封顶 +20%', () => {
+        rs.addRelic('collector_eye');
+        expect(rs.critChance()).toBeCloseTo(0.015); // 1 件遗物
+        rs.addRelic('lucky_dice'); // +0.1 固定暴击，共 2 件
+        expect(rs.critChance()).toBeCloseTo(0.1 + 2 * 0.015);
+        // 堆到 14 件遗物 → 收藏暴击封顶 0.20
+        for (const id of ['swift_boots', 'rapid_gloves', 'power_core', 'vital_heart',
+            'magnet_ring', 'golden_fleece', 'swift_quiver', 'giant_belt', 'abyss_eye',
+            'vampiric_crown', 'thorn_mail', 'chrono_watch']) {
+            rs.addRelic(id);
+        }
+        expect(runState.relicIds.length).toBe(14);
+        expect(rs.critChance()).toBeCloseTo(0.1 + 0.20); // 收藏部分封顶 + lucky_dice
+    });
+
+    it('energy_barrier：拾取即充能一层，抵挡后经冷却重新充能', () => {
+        rs.addRelic('energy_barrier');
+        let blocks = 0;
+        rs.setBarrierBlockHandler(() => blocks++);
+        expect(rs.mitigateDamage(20)).toBe(0); // 满层护罩完全抵挡
+        expect(blocks).toBe(1);
+        expect(rs.mitigateDamage(20)).toBe(20); // 已消耗，本次不抵挡
+        for (let i = 0; i < 480; i++) rs.tick(); // 8 秒冷却充能
+        expect(rs.mitigateDamage(20)).toBe(0);
+        expect(blocks).toBe(2);
+    });
+
     it('runState.end() 后效果消失（以 relicIds 为事实源）', () => {
         rs.addRelic('swift_boots');
         rs.addRelic('vital_heart');

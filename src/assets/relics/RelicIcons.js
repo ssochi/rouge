@@ -1,5 +1,5 @@
 // RelicIcons.js
-// 纯美术：26 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
+// 纯美术：34 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
 
 import { PixelDraw } from '../../utils/PixelDraw.js';
 
@@ -281,6 +281,104 @@ const DRAWERS = {
         d.pixel(5, 8, '#95a5a6');
         d.pixel(6, 8, '#95a5a6');
         d.hLine(4, 6, 4, '#bdc3c7');
+    },
+
+    // ── P8 扩展图标 ──
+    // 贪狼之戒：暗金指环 + 大颗红宝石
+    tycoon_ring: d => {
+        d.rect(3, 6, 6, 3, '#b8860b');
+        d.rect(3, 6, 6, 1, '#f1c40f');
+        d.rect(3, 8, 6, 1, '#8a6d1a');
+        d.rect(4, 2, 4, 4, '#e74c3c');
+        d.rect(5, 2, 2, 1, '#fadbd8');
+        d.pixel(4, 3, '#ff8a80');
+        d.rect(4, 5, 4, 1, '#922b21');
+    },
+    // 石肤护符：灰色石护符 + 裂纹
+    stoneskin_charm: d => {
+        d.rect(3, 2, 6, 8, '#7f8c8d');
+        d.rect(3, 2, 6, 1, '#95a5a6');
+        d.rect(3, 9, 6, 1, '#5d6d6e');
+        d.vLine(2, 3, 6, '#7f8c8d');
+        d.vLine(9, 3, 6, '#5d6d6e');
+        d.pixel(5, 4, '#5d6d6e');
+        d.pixel(6, 5, '#5d6d6e');
+        d.pixel(5, 6, '#5d6d6e');
+        d.pixel(4, 3, '#bdc3c7');
+    },
+    // 疾风斗篷：蓝色飘动斗篷 + 风线
+    windrunner_cloak: d => {
+        d.rect(4, 2, 4, 2, '#2f5a8a');
+        d.rect(4, 4, 4, 2, '#4a7fb5');
+        d.rect(3, 6, 6, 2, '#4a7fb5');
+        d.rect(2, 8, 8, 2, '#3a6a9a');
+        d.vLine(5, 4, 6, '#5a8fc5');
+        d.hLine(0, 3, 2, '#aee6f7');
+        d.hLine(0, 6, 3, '#aee6f7');
+    },
+    // 深渊回响：紫黑坑洞 + 回响火花
+    abyss_echo: d => {
+        d.rect(3, 4, 6, 5, '#1a1220');
+        d.rect(4, 5, 4, 3, '#4a235a');
+        d.rect(5, 6, 2, 1, '#8e44ad');
+        d.hLine(3, 3, 6, '#6c3483');
+        d.pixel(2, 3, '#9b59b6');
+        d.pixel(9, 3, '#9b59b6');
+        d.pixel(2, 9, '#9b59b6');
+        d.pixel(9, 9, '#9b59b6');
+    },
+    // 战意图腾：红色图腾 + 上升火纹
+    momentum_totem: d => {
+        d.rect(4, 1, 4, 10, '#8b2b1a');
+        d.rect(4, 1, 4, 1, '#c0392b');
+        d.vLine(4, 1, 10, '#6e1f12');
+        d.pixel(5, 3, '#f39c12');
+        d.pixel(6, 3, '#f39c12');
+        d.pixel(4, 4, '#f39c12');
+        d.pixel(7, 4, '#f39c12');
+        d.pixel(5, 6, '#f1c40f');
+        d.pixel(6, 6, '#f1c40f');
+        d.pixel(4, 7, '#f1c40f');
+        d.pixel(7, 7, '#f1c40f');
+        d.pixel(5, 9, '#e74c3c');
+        d.pixel(6, 9, '#e74c3c');
+    },
+    // 战鼓号角：铜色喇叭 + 声波
+    war_horn: d => {
+        d.rect(1, 6, 2, 2, '#b8860b');
+        d.rect(3, 5, 3, 3, '#f1c40f');
+        d.rect(6, 3, 3, 6, '#f1c40f');
+        d.rect(9, 2, 2, 8, '#d4a017');
+        d.vLine(9, 2, 8, '#fff3b0');
+        d.rect(3, 5, 3, 1, '#fff3b0');
+        d.pixel(2, 4, '#aee6f7');
+        d.pixel(1, 3, '#aee6f7');
+    },
+    // 收藏家之瞳：金框蓝瞳 + 高光
+    collector_eye: d => {
+        d.hLine(3, 3, 6, '#f1c40f');
+        d.hLine(3, 8, 6, '#d4a017');
+        d.vLine(2, 4, 4, '#f1c40f');
+        d.vLine(9, 4, 4, '#d4a017');
+        d.rect(3, 4, 6, 4, '#ecf0f1');
+        d.rect(5, 4, 3, 4, '#2980b9');
+        d.rect(6, 5, 1, 2, '#1a1220');
+        d.pixel(5, 4, '#ffffff');
+        d.pixel(10, 3, '#fff3b0');
+    },
+    // 能量护罩：青色六边形力场泡 + 内部火花
+    energy_barrier: d => {
+        d.hLine(4, 2, 4, '#74d0f0');
+        d.hLine(4, 9, 4, '#74d0f0');
+        d.pixel(3, 3, '#74d0f0');
+        d.pixel(8, 3, '#74d0f0');
+        d.vLine(2, 4, 4, '#74d0f0');
+        d.vLine(9, 4, 4, '#3aa8d8');
+        d.pixel(3, 8, '#3aa8d8');
+        d.pixel(8, 8, '#3aa8d8');
+        d.rect(4, 4, 4, 4, '#2a3f6a');
+        d.pixel(5, 5, '#aee6f7');
+        d.pixel(6, 6, '#dff6fc');
     },
 };
 

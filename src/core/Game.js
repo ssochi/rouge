@@ -102,7 +102,9 @@ export class Game {
         
         this.player.takeDamage = (amount, knockback) => {
             if (this.player.state === 'roll' || this.player.state === 'driving') return;
-            this.player.hp -= amount;
+            // 遗物减伤/护罩抵挡（石肤护符、能量护罩）：返回实际扣血量
+            const dealt = this.relicSystem ? this.relicSystem.mitigateDamage(amount) : amount;
+            this.player.hp -= dealt;
             if (this.relicSystem) this.relicSystem.onPlayerHit();
             if (knockback) {
                 this.player.knockbackX = knockback.x;
@@ -190,6 +192,22 @@ export class Game {
         // 拾取 toast
         this.relicSystem.setPickupHandler((relic) => {
             this.uiManager.showRelicToast(relic);
+        });
+        // 能量护罩：抵挡瞬间的青色护罩闪光环
+        this.relicSystem.setBarrierBlockHandler(() => {
+            for (let i = 0; i < 14; i++) {
+                const a = (Math.PI * 2 * i) / 14;
+                this.particles.push({
+                    x: this.player.x + Math.cos(a) * 10,
+                    y: this.player.y + Math.sin(a) * 10,
+                    vx: Math.cos(a) * 2.5,
+                    vy: Math.sin(a) * 2.5,
+                    life: 16,
+                    color: '#74d0f0',
+                    size: 3,
+                    friction: 0.88
+                });
+            }
         });
         // 荆棘胸甲：受击时向 8 方向发射玩家阵营荆棘小刺弹
         this.relicSystem.setThornBurstHandler((conf) => {

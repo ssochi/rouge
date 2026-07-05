@@ -2,6 +2,7 @@
 // 地牢遗物定义（纯数据，无逻辑）。effect 字段由 RelicSystem 消费。
 // 三类：stat（属性乘区）/ ballistic（弹道改造）/ trigger（事件触发）。
 // 数值为初值，P6 统一调参。
+// 当前 34 个：属性 10 / 弹道 9 / 触发 15（P8 追加 8 个，见文件末 P8 扩展块）。
 
 export const RELIC_CATEGORIES = ['stat', 'ballistic', 'trigger'];
 // 稀有度（P7 扩展遗物起标注；数值平衡与掉落加权后续接入）。
@@ -202,6 +203,80 @@ export const RELICS = {
         rarity: 'rare',
         desc: '击杀敌人 15% 概率额外掉落 1 枚金币',
         effect: { bonusCoin: { chance: 0.15, amount: 1 } },
+    },
+
+    // ── P8 扩展（8）：金币/翻滚/坑/波次/收藏/护罩 联动 ──
+    // 贪狼之戒：持币越多伤害越高，鼓励囤积（花钱会削弱），与金币经济系统联动。
+    tycoon_ring: {
+        id: 'tycoon_ring',
+        name: '贪狼之戒',
+        category: 'stat',
+        rarity: 'rare',
+        desc: '持有金币越多伤害越高：每 25 金币 +2%（上限 +30%）',
+        effect: { coinDamage: { per: 25, mult: 0.02, maxBonus: 0.30 } },
+    },
+    // 石肤护符：受到的所有伤害按比例削减（至少保留 1 点），纯防御向。
+    stoneskin_charm: {
+        id: 'stoneskin_charm',
+        name: '石肤护符',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '受到的伤害减少 15%（至少造成 1 点）',
+        effect: { damageReduction: 0.15 },
+    },
+    // 疾风斗篷：翻滚闪避结束后短暂爆发移速，鼓励用翻滚走位/接近。
+    windrunner_cloak: {
+        id: 'windrunner_cloak',
+        name: '疾风斗篷',
+        category: 'trigger',
+        rarity: 'uncommon',
+        desc: '翻滚闪避结束后 1.5 秒内移动速度 +25%',
+        effect: { rollSpeedBuff: { moveSpeedMult: 1.25, duration: 90 } },
+    },
+    // 深渊回响：敌人坠坑坠杀时回血，与巨人腰带/反应装甲的击退坠坑联动。
+    abyss_echo: {
+        id: 'abyss_echo',
+        name: '深渊回响',
+        category: 'trigger',
+        rarity: 'uncommon',
+        desc: '敌人坠入坑中被坠杀时回复 4 点生命',
+        effect: { pitKillHeal: 4 },
+    },
+    // 战意图腾：连续击杀叠加伤害层数，2.5 秒无击杀清空，鼓励贴脸速杀。
+    momentum_totem: {
+        id: 'momentum_totem',
+        name: '战意图腾',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '连续击杀叠加战意：每层子弹伤害 +4%（最多 6 层），2.5 秒无击杀清空',
+        effect: { killMomentum: { perStack: 0.04, maxStacks: 6, duration: 150 } },
+    },
+    // 战鼓号角：每波出怪刷新后短暂提升开火速度，与波次系统联动（对玩家增益，区别于冷血怀表减速敌人）。
+    war_horn: {
+        id: 'war_horn',
+        name: '战鼓号角',
+        category: 'trigger',
+        rarity: 'uncommon',
+        desc: '每波敌人刷新后 2.5 秒内开火间隔 -25%',
+        effect: { waveHaste: { fireIntervalMult: 0.75, duration: 150 } },
+    },
+    // 收藏家之瞳：暴击率随持有遗物数量增长，奖励堆叠遗物（与血牙冠冕暴击回血联动）。
+    collector_eye: {
+        id: 'collector_eye',
+        name: '收藏家之瞳',
+        category: 'stat',
+        rarity: 'epic',
+        desc: '每持有一件遗物（含自身）暴击率 +1.5%（上限 +20%）',
+        effect: { collectionCrit: { perRelic: 0.015, maxBonus: 0.20 } },
+    },
+    // 能量护罩：周期性充能一层护罩，抵挡下一次受到的伤害（复用 mitigateDamage 挂载点，可挡敌弹）。
+    energy_barrier: {
+        id: 'energy_barrier',
+        name: '能量护罩',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '每 8 秒充能一层护罩，抵挡下一次受到的伤害',
+        effect: { barrier: { cooldown: 480 } },
     },
 };
 

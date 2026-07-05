@@ -2268,6 +2268,8 @@ export class WorldSystem {
                 && e.hp > 0 && !e.isBoss && !e.isSegment && !(e.spawnGraceTimer > 0)
                 && this.isPitAt(e.x, e.y + (e.hitboxOffsetY || 0))) {
                 e.hp = 0;
+                // 深渊回响：坠坑坠杀回血（常规掉落/战意仍由后续死亡清扫的 onKill 处理）
+                if (this.relicSystem) this.relicSystem.onPitKill();
             }
         }
 

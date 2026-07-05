@@ -243,11 +243,12 @@
   - HUD：`UIManager.initDungeonHud()` 右侧金币/钥匙计数（小地图下方），仅 `runState.active` 时显示，Renderer 每帧 `updateDungeonStatus()`。
   - 带出规则：金币/钥匙/遗物单局有效（退出/通关清零），武器可带回主世界。
 - **遗物系统（P2）**：
-  - 定义：`src/assets/relics/RelicData.js`（26 个：属性 8 / 弹道 9 / 触发 9，effect 纯数据；P7 扩展 8 个起带 `rarity`）+ `RelicIcons.js`（12×12 程序化图标，注册为 `Assets.relicIcons`）。
+  - 定义：`src/assets/relics/RelicData.js`（34 个：属性 10 / 弹道 9 / 触发 15，effect 纯数据；P7/P8 扩展 16 个均带 `rarity`）+ `RelicIcons.js`（12×12 程序化图标，注册为 `Assets.relicIcons`）。
   - 运行时：`src/core/dungeon/RelicSystem.js`，以 `runState.relicIds` 为唯一事实源。三挂载点：①属性乘区（移速/开火间隔/伤害/磁吸/暴击/金币价值 `coinValueMult`，`PlayerSystem.getEffectivePlayerSpeed`、`CombatSystem.tryShoot`、`WorldSystem.updatePickups` 查询；金币价值经 `DungeonPickup.collect` 向上取整乘算）②玩家子弹改造（`_pushWeaponProjectiles` push 前 `modifyPlayerBullet`：燃烧/冰冻/穿透/弹射/体积/暴击/split 补偿/击退 `relicKnockback`/弹速 `bulletSpeedMult`/满血首击 `firstStrikeMult`；`BulletSystem` 命中块已泛化 `burnDamage`/`applyFreezeStack`/`relicBounce`，并消费 `relicKnockback`/`firstStrikeMult` 与暴击回血钩子 `onCritHit`）③事件触发（击杀爆炸+吸血+白骨护符额外金币 `WorldSystem` 死亡清扫、受击冲击波+荆棘反射 `player.takeDamage`、出怪波减速 `onWaveSpawned`（`DungeonManager._spawnEncounterWave`）、清房金币乘数、开箱双倍）。
   - 狂战图腾为条件乘区（HP<30% 实时判断）；vital_heart 的 maxHp 增量记账，退局 `clear()` 回退。
   - 获取：宝箱按档位 `relicChance`（木 10%/铁 25%/秘银 45%/龙纹 55%）抽遗物，排除已持有、全收集回退武器；Boss 保底箱 `guaranteedRelic` 必出遗物。掉落为 `relic:<id>` 类型 `DroppedItem`，E 拾取直接生效不入背包。
   - UI：HUD 遗物图标栏（悬停显示名称+效果）+ 拾取 toast（`UIManager.showRelicToast`）。
+  - **P8 扩展 8 个（系统联动）**：贪狼之戒（每 25 金币 +2% 伤害上限 30%，`damageMult` 读 `runState.coins`）/石肤护符（受伤 -15%，新钩子 `mitigateDamage`，`player.takeDamage` 接入）/疾风斗篷（翻滚结束 1.5s 移速 +25%，`tick()` 读 `player.state` 检测翻滚下降沿）/深渊回响（敌人坠坑坠杀回血 4，新钩子 `onPitKill`，`WorldSystem` 坠坑判定接入）/战意图腾（连续击杀叠伤每层 +4% 上限 6 层、2.5s 无杀清空，`onKill` 叠层 + `tick` 衰减）/战鼓号角（波次刷新后 2.5s 开火间隔 -25%，`onWaveSpawned` 启动 `fireIntervalMult` 动态项）/收藏家之瞳（每持有一件遗物暴击 +1.5% 上限 20%，`critChance` 读 `relicIds.length`）/能量护罩（每 8s 充能一层护罩抵挡下一次伤害，复用 `mitigateDamage` + `setBarrierBlockHandler` 闪光）。新增挂载点 `mitigateDamage`/`onPitKill`，以及 `tick()` 内维护的翻滚移速/波次开火/战意/护罩充能计时器（`clear()` 一并归零）。
 
 ### 地板瓦片系统
 - 每个 32×32 网格包含 2×2 = 4 块 16×16 地板子格，支持墙内外不同地面类型。
