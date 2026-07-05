@@ -64,7 +64,7 @@ export const WEAPONS = {
         magazineSize: 6,
         maxReserve: 60,
         reloadTime: 1500,
-        infiniteAmmo: true, // 起始手枪备弹无限（保底输出手段）；弹匣 6 发照常消耗、打空需换弹
+        // 备弹有限（60 发）：打光需靠拾取补给；无弹时切武士刀兜底
         rarity: 'common'
     },
     rocket_launcher: {

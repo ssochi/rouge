@@ -42,7 +42,7 @@
       - `DungeonManager.js`: 地牢运行时管理器。房间状态机（idle→active→cleared）、O(1) 玩家位置检测（roomGrid 数组）、能量屏障门（gates）动态墙体添加/移除、敌人跟踪与房间清除奖励掉落、楼层系统（F1→F2→F3，`FINAL_FLOOR` 泛化）、Boss 清除后传送门生成、小地图数据提供（visited/frontier 可见性、锁门态、拓扑节点与边）。
       - `ObstacleSpatialIndex.js`: 静态障碍空间索引（墙体 + 可破坏物 hitbox），用于加速矩形阻挡查询与局部障碍检索。
       - `FloorChunkCache.js`: 超大地图地板分块缓存。对 420×420 小镇地图不再构建单张超大离屏地板，而是按 chunk 懒渲染并做 LRU 缓存。
-      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。
+      - `PlayerSystem.js`: 玩家移动、拾取与输入驱动的操作逻辑（含快捷栏消耗品左键使用、宠物召唤）。**血包/宠物类消耗品拾取即用**：`isInstantUseConsumable()` 判定（消耗品且带 healAmount/maxHpBoostPercent/petType），`tryPickupWeapon()` 命中时直接调 `applyConsumableEffect()` 当场回血/召唤，不入背包；纯回血道具满血时不拾取（留地上避免浪费），恢复针(加最大血)与宠物始终生效。`applyConsumableEffect()` 为背包使用与拾取即用共用的效果内核。
       - `EnemyWeaponController.js`: 远程敌人武器状态控制（弹药、射速节流、换弹进度、实例弹药回写）。
       - `CombatSystem.js`: 战斗协调器，保持对外 API 不变，内部委托给三个子系统，并统一提供“开火路径阻挡判定”给玩家与敌人射击 AI。
       - `BulletSystem.js`: 子弹生命周期管理（移动、尾迹、碰撞检测、敌人命中判定）。
@@ -65,7 +65,7 @@
       - `OccluderSpatialIndex.js`: 光照遮挡空间索引，按固定网格存储静态遮挡体并提供半径查询。
     - `shared/`: 跨系统共享缓存。
       - `SpriteMaskCache.js`: 精灵 alpha 分析缓存（帧遮挡 mask、轮廓采样、动画并集最小包围盒）。新增 Canvas 级弱引用缓存，用于动态实体遮挡复用 mask 分析结果。
-    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角面板，走廊正交折线、房型像素微图标、当前房呼吸脉冲、锁门橙脉冲、底部楼层名+探索度信息条）、`_drawDungeonBigMap()` 全屏大地图覆盖层（Tab / 移动端点小地图开关，`input.bigMapOpen` 驱动，游戏不暂停）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。小/大地图共用 `_renderDungeonMap()` 绘制内核 + `_drawRoomIcon()` 手绘骷髅/宝箱/金币/星像素图标。地板渲染现优先走 `floorChunkCache`，没有 chunk cache 时再回退到整张 `floorCanvas`。
+    - `Renderer.js`: 负责场景绘制、像素光照合成与 UI 刷新。含 `drawBossHpBar()` BOSS 血条、`drawDungeonMinimap()` 地牢小地图（右上角面板，走廊正交折线、房型像素微图标、当前房呼吸脉冲、锁门橙脉冲、底部楼层名+探索度信息条）、`_drawDungeonBigMap()` 全屏大地图覆盖层（Tab / 移动端点小地图开关，`input.bigMapOpen` 驱动，游戏不暂停）、`_drawEnergyBarrier()` 能量屏障渲染（蓝紫色脉冲条纹+角落光点）。小/大地图共用 `_renderDungeonMap()` 绘制内核 + `_drawRoomIcon()` 手绘骷髅/宝箱/金币/星像素图标。**Boss 房邻接即揭示**：`_renderDungeonMap()` 的 frontier 分支对 `type==='boss'` 的未探索房绘暗红底+骷髅+红色脉冲虚框（而非通用灰 `?`），让玩家在门口就能判断、决定是否此刻进 Boss。地板渲染现优先走 `floorChunkCache`，没有 chunk cache 时再回退到整张 `floorCanvas`。
     - `Game.js`: 游戏主循环、系统编排与状态聚合（注意：必须先初始化 CombatSystem 再初始化 WorldSystem）。启动时按 `MapProfiles` 初始化默认导航网格，并在地图切换后把世界边界同步给 Camera。
     - `Camera.js`: 摄像机跟随与视口计算。新增 `setWorldBounds()`，不再固定依赖全局 `MAP_WIDTH/MAP_HEIGHT`。
     - `Input.js`: 统一的键鼠输入处理。

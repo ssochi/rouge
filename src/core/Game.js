@@ -452,8 +452,9 @@ export class Game {
         this.meleeSystem.soundSystem = this.soundSystem;
         this.uiManager.soundSystem = this.soundSystem;
 
-        // Initial Inventory
+        // Initial Inventory：主手枪（备弹有限，会打光）+ 武士刀兜底（近战无弹药，永远可用）
         this.inventorySystem.add('weapon:pistol', 1);
+        this.inventorySystem.add('weapon:katana', 1);
         this.inventorySystem.selectHotbarSlot(0);
 
         // Bind Inventory Click

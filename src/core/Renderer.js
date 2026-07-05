@@ -1827,6 +1827,34 @@ export class Renderer {
             const ry = p.y;
 
             if (room.visibilityState === 'frontier') {
+                // Boss 房：邻接即揭示身份（暗红底 + 骷髅 + 红色脉冲虚框），
+                // 让玩家提前判断、决定是否此刻进门，避免误闯 Boss。
+                if (room.type === 'boss') {
+                    ctx.fillStyle = 'rgba(150, 60, 68, 0.55)';
+                    ctx.beginPath();
+                    ctx.roundRect(rx, ry, rw, rh, radius);
+                    ctx.fill();
+                    const wp = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(Date.now() / 260));
+                    ctx.strokeStyle = `rgba(232, 92, 98, ${wp.toFixed(3)})`;
+                    ctx.lineWidth = big ? 2 : 1.2;
+                    ctx.setLineDash([3, 2]);
+                    ctx.beginPath();
+                    ctx.roundRect(rx, ry, rw, rh, radius);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    const shortB = Math.min(rw, rh);
+                    if (shortB >= iconMin) {
+                        this._drawRoomIcon(ctx, 'boss', rx + rw / 2, ry + rh / 2, Math.min(shortB * 0.78, big ? 26 : 13));
+                    } else if (rh >= 9) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                        ctx.font = `bold ${Math.min(10, Math.floor(rh - 2))}px monospace`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('B', rx + rw / 2, ry + rh / 2);
+                    }
+                    continue;
+                }
+
                 ctx.fillStyle = 'rgba(86, 97, 120, 0.28)';
                 ctx.beginPath();
                 ctx.roundRect(rx, ry, rw, rh, radius);

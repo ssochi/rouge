@@ -344,6 +344,27 @@ export class PlayerSystem {
             }
         }
 
+        // 血包/宠物：拾取即用，不入背包（回血/召唤当场生效）
+        if (this.inventorySystem) {
+            const instantDef = this.inventorySystem.getItemDef(closestItem.itemId);
+            if (this.isInstantUseConsumable(instantDef)) {
+                const d = instantDef.data || {};
+                const isPureHeal = !!d.healAmount && !d.maxHpBoostPercent && !d.petType;
+                const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
+                // 满血时不捡纯回血道具：留在地上，等受伤再来拿，避免浪费
+                if (isPureHeal && this.player.hp >= maxHp) {
+                    return true;
+                }
+                this.applyConsumableEffect(instantDef);
+                this.soundSystem?.play('pickup_relic'); // 复用正向拾取和弦
+                const idx = this.droppedItems.indexOf(closestItem);
+                if (idx > -1) this.droppedItems.splice(idx, 1);
+                this.updateEquippedItem();
+                console.log(`Instantly used ${closestItem.name}`);
+                return true;
+            }
+        }
+
         if (this.inventorySystem) {
             const remaining = this.inventorySystem.add(closestItem.itemId, closestItem.count, closestItem.instanceData);
 
@@ -672,7 +693,27 @@ export class PlayerSystem {
         const removed = this.inventorySystem.remove(slotIndex, 1);
         if (removed <= 0) return false;
 
-        const data = item.def?.data || {};
+        this.applyConsumableEffect(item.def);
+        this.updateEquippedItem();
+        return true;
+    }
+
+    /**
+     * 血包/宠物类消耗品：拾取即用、不入背包（用户 2026-07 需求：加血道具与宠物捡起即生效）。
+     * 判定=消耗品且带回血/最大血提升/宠物召唤效果。
+     */
+    isInstantUseConsumable(def) {
+        if (!def || def.type !== 'consumable') return false;
+        const d = def.data || {};
+        return !!(d.healAmount || d.maxHpBoostPercent || d.petType);
+    }
+
+    /**
+     * 应用消耗品效果（召唤宠物 / 加最大血 / 回血）。背包使用与拾取即用共用；
+     * 不负责扣库存与装备刷新（由调用方处理）。
+     */
+    applyConsumableEffect(def) {
+        const data = def?.data || {};
 
         // Pet summoning
         if (data.petType) {
@@ -707,7 +748,6 @@ export class PlayerSystem {
                     });
                 }
             }
-            this.updateEquippedItem();
             return true;
         }
 
@@ -717,14 +757,13 @@ export class PlayerSystem {
             const oldMax = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
             this.player.maxHp = Math.round(oldMax * (1 + boost / 100));
             this.player.hp = this.player.maxHp;
-        } else {
-            const healAmount = Math.max(0, Number(data.healAmount) || 0);
-            const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
-            const currentHp = Number.isFinite(this.player.hp) ? this.player.hp : maxHp;
-            this.player.hp = Math.min(maxHp, currentHp + healAmount);
+            return true;
         }
 
-        this.updateEquippedItem();
+        const healAmount = Math.max(0, Number(data.healAmount) || 0);
+        const maxHp = Number.isFinite(this.player.maxHp) ? this.player.maxHp : 100;
+        const currentHp = Number.isFinite(this.player.hp) ? this.player.hp : maxHp;
+        this.player.hp = Math.min(maxHp, currentHp + healAmount);
         return true;
     }
 
