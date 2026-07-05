@@ -15,6 +15,11 @@ import { Sentry } from '../entities/Sentry.js';
 import { Lobber } from '../entities/Lobber.js';
 import { Wraith } from '../entities/Wraith.js';
 import { Archer } from '../entities/Archer.js';
+import { Hellhound } from '../entities/Hellhound.js';
+import { FlailWarden } from '../entities/FlailWarden.js';
+import { PlagueRat } from '../entities/PlagueRat.js';
+import { Cultist } from '../entities/Cultist.js';
+import { Gargoyle } from '../entities/Gargoyle.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
@@ -843,9 +848,10 @@ export class WorldSystem {
         const pickups = this.pickups;
         if (pickups.length === 0) return;
         const magnetMult = this.relicSystem ? this.relicSystem.magnetMult() : 1;
+        const coinValueMult = this.relicSystem ? this.relicSystem.coinValueMult() : 1;
         for (let i = pickups.length - 1; i >= 0; i--) {
             const p = pickups[i];
-            p.update(this.player, this.dungeonRunState, magnetMult);
+            p.update(this.player, this.dungeonRunState, magnetMult, coinValueMult);
             if (p.collected) {
                 pickups.splice(i, 1);
             }
@@ -860,7 +866,8 @@ export class WorldSystem {
         if (this.pickups.length >= 200) {
             const oldest = this.pickups.shift();
             if (oldest && !oldest.collected) {
-                oldest.collect(this.dungeonRunState);
+                const coinValueMult = this.relicSystem ? this.relicSystem.coinValueMult() : 1;
+                oldest.collect(this.dungeonRunState, coinValueMult);
             }
         }
         this.pickups.push(pickup);
@@ -1126,6 +1133,11 @@ export class WorldSystem {
         if (type === 'lobber') return new Lobber(x, y);
         if (type === 'wraith') return new Wraith(x, y);
         if (type === 'archer') return new Archer(x, y);
+        if (type === 'hellhound') return new Hellhound(x, y);
+        if (type === 'flail_warden') return new FlailWarden(x, y);
+        if (type === 'plague_rat') return new PlagueRat(x, y);
+        if (type === 'cultist') return new Cultist(x, y);
+        if (type === 'gargoyle') return new Gargoyle(x, y);
         return new Zombie(x, y);
     }
 
@@ -2190,7 +2202,11 @@ export class WorldSystem {
                             this._dropEnemyWeapon(deadEnemy);
                         }
                         if (this.relicSystem) {
-                            this.relicSystem.onKill(deadEnemy.x, deadEnemy.y);
+                            const killResult = this.relicSystem.onKill(deadEnemy.x, deadEnemy.y);
+                            // 白骨护符：额外掉落金币
+                            if (killResult && killResult.bonusCoin > 0) {
+                                this.spawnCoinBurst(deadEnemy.x, deadEnemy.y, killResult.bonusCoin);
+                            }
                         }
                     } else if (deadEnemy.isBoss) {
                         this._dropBossLoot(deadEnemy);

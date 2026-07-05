@@ -136,6 +136,69 @@ describe('RelicSystem', () => {
         expect(rs.chestDoubleRoll(() => 0.5)).toBe(false);
     });
 
+    // ── P7 新增遗物 ──
+
+    it('modifyPlayerBullet 注入 giant_belt / swift_quiver / abyss_eye 弹道字段', () => {
+        rs.addRelic('giant_belt');
+        rs.addRelic('swift_quiver');
+        rs.addRelic('abyss_eye');
+        const bullet = { damage: 100, size: 4, piercing: 0, type: 'standard', vx: 10, vy: 0 };
+        rs.modifyPlayerBullet(bullet, () => 0.99); // 不触发暴击
+        expect(bullet.relicKnockback).toBe(8);      // 巨人腰带
+        expect(bullet.firstStrikeMult).toBe(1.5);   // 深渊之眼
+        expect(bullet.vx).toBeCloseTo(13);           // 迅捷箭袋 10 × 1.3
+        expect(bullet.vy).toBeCloseTo(0);
+    });
+
+    it('golden_fleece 金币价值乘区 ×1.25', () => {
+        expect(rs.coinValueMult()).toBe(1);
+        rs.addRelic('golden_fleece');
+        expect(rs.coinValueMult()).toBeCloseTo(1.25);
+    });
+
+    it('onCritHit：vampiric_crown 暴击回血且封顶，未持有返回 0', () => {
+        player.hp = 50;
+        expect(rs.onCritHit()).toBe(0); // 未持有
+        expect(player.hp).toBe(50);
+        rs.addRelic('vampiric_crown');
+        expect(rs.onCritHit()).toBe(1);
+        expect(player.hp).toBe(51);
+        player.hp = 100;
+        expect(rs.onCritHit()).toBe(1);
+        expect(player.hp).toBe(100); // 不超过 maxHp
+    });
+
+    it('onWaveSpawned：chrono_watch 对新敌人施加减速，未持有不改动', () => {
+        const enemies = [{ slowTimer: 0, slowAmount: 0 }, { slowTimer: 0, slowAmount: 0 }];
+        rs.onWaveSpawned(enemies);
+        expect(enemies[0].slowTimer).toBe(0); // 未持有
+
+        rs.addRelic('chrono_watch');
+        rs.onWaveSpawned(enemies);
+        for (const e of enemies) {
+            expect(e.slowTimer).toBe(180);
+            expect(e.slowAmount).toBeCloseTo(0.3);
+        }
+    });
+
+    it('onKill：bone_charm 概率返回额外金币（rng 注入）', () => {
+        rs.addRelic('bone_charm');
+        expect(rs.onKill(0, 0, () => 0.05).bonusCoin).toBe(1);  // < 0.15 触发
+        expect(rs.onKill(0, 0, () => 0.99).bonusCoin).toBe(0);  // 不触发
+    });
+
+    it('onPlayerHit：thorn_mail 每次受击触发荆棘反射 handler', () => {
+        rs.addRelic('thorn_mail');
+        let bursts = 0;
+        let conf = null;
+        rs.setThornBurstHandler((c) => { bursts++; conf = c; });
+        rs.onPlayerHit();
+        expect(bursts).toBe(1);
+        expect(conf.count).toBe(8);
+        rs.onPlayerHit(); // 无冷却
+        expect(bursts).toBe(2);
+    });
+
     it('runState.end() 后效果消失（以 relicIds 为事实源）', () => {
         rs.addRelic('swift_boots');
         rs.addRelic('vital_heart');

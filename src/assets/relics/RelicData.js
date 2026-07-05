@@ -4,9 +4,11 @@
 // 数值为初值，P6 统一调参。
 
 export const RELIC_CATEGORIES = ['stat', 'ballistic', 'trigger'];
+// 稀有度（P7 扩展遗物起标注；数值平衡与掉落加权后续接入）。
+export const RELIC_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 export const RELICS = {
-    // ── 属性类（6）──
+    // ── 属性类（8）──
     swift_boots: {
         id: 'swift_boots',
         name: '疾行之靴',
@@ -49,8 +51,24 @@ export const RELICS = {
         desc: '暴击率 +10%（暴击造成双倍伤害）',
         effect: { critChance: 0.1 },
     },
+    golden_fleece: {
+        id: 'golden_fleece',
+        name: '金羊羔毛',
+        category: 'stat',
+        rarity: 'uncommon',
+        desc: '金币拾取价值 +25%',
+        effect: { coinValueMult: 1.25 },
+    },
+    swift_quiver: {
+        id: 'swift_quiver',
+        name: '迅捷箭袋',
+        category: 'stat',
+        rarity: 'uncommon',
+        desc: '子弹飞行速度 +30%',
+        effect: { bulletSpeedMult: 1.3 },
+    },
 
-    // ── 弹道改造类（7）──
+    // ── 弹道改造类（9）──
     ember_rounds: {
         id: 'ember_rounds',
         name: '余烬弹头',
@@ -100,8 +118,24 @@ export const RELICS = {
         desc: '弹丸体积 +50%，伤害 +5%',
         effect: { bulletSizeMult: 1.5, damageMult: 1.05 },
     },
+    giant_belt: {
+        id: 'giant_belt',
+        name: '巨人腰带',
+        category: 'ballistic',
+        rarity: 'uncommon',
+        desc: '子弹击退 +8（可将敌人轰入坑中）',
+        effect: { knockbackBonus: 8 },
+    },
+    abyss_eye: {
+        id: 'abyss_eye',
+        name: '深渊之眼',
+        category: 'ballistic',
+        rarity: 'epic',
+        desc: '对满血敌人伤害 +50%',
+        effect: { firstStrikeMult: 1.5 },
+    },
 
-    // ── 触发类（5）──
+    // ── 触发类（9）──
     reactive_plate: {
         id: 'reactive_plate',
         name: '反应装甲',
@@ -136,6 +170,38 @@ export const RELICS = {
         category: 'trigger',
         desc: '开启宝箱 20% 概率双倍产出',
         effect: { chestDoubleChance: 0.2 },
+    },
+    vampiric_crown: {
+        id: 'vampiric_crown',
+        name: '血牙冠冕',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '子弹暴击命中敌人时回复 1 点生命',
+        effect: { critHeal: 1 },
+    },
+    thorn_mail: {
+        id: 'thorn_mail',
+        name: '荆棘胸甲',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '受击时向 8 方向反射荆棘小刺弹',
+        effect: { thornBurst: { count: 8, damage: 6, speed: 5, size: 3, life: 40, color: '#8bc34a' } },
+    },
+    chrono_watch: {
+        id: 'chrono_watch',
+        name: '冷血怀表',
+        category: 'trigger',
+        rarity: 'epic',
+        desc: '房间出怪波刷新后 3 秒内敌人移速 ×0.7',
+        effect: { waveSlow: { duration: 180, slowAmount: 0.3 } },
+    },
+    bone_charm: {
+        id: 'bone_charm',
+        name: '白骨护符',
+        category: 'trigger',
+        rarity: 'rare',
+        desc: '击杀敌人 15% 概率额外掉落 1 枚金币',
+        effect: { bonusCoin: { chance: 0.15, amount: 1 } },
     },
 };
 

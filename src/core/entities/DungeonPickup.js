@@ -52,7 +52,7 @@ export class DungeonPickup {
      * @param {{x:number,y:number}|null} player
      * @param {import('../dungeon/DungeonRunState.js').DungeonRunState|null} runState
      */
-    update(player, runState, magnetMult = 1) {
+    update(player, runState, magnetMult = 1, coinValueMult = 1) {
         if (this.collected) return;
         this.age++;
         this.animTimer++;
@@ -66,7 +66,7 @@ export class DungeonPickup {
 
             // 收集：任何阶段进入收集半径立即入账
             if (dist < COLLECT_RADIUS) {
-                this.collect(runState);
+                this.collect(runState, coinValueMult);
                 return;
             }
 
@@ -100,13 +100,14 @@ export class DungeonPickup {
      * 立即收集入账并标记移除。防御性检查 runState 存在（拾取物仅在地牢生成，
      * 但仍防御 hub / 异常路径下 runState 缺失）。
      * @param {import('../dungeon/DungeonRunState.js').DungeonRunState|null} runState
+     * @param {number} coinValueMult 金币价值乘区（金羊羔毛遗物，向上取整）
      */
-    collect(runState) {
+    collect(runState, coinValueMult = 1) {
         if (this.collected) return;
         this.collected = true;
         if (!runState) return;
         if (this.kind === 'coin') {
-            runState.addCoins(this.value);
+            runState.addCoins(Math.ceil(this.value * coinValueMult));
         } else if (this.kind === 'key') {
             runState.addKeys(1);
         }

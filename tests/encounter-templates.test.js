@@ -13,7 +13,8 @@ import { FLOOR_CONFIGS } from '../src/core/dungeon/FloorConfigs.js';
 const KNOWN_ENEMY_TYPES = new Set([
     'zombie', 'zombie_female', 'zombie_brute', 'hunter', 'soldier',
     'warlock', 'boomer', 'summoner', 'shieldbearer', 'sentry', 'lobber',
-    'wraith', 'archer'
+    'wraith', 'archer',
+    'hellhound', 'flail_warden', 'plague_rat', 'cultist', 'gargoyle'
 ]);
 
 /** 模板网格 BFS：所有非墙非坑格必须连通（不允许墙/坑封死区域）。 */

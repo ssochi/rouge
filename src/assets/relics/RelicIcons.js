@@ -1,5 +1,5 @@
 // RelicIcons.js
-// 纯美术：18 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
+// 纯美术：26 个遗物的 12×12 程序化像素图标。严禁游戏逻辑。
 
 import { PixelDraw } from '../../utils/PixelDraw.js';
 
@@ -199,7 +199,93 @@ const DRAWERS = {
         d.pixel(9, 8, '#8b5a2b');
         d.pixel(10, 9, '#6e4520');
     },
+    // 金羊羔毛：金色羊毛卷 + 高光
+    golden_fleece: d => {
+        d.rect(3, 3, 6, 5, '#f1c40f');
+        d.rect(2, 4, 1, 3, '#d4a017');
+        d.rect(9, 4, 1, 3, '#d4a017');
+        d.rect(3, 8, 6, 1, '#b8860b');
+        d.pixel(4, 4, '#fff3b0');
+        d.pixel(6, 5, '#fff3b0');
+        d.pixel(4, 9, '#8a6d1a');
+        d.pixel(7, 9, '#8a6d1a');
+    },
+    // 迅捷箭袋：箭袋 + 三支箭羽
+    swift_quiver: d => {
+        d.rect(3, 5, 5, 5, '#6e4520');
+        d.rect(3, 5, 5, 1, '#8b5a2b');
+        d.vLine(4, 1, 4, '#bdc3c7');
+        d.vLine(6, 1, 4, '#bdc3c7');
+        d.pixel(4, 1, '#e74c3c');
+        d.pixel(6, 1, '#e74c3c');
+        d.pixel(3, 2, '#74b9ff');
+        d.pixel(7, 2, '#74b9ff');
+    },
+    // 巨人腰带：宽皮带 + 方形金扣
+    giant_belt: d => {
+        d.rect(1, 4, 10, 4, '#6e4520');
+        d.rect(1, 4, 10, 1, '#8b5a2b');
+        d.rect(1, 7, 10, 1, '#4a2e14');
+        d.rect(4, 3, 4, 6, '#f1c40f');
+        d.rect(5, 4, 2, 4, '#8b5a2b');
+        d.pixel(4, 3, '#fff3b0');
+    },
+    // 深渊之眼：紫色眼球 + 竖瞳
+    abyss_eye: d => {
+        d.rect(2, 4, 8, 4, '#6c3483');
+        d.rect(3, 3, 6, 6, '#8e44ad');
+        d.rect(4, 4, 4, 4, '#e8daef');
+        d.vLine(6, 4, 4, '#4a235a');
+        d.pixel(5, 4, '#ffffff');
+        d.pixel(1, 5, '#9b59b6');
+        d.pixel(10, 6, '#9b59b6');
+    },
+    // 血牙冠冕：金冠 + 中央红牙
+    vampiric_crown: d => {
+        d.rect(2, 6, 8, 3, '#f1c40f');
+        d.pixel(2, 4, '#f1c40f'); d.vLine(2, 4, 2, '#f1c40f');
+        d.pixel(6, 3, '#f1c40f'); d.vLine(6, 3, 3, '#f1c40f');
+        d.pixel(9, 4, '#f1c40f'); d.vLine(9, 4, 2, '#f1c40f');
+        d.rect(2, 8, 8, 1, '#b8860b');
+        d.vLine(5, 9, 2, '#ecf0f1');
+        d.pixel(5, 11, '#e74c3c');
+    },
+    // 荆棘胸甲：绿色护甲 + 尖刺
+    thorn_mail: d => {
+        d.rect(3, 3, 6, 6, '#4a7a3a');
+        d.rect(3, 3, 6, 1, '#8bc34a');
+        d.rect(4, 5, 4, 3, '#5d9948');
+        d.pixel(2, 2, '#8bc34a');
+        d.pixel(9, 2, '#8bc34a');
+        d.pixel(2, 9, '#8bc34a');
+        d.pixel(9, 9, '#8bc34a');
+        d.pixel(5, 6, '#c8e6a0');
+    },
+    // 冷血怀表：银色怀表 + 指针 + 顶环
+    chrono_watch: d => {
+        d.rect(3, 3, 6, 6, '#bdc3c7');
+        d.rect(4, 4, 4, 4, '#ecf0f1');
+        d.rect(5, 1, 2, 2, '#95a5a6');
+        d.vLine(6, 5, 2, '#2d3436');
+        d.hLine(6, 6, 2, '#2d3436');
+        d.pixel(6, 4, '#74b9ff');
+        d.pixel(4, 6, '#7f8c8d');
+    },
+    // 白骨护符：骷髅头 + 眼窝
+    bone_charm: d => {
+        d.rect(3, 2, 6, 5, '#ecf0f1');
+        d.rect(3, 2, 6, 1, '#ffffff');
+        d.pixel(4, 4, '#2d3436');
+        d.pixel(7, 4, '#2d3436');
+        d.rect(4, 7, 4, 2, '#ecf0f1');
+        d.pixel(5, 8, '#95a5a6');
+        d.pixel(6, 8, '#95a5a6');
+        d.hLine(4, 6, 4, '#bdc3c7');
+    },
 };
+
+// 已实现绘制函数的遗物 id 列表（不实例化 Canvas，供无 DOM 环境校验图标齐全）。
+export const RELIC_ICON_IDS = Object.keys(DRAWERS);
 
 /**
  * 生成全部遗物图标。

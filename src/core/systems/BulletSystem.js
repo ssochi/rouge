@@ -15,6 +15,8 @@ export class BulletSystem {
         this.particleSpawner = particleSpawner;
         this.statusEffects = statusEffects;
         this.obstacleIndex = null;
+        // 遗物系统引用（Game 接线后注入）：暴击回血等命中钩子。地牢外为 null。
+        this.relicSystem = null;
     }
 
     setObstacleIndex(index) {
@@ -1153,12 +1155,17 @@ export class BulletSystem {
 
                             if (b.type !== 'rocket' && b.type !== 'grenade' && b.type !== 'homing' && b.type !== 'mine' && b.type !== 'meteor') {
                                 const angle = Math.atan2(b.vy, b.vx);
-                                const force = b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4;
+                                // 巨人腰带：叠加遗物专用击退（不影响武器自带击退手感）
+                                const force = (b.type === 'flame' || b.type === 'ice_shard' ? 0.5 : 4) + (b.relicKnockback || 0);
                                 // Use dynamic damage for railgun
                                 let finalDamage = b.type === 'railgun' ? (b.currentDamage || b.damage) : b.damage;
                                 // Frozen damage multiplier
                                 if (e.frozenTimer > 0 && b.type !== 'ice_shard') {
                                     finalDamage = Math.floor(finalDamage * 1.5);
+                                }
+                                // 深渊之眼：对满血敌人伤害倍率（命中扣血前判定）
+                                if (b.firstStrikeMult && e.maxHp && e.hp === e.maxHp) {
+                                    finalDamage = Math.round(finalDamage * b.firstStrikeMult);
                                 }
                                 if (e.takeDamage) {
                                     e.takeDamage(finalDamage, {
@@ -1167,6 +1174,11 @@ export class BulletSystem {
                                     });
                                 } else {
                                      e.hp -= finalDamage;
+                                }
+
+                                // 血牙冠冕：暴击命中回血（经遗物钩子）
+                                if (b.isCrit && this.relicSystem) {
+                                    this.relicSystem.onCritHit();
                                 }
 
                                 // Burn DOT（flame 武器或遗物余烬弹头）

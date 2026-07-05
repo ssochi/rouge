@@ -340,6 +340,7 @@ export class DungeonManager {
     _spawnEncounterWave(room, spawns, floorConfig) {
         const roleMap = floorConfig.roleMap || {};
         const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+        const spawnedThisWave = [];
 
         for (const spawn of spawns) {
             const pool = roleMap[spawn.role] || roleMap.m || ['zombie'];
@@ -366,6 +367,13 @@ export class DungeonManager {
                 this._maybePromoteElite(enemy, room, floorConfig);
             }
             room.enemies.add(enemy);
+            spawnedThisWave.push(enemy);
+        }
+
+        // 冷血怀表：出怪波刷新后对全体新敌人施加短暂减速
+        const relicSystem = this.worldSystem.relicSystem;
+        if (relicSystem && relicSystem.onWaveSpawned) {
+            relicSystem.onWaveSpawned(spawnedThisWave);
         }
     }
 

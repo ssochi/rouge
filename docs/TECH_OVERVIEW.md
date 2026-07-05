@@ -217,6 +217,7 @@
 - Boss 楼层顺序：F1 变异巨兽（近战教学）→ F2 机械巨蛇（机动压迫，P4 正式接入）→ F3 机械魔偶（弹幕终战）。
 - **行为组件层（P4，`src/core/entities/behaviors/`）**：`ChaseBehavior`/`KiteBehavior`（距离带三态+带内漂移）/`StrafeBehavior`/`RangedPatternBehavior`（fan/ring/aimed_burst 弹幕库，数据配置驱动 `spawnEnemyBullet`）/`SummonBehavior`（前摇+批量+上限，onSummon 回调）/`TelegraphedChargeBehavior`（预警线→冲锋→硬直）。组件经 ctx 注入实体 update 依赖，新敌人 = 数值 + 组件组合；现有敌人不强制迁移。
 - **6 种地牢专属新敌人（P4）**：弹幕法师 Warlock（Kite+环形/扇形弹幕+受击积伤闪现）、自爆蜂 Boomer（高速逼近+引信红闪自爆，可提前引爆殉爆减半，可链爆）、召唤师 Summoner（Kite+周期召唤上限 4，召唤物入房间清除判定）、盾卫 Shieldbearer（慢速推进+正面 ±60° 塔盾减伤 90%，判定基于子弹击退向量夹角）、哨戒炮 Sentry（固定点蓄力→持续弹流→冷却，免疫击退）、投弹手 Lobber（Kite+抛物线榴弹落点红圈预警，越掩体）。美术全部走 Generator→Idle16/Run12/Attack8 管线（Sentry 机械体免 Run）。
+- **内容扩充（三 agent 并行批次）**：新敌人 +5（狱火犬=预警线冲锋、链枷狱卒=360° 横扫重装、瘟疫鼠=游走+死亡中毒、炼狱僧侣=慢速大幽焰三连、石像鬼=雕像伪装伏击怪含 dormant 帧）；遗物 +8 至 26 个（血牙冠冕暴击回血/巨人腰带击退+8/荆棘胸甲受击反刺/金羊羔毛金币+25%/冷血怀表波刷新减速/深渊之眼满血敌+50%/迅捷箭袋弹速+30%/白骨护符击杀掉币，新增挂载点 onCritHit/onWaveSpawned/coinValueMult/thornBurst）；遭遇战模板 +8 至 27 个（锅炉房/酒窖/淋浴间/军犬舍/雕像长廊/军官休息室/断桥深渊/处刑场）。
 - **精英词缀系统（P4，`src/core/dungeon/EnemyAffixSystem.js`）**：迅捷（移速×1.4）/坚韧（50% maxHp 护盾+破盾前减伤半）/灼热（近身灼烧+死亡爆燃）/裂魂（死亡 8 向弹幕）/再生（脱战 3s 每秒回 2%）。实例级包装 takeDamage/update，零基类侵入。精英房全员保底 1 词缀，普通房按层 eliteChance；视觉 = 体型 1.15×+词缀色光环+头顶词缀名（Renderer）；掉落金币 ×3 + 30% 钥匙。
 - **BossPhaseController（P4，`src/core/entities/bosses/`）**：相位阈值（单向推进+onEnter）+ 招式池（动态权重/条件/优先级分层）+ per-招式冷却。三 Boss 已迁移（招式执行函数与数值不变）。
 - **遭遇战房间系统（R3，`generation/EncounterTemplates.js`，详见 `docs/feature/DUNGEON_ROOM_REDESIGN.md`）**：普通战斗房不再随机撒怪撒掩体，改为 15 个字符画手作模板（`#` 墙/`c` 掩体/`d` 装饰/`m r h e` 出怪角色一张图一体设计，浅 5/中 6/深 4 档），尺寸适配降档回退、居中放置保 2 tile 通带。角色 → 敌人由 `FloorConfigs.roleMap` 按楼层映射；`DungeonManager._spawnEncounterEnemies` 逐点出怪（邻格退让），`e` 角色保底词缀精英。设计约束（BFS 无封死/远程模板掩体 ≥2/放置不越界）由 `tests/encounter-templates.test.js` 强制。特殊房与放不下模板的小房走原池化路径。
@@ -239,8 +240,8 @@
   - HUD：`UIManager.initDungeonHud()` 右侧金币/钥匙计数（小地图下方），仅 `runState.active` 时显示，Renderer 每帧 `updateDungeonStatus()`。
   - 带出规则：金币/钥匙/遗物单局有效（退出/通关清零），武器可带回主世界。
 - **遗物系统（P2）**：
-  - 定义：`src/assets/relics/RelicData.js`（18 个：属性 6 / 弹道 7 / 触发 5，effect 纯数据）+ `RelicIcons.js`（12×12 程序化图标，注册为 `Assets.relicIcons`）。
-  - 运行时：`src/core/dungeon/RelicSystem.js`，以 `runState.relicIds` 为唯一事实源。三挂载点：①属性乘区（移速/开火间隔/伤害/磁吸/暴击，`PlayerSystem.getEffectivePlayerSpeed`、`CombatSystem.tryShoot`、`WorldSystem.updatePickups` 查询）②玩家子弹改造（`_pushWeaponProjectiles` push 前 `modifyPlayerBullet`：燃烧/冰冻/穿透/弹射/体积/暴击/split 补偿；`BulletSystem` 命中块已泛化 `burnDamage`/`applyFreezeStack`/`relicBounce`）③事件触发（击杀爆炸+吸血 `WorldSystem` 死亡清扫、受击冲击波 `player.takeDamage`、清房金币乘数、开箱双倍）。
+  - 定义：`src/assets/relics/RelicData.js`（26 个：属性 8 / 弹道 9 / 触发 9，effect 纯数据；P7 扩展 8 个起带 `rarity`）+ `RelicIcons.js`（12×12 程序化图标，注册为 `Assets.relicIcons`）。
+  - 运行时：`src/core/dungeon/RelicSystem.js`，以 `runState.relicIds` 为唯一事实源。三挂载点：①属性乘区（移速/开火间隔/伤害/磁吸/暴击/金币价值 `coinValueMult`，`PlayerSystem.getEffectivePlayerSpeed`、`CombatSystem.tryShoot`、`WorldSystem.updatePickups` 查询；金币价值经 `DungeonPickup.collect` 向上取整乘算）②玩家子弹改造（`_pushWeaponProjectiles` push 前 `modifyPlayerBullet`：燃烧/冰冻/穿透/弹射/体积/暴击/split 补偿/击退 `relicKnockback`/弹速 `bulletSpeedMult`/满血首击 `firstStrikeMult`；`BulletSystem` 命中块已泛化 `burnDamage`/`applyFreezeStack`/`relicBounce`，并消费 `relicKnockback`/`firstStrikeMult` 与暴击回血钩子 `onCritHit`）③事件触发（击杀爆炸+吸血+白骨护符额外金币 `WorldSystem` 死亡清扫、受击冲击波+荆棘反射 `player.takeDamage`、出怪波减速 `onWaveSpawned`（`DungeonManager._spawnEncounterWave`）、清房金币乘数、开箱双倍）。
   - 狂战图腾为条件乘区（HP<30% 实时判断）；vital_heart 的 maxHp 增量记账，退局 `clear()` 回退。
   - 获取：宝箱按档位 `relicChance`（木 10%/铁 25%/秘银 45%/龙纹 55%）抽遗物，排除已持有、全收集回退武器；Boss 保底箱 `guaranteedRelic` 必出遗物。掉落为 `relic:<id>` 类型 `DroppedItem`，E 拾取直接生效不入背包。
   - UI：HUD 遗物图标栏（悬停显示名称+效果）+ 拾取 toast（`UIManager.showRelicToast`）。

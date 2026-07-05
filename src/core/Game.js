@@ -151,6 +151,8 @@ export class Game {
         // PlayerSystem（移速，经 worldSystem 引用）、WorldSystem（磁吸/击杀事件/清算）。
         this.relicSystem = new RelicSystem({ runState: this.dungeonRunState, player: this.player });
         this.combatSystem.relicSystem = this.relicSystem;
+        // 弹道命中钩子（血牙冠冕暴击回血）需 BulletSystem 直接持有遗物系统引用
+        this.combatSystem.bulletSystem.relicSystem = this.relicSystem;
         this.uiManager.relicSystem = this.relicSystem;
         // 受击冲击波：击退玩家周围敌人 + 冲击环粒子
         this.relicSystem.setShockwaveHandler((conf) => {
@@ -184,6 +186,28 @@ export class Game {
         // 拾取 toast
         this.relicSystem.setPickupHandler((relic) => {
             this.uiManager.showRelicToast(relic);
+        });
+        // 荆棘胸甲：受击时向 8 方向发射玩家阵营荆棘小刺弹
+        this.relicSystem.setThornBurstHandler((conf) => {
+            for (let i = 0; i < conf.count; i++) {
+                const a = (Math.PI * 2 * i) / conf.count;
+                this.bullets.push({
+                    x: this.player.x,
+                    y: this.player.y,
+                    vx: Math.cos(a) * conf.speed,
+                    vy: Math.sin(a) * conf.speed,
+                    life: conf.life,
+                    maxLife: conf.life,
+                    damage: conf.damage,
+                    color: conf.color,
+                    size: conf.size,
+                    type: 'standard',
+                    source: 'player',
+                    owner: null,
+                    team: null,
+                    hitList: []
+                });
+            }
         });
 
         this.worldSystem = new WorldSystem({

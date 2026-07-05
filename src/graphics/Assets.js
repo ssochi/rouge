@@ -29,6 +29,22 @@ import { WRAITH_ATTACK_FRAMES } from '../assets/characters/enemies/wraith/Wraith
 import { ARCHER_IDLE_FRAMES } from '../assets/characters/enemies/archer/ArcherIdle.js';
 import { ARCHER_RUN_FRAMES } from '../assets/characters/enemies/archer/ArcherRun.js';
 import { ARCHER_ATTACK_FRAMES } from '../assets/characters/enemies/archer/ArcherAttack.js';
+import { HELLHOUND_IDLE_FRAMES } from '../assets/characters/enemies/hellhound/HellhoundIdle.js';
+import { HELLHOUND_RUN_FRAMES } from '../assets/characters/enemies/hellhound/HellhoundRun.js';
+import { HELLHOUND_ATTACK_FRAMES } from '../assets/characters/enemies/hellhound/HellhoundAttack.js';
+import { FLAIL_WARDEN_IDLE_FRAMES } from '../assets/characters/enemies/flail_warden/FlailWardenIdle.js';
+import { FLAIL_WARDEN_RUN_FRAMES } from '../assets/characters/enemies/flail_warden/FlailWardenRun.js';
+import { FLAIL_WARDEN_ATTACK_FRAMES } from '../assets/characters/enemies/flail_warden/FlailWardenAttack.js';
+import { PLAGUE_RAT_IDLE_FRAMES } from '../assets/characters/enemies/plague_rat/PlagueRatIdle.js';
+import { PLAGUE_RAT_RUN_FRAMES } from '../assets/characters/enemies/plague_rat/PlagueRatRun.js';
+import { PLAGUE_RAT_ATTACK_FRAMES } from '../assets/characters/enemies/plague_rat/PlagueRatAttack.js';
+import { CULTIST_IDLE_FRAMES } from '../assets/characters/enemies/cultist/CultistIdle.js';
+import { CULTIST_RUN_FRAMES } from '../assets/characters/enemies/cultist/CultistRun.js';
+import { CULTIST_ATTACK_FRAMES } from '../assets/characters/enemies/cultist/CultistAttack.js';
+import { GARGOYLE_IDLE_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleIdle.js';
+import { GARGOYLE_RUN_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleRun.js';
+import { GARGOYLE_ATTACK_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleAttack.js';
+import { GARGOYLE_DORMANT_FRAMES } from '../assets/characters/enemies/gargoyle/GargoyleDormant.js';
 import { LOBBER_RUN_FRAMES } from '../assets/characters/enemies/lobber/LobberRun.js';
 import { LOBBER_ATTACK_FRAMES } from '../assets/characters/enemies/lobber/LobberAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
@@ -365,6 +381,32 @@ export const Assets = {
         idle: ARCHER_IDLE_FRAMES,
         run: ARCHER_RUN_FRAMES,
         attack: ARCHER_ATTACK_FRAMES
+    },
+    hellhound: {
+        idle: HELLHOUND_IDLE_FRAMES,
+        run: HELLHOUND_RUN_FRAMES,
+        attack: HELLHOUND_ATTACK_FRAMES
+    },
+    flailWarden: {
+        idle: FLAIL_WARDEN_IDLE_FRAMES,
+        run: FLAIL_WARDEN_RUN_FRAMES,
+        attack: FLAIL_WARDEN_ATTACK_FRAMES
+    },
+    plagueRat: {
+        idle: PLAGUE_RAT_IDLE_FRAMES,
+        run: PLAGUE_RAT_RUN_FRAMES,
+        attack: PLAGUE_RAT_ATTACK_FRAMES
+    },
+    cultist: {
+        idle: CULTIST_IDLE_FRAMES,
+        run: CULTIST_RUN_FRAMES,
+        attack: CULTIST_ATTACK_FRAMES
+    },
+    gargoyle: {
+        idle: GARGOYLE_IDLE_FRAMES,
+        run: GARGOYLE_RUN_FRAMES,
+        attack: GARGOYLE_ATTACK_FRAMES,
+        dormant: GARGOYLE_DORMANT_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,
