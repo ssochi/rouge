@@ -138,14 +138,15 @@ export class DungeonManager {
             if (rs.enemies.size > 0) continue;
 
             if (rs.waveTelegraphTimer > 0) {
-                // 下一波预警中：计时结束后刷新
+                // 出生魔法阵进行中：计时结束后实体化
                 rs.waveTelegraphTimer--;
                 if (rs.waveTelegraphTimer === 0) {
                     const wave = rs.pendingWaves.shift();
                     this._spawnEncounterWave(rs, wave, getFloorConfig(this.currentFloor));
+                    rs.wavesSpawned = (rs.wavesSpawned || 0) + 1;
                 }
             } else if (Array.isArray(rs.pendingWaves) && rs.pendingWaves.length > 0) {
-                rs.waveTelegraphTimer = 50; // ~0.83s 出怪点预警（Renderer 画收缩圈）
+                rs.waveTelegraphTimer = 50; // 增援波预警 ~0.83s
             } else {
                 this.clearRoom(rs);
             }
@@ -178,8 +179,18 @@ export class DungeonManager {
             this._activateGate(gate);
         }
 
-        // Spawn enemies
-        this._spawnRoomEnemies(room);
+        // 遭遇战房：所有波次（含波1）都走出生魔法阵队列（Gungeon 式读房时间）
+        if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
+            const firstWave = room.encounterSpawns.filter(s => !s.wave);
+            const wave1 = room.encounterSpawns.filter(s => s.wave === 1);
+            room.pendingWaves = [firstWave.length > 0 ? firstWave : room.encounterSpawns];
+            if (wave1.length > 0 && firstWave.length > 0) room.pendingWaves.push(wave1);
+            room.wavesSpawned = 0;
+            room.waveTelegraphTimer = 40; // 波1 魔法阵 ~0.67s
+        } else {
+            // 池化房（精英/Boss/兜底）：保持立即出怪
+            this._spawnRoomEnemies(room);
+        }
 
         this.worldSystem.markWorldStaticDirty();
     }
@@ -234,19 +245,6 @@ export class DungeonManager {
 
         const floorConfig = getFloorConfig(this.currentFloor);
 
-        // 遭遇战房：按模板出怪点 + 角色映射生成（掩体/地形已在生成时落位）
-        // 第一波立即刷新，后续波存入 pendingWaves（首波全灭后预警刷新）
-        if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
-            const firstWave = room.encounterSpawns.filter(s => !s.wave);
-            const laterWaves = [];
-            const wave1 = room.encounterSpawns.filter(s => s.wave === 1);
-            if (wave1.length > 0) laterWaves.push(wave1);
-            room.pendingWaves = laterWaves;
-            room.waveTelegraphTimer = 0;
-            this._spawnEncounterWave(room, firstWave.length > 0 ? firstWave : room.encounterSpawns, floorConfig);
-            return;
-        }
-
         if (!config.types) return;
 
         const spawnPoints = [...room.spawnPoints];
@@ -290,16 +288,49 @@ export class DungeonManager {
             if (rs.state !== 'active' || !rs.waveTelegraphTimer || rs.waveTelegraphTimer <= 0) continue;
             const nextWave = rs.pendingWaves && rs.pendingWaves[0];
             if (!nextWave) continue;
-            const progress = 1 - rs.waveTelegraphTimer / 50;
+            const total = (rs.wavesSpawned || 0) === 0 ? 40 : 50;
+            const progress = 1 - rs.waveTelegraphTimer / total;
+            const isFirstWave = (rs.wavesSpawned || 0) === 0;
             for (const spawn of nextWave) {
                 out.push({
                     x: spawn.x * TILE_SIZE + TILE_SIZE / 2,
                     y: spawn.y * TILE_SIZE + TILE_SIZE / 2,
-                    progress
+                    progress,
+                    // 波1 青白魔法阵（实体化），增援波红色（威胁升级）
+                    color: isFirstWave ? '#9fdcff' : '#ff5040'
                 });
             }
         }
         return out;
+    }
+
+    /**
+     * 出生实体化保护：前 frames 帧不动不攻击、半透明渐显（实例包装，通用于所有敌人类型）。
+     */
+    _applySpawnGrace(enemy, frames = 30) {
+        enemy.spawnGraceTimer = frames;
+
+        const origUpdate = enemy.update.bind(enemy);
+        enemy.update = (...args) => {
+            if (enemy.spawnGraceTimer > 0) {
+                enemy.spawnGraceTimer--;
+                enemy.animationTimer = (enemy.animationTimer || 0) + 1;
+                return;
+            }
+            origUpdate(...args);
+        };
+
+        const origDraw = enemy.draw.bind(enemy);
+        enemy.draw = (ctx) => {
+            if (enemy.spawnGraceTimer > 0) {
+                ctx.save();
+                ctx.globalAlpha = 0.3 + 0.6 * (1 - enemy.spawnGraceTimer / frames);
+                origDraw(ctx);
+                ctx.restore();
+                return;
+            }
+            origDraw(ctx);
+        };
     }
 
     /**
@@ -326,6 +357,7 @@ export class DungeonManager {
             if (!enemy) continue;
 
             this._applyFloorScaling(enemy, floorConfig);
+            this._applySpawnGrace(enemy);
             if (spawn.role === 'e' && !enemy.isBoss && !enemy.isSegment) {
                 const [minCount, maxCount] = floorConfig.eliteAffixCount || [1, 1];
                 const count = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));

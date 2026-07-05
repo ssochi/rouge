@@ -1145,6 +1145,32 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     assignRoomCategories(rooms, depths, startIdx, bossIdx, rng);
 
+    // ── 战斗房定形（Gungeon 式：房间尺寸=模板尺寸+2 tile 通带） ──
+    // 在走廊/门/地板生成之前收缩房间到所选模板大小（房心保持），
+    // 根治「随机大矩形里居中放小模板」造成的四周空旷带。
+    const usedEncounterIds = new Set();
+    for (const room of rooms) {
+        const isCombatRoom = room.type === 'normal'
+            && room.category !== 'treasure'
+            && room.category !== 'shop'
+            && room.category !== 'elite';
+        if (!isCombatRoom) continue;
+
+        const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds);
+        if (!parsed) continue;
+        usedEncounterIds.add(parsed.id);
+
+        const newW = parsed.w + 4;
+        const newH = parsed.h + 4;
+        const cx = room.x + Math.floor(room.w / 2);
+        const cy = room.y + Math.floor(room.h / 2);
+        room.x = cx - Math.floor(newW / 2);
+        room.y = cy - Math.floor(newH / 2);
+        room.w = newW;
+        room.h = newH;
+        room.encounterParsed = parsed;
+    }
+
     const allCorridorTiles = new Set();
     const corridors = [];
 
@@ -1187,27 +1213,18 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     const interiorWallTiles = new Set();
     const usedTemplateIds = new Set();
-    const usedEncounterIds = new Set();
 
     for (const room of rooms) {
-        // 普通战斗房：优先手作遭遇战模板（墙+掩体+出怪点一体设计）
-        const isCombatRoom = room.type === 'normal'
-            && room.category !== 'treasure'
-            && room.category !== 'shop'
-            && room.category !== 'elite';
-        if (isCombatRoom) {
-            const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds);
-            if (parsed) {
-                usedEncounterIds.add(parsed.id);
-                const placed = placeEncounter(parsed, room);
-                room.encounter = placed;
-                for (const w of placed.walls) {
-                    const key = tileKey(w.x, w.y);
-                    interiorWallTiles.add(key);
-                    floorTiles.delete(key);
-                }
-                continue;
+        // 遭遇战房（定形阶段已选定模板）：铺设墙/掩体/出怪点/道具
+        if (room.encounterParsed) {
+            const placed = placeEncounter(room.encounterParsed, room);
+            room.encounter = placed;
+            for (const w of placed.walls) {
+                const key = tileKey(w.x, w.y);
+                interiorWallTiles.add(key);
+                floorTiles.delete(key);
             }
+            continue;
         }
 
         const result = applyTemplate(room, rng, usedTemplateIds);

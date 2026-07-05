@@ -231,21 +231,49 @@ export class Renderer {
         if (this.worldSystem && this.worldSystem.dungeonManager) {
             const dm = this.worldSystem.dungeonManager;
 
-            // 波次预警：下一波出怪点地面收缩圈（画在地面层，实体之下）
+            // 出生魔法阵：出怪点地面符环（画在地面层，实体之下；波1 青白/增援红）
             if (dm.getWaveTelegraphs) {
+                const now = performance.now();
                 for (const t of dm.getWaveTelegraphs()) {
-                    const radius = 16 * (1.3 - t.progress * 0.5);
-                    this.ctx.save();
-                    this.ctx.globalAlpha = 0.25 + t.progress * 0.45;
-                    this.ctx.strokeStyle = '#ff5040';
-                    this.ctx.lineWidth = t.progress > 0.7 ? 2 : 1;
-                    this.ctx.beginPath();
-                    this.ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
-                    this.ctx.stroke();
-                    this.ctx.globalAlpha = 0.1 + t.progress * 0.2;
-                    this.ctx.fillStyle = '#ff5040';
-                    this.ctx.fill();
-                    this.ctx.restore();
+                    const color = t.color || '#ff5040';
+                    const radius = 13 * (1.25 - t.progress * 0.35);
+                    const ctx2 = this.ctx;
+                    ctx2.save();
+
+                    // 外环
+                    ctx2.globalAlpha = 0.35 + t.progress * 0.5;
+                    ctx2.strokeStyle = color;
+                    ctx2.lineWidth = t.progress > 0.7 ? 2 : 1;
+                    ctx2.beginPath();
+                    ctx2.arc(t.x, t.y, radius, 0, Math.PI * 2);
+                    ctx2.stroke();
+
+                    // 内环（反向脉冲）
+                    ctx2.globalAlpha = 0.25 + t.progress * 0.35;
+                    ctx2.beginPath();
+                    ctx2.arc(t.x, t.y, radius * 0.55, 0, Math.PI * 2);
+                    ctx2.stroke();
+
+                    // 旋转符文刻线（四向短线）
+                    const spin = now * 0.003;
+                    ctx2.globalAlpha = 0.5 + t.progress * 0.4;
+                    for (let k = 0; k < 4; k++) {
+                        const a = spin + (k / 4) * Math.PI * 2;
+                        const r1 = radius * 0.7;
+                        const r2 = radius * 1.05;
+                        ctx2.beginPath();
+                        ctx2.moveTo(t.x + Math.cos(a) * r1, t.y + Math.sin(a) * r1);
+                        ctx2.lineTo(t.x + Math.cos(a) * r2, t.y + Math.sin(a) * r2);
+                        ctx2.stroke();
+                    }
+
+                    // 底色微光
+                    ctx2.globalAlpha = 0.08 + t.progress * 0.15;
+                    ctx2.fillStyle = color;
+                    ctx2.beginPath();
+                    ctx2.arc(t.x, t.y, radius, 0, Math.PI * 2);
+                    ctx2.fill();
+                    ctx2.restore();
                 }
             }
 
