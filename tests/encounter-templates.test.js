@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
     ENCOUNTER_TEMPLATES,
     parseEncounter,
+    encounterToRoomPlan,
     selectEncounter,
     placeEncounter,
     tierForDepth
@@ -124,9 +125,10 @@ describe('EncounterTemplates', () => {
     });
 
     it('placeEncounter：居中放置且不越 2 tile 通带', () => {
-        const parsed = parseEncounter(ENCOUNTER_TEMPLATES[0]);
-        const room = { x: 10, y: 10, w: parsed.w + 6, h: parsed.h + 6 };
-        const placed = placeEncounter(parsed, room);
+        // [room-v2:p1] placeEncounter 只吃 RoomPlan
+        const plan = encounterToRoomPlan(ENCOUNTER_TEMPLATES[0]);
+        const room = { x: 10, y: 10, w: plan.w + 6, h: plan.h + 6 };
+        const placed = placeEncounter(plan, room);
         const all = [...placed.walls, ...placed.covers, ...placed.decors, ...placed.spawns];
         for (const p of all) {
             expect(p.x).toBeGreaterThanOrEqual(room.x + 2);
@@ -161,7 +163,8 @@ describe('楼层主题基建（floors 亲和 + floorType 地板覆写）', () =>
         };
         const parsed = parseEncounter(tpl);
         expect(parsed.floorType).toBe('WOOD');
-        const placed = placeEncounter(parsed, { x: 10, y: 10, w: 8, h: 7 });
+        // [room-v2:p1] placeEncounter 只吃 RoomPlan
+        const placed = placeEncounter(encounterToRoomPlan(tpl), { x: 10, y: 10, w: 8, h: 7 });
         expect(placed.floorType).toBe('WOOD');
     });
 
@@ -181,8 +184,9 @@ describe('楼层主题基建（floors 亲和 + floorType 地板覆写）', () =>
             for (const f of [1, 2, 3]) {
                 if (t.floors.includes(f)) continue;
                 for (let i = 0; i < 20; i++) {
+                    // [room-v2:p1] selectEncounter 返回 RoomPlan，id 在 meta 上
                     const picked = selectEncounter(t.tier, 30, 30, () => i / 20, new Set(), f);
-                    expect(picked && picked.id).not.toBe(t.id);
+                    expect(picked && picked.meta.id).not.toBe(t.id);
                 }
             }
         }

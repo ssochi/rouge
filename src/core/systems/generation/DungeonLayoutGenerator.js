@@ -1188,19 +1188,20 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
             && room.category !== 'pact';
         if (!isCombatRoom) continue;
 
-        const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds, floor);
-        if (!parsed) continue;
-        usedEncounterIds.add(parsed.id);
+        // [room-v2:p1] selectEncounter 返回 RoomPlan（IR）；id 迁入 meta，w/h 不变。
+        const plan = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds, floor);
+        if (!plan) continue;
+        usedEncounterIds.add(plan.meta.id);
 
-        const newW = parsed.w + 4;
-        const newH = parsed.h + 4;
+        const newW = plan.w + 4;
+        const newH = plan.h + 4;
         const cx = room.x + Math.floor(room.w / 2);
         const cy = room.y + Math.floor(room.h / 2);
         room.x = cx - Math.floor(newW / 2);
         room.y = cy - Math.floor(newH / 2);
         room.w = newW;
         room.h = newH;
-        room.encounterParsed = parsed;
+        room.encounterParsed = plan;
     }
 
     const allCorridorTiles = new Set();

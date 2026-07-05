@@ -19,6 +19,12 @@
 import { F1_PRISON_TEMPLATES } from './encounters/f1_prison.js';
 import { F2_TEMPLE_TEMPLATES } from './encounters/f2_temple.js';
 import { F3_DEPTHS_TEMPLATES } from './encounters/f3_depths.js';
+// [room-v2:p1] 字符模板经适配器进入 RoomPlan IR；selectEncounter/placeEncounter 只认 RoomPlan。
+import { encounterToRoomPlan, roomPlanToParsed } from './rooms/EncounterAdapter.js';
+import { maskToWallCoords, objectsOfKind, OBJECT_COVER, OBJECT_DECOR, OBJECT_PROP } from './rooms/RoomPlan.js';
+
+// 适配器出口再导出，供模板测试从单一入口取用。
+export { encounterToRoomPlan };
 
 // opts 可选：{ floors: [1], floorType: 'WOOD' } —— 楼层亲和（缺省=全楼层）与每房间地板材质
 const T = (id, tier, weight, rows, legend, opts = {}) => ({ id, tier, weight, rows, legend, ...opts });
@@ -401,46 +407,20 @@ export function tierForDepth(depth) {
 const TIER_FALLBACK = { deep: 'mid', mid: 'shallow', shallow: null };
 
 /**
- * 解析字符画模板 → 相对坐标要素表。
+ * 解析字符画模板 → 相对坐标要素表（旧口径向后兼容视图）。
+ * [room-v2:p1] 底层已迁移到 RoomPlan IR：本函数 = 适配器 + 旧形状投影，
+ * 单一解析实现（encounterToRoomPlan），现存模板测试零改动。
  * 小写 m/r/h/e 为第一波（wave 0），大写为第二波（wave 1）；
  * legend 字符解析为具体物件（props，家具/牢栏等可破坏装饰）。
  */
 export function parseEncounter(template) {
-    const rows = template.rows;
-    const legend = template.legend || {};
-    const h = rows.length;
-    const w = rows[0].length;
-    const walls = [];
-    const pits = [];
-    const covers = [];
-    const decors = [];
-    const spawns = [];
-    const props = [];
-
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const ch = rows[y][x];
-            if (ch === '.') continue;
-            if (ch === '#') walls.push({ x, y });
-            else if (ch === 'p') pits.push({ x, y });
-            else if (ch === 'c') covers.push({ x, y });
-            else if (ch === 'd') decors.push({ x, y });
-            else if (ch === 'm' || ch === 'r' || ch === 'h' || ch === 'e') {
-                spawns.push({ x, y, role: ch, wave: 0 });
-            } else if (ch === 'M' || ch === 'R' || ch === 'H' || ch === 'E') {
-                spawns.push({ x, y, role: ch.toLowerCase(), wave: 1 });
-            } else if (legend[ch]) {
-                props.push({ x, y, type: legend[ch] });
-            }
-        }
-    }
-
-    return { id: template.id, w, h, walls, pits, covers, decors, spawns, props, floorType: template.floorType || null };
+    return roomPlanToParsed(encounterToRoomPlan(template));
 }
 
 /**
  * 按档位与房间内部尺寸选模板（放不下则降档，已用减权防重复）。
- * @returns 解析后的模板或 null
+ * [room-v2:p1] 返回 RoomPlan（IR）或 null —— rng 只在此选模板阶段用，解析层确定性。
+ * @returns {Object|null} RoomPlan 或 null
  */
 export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new Set(), floor = null) {
     let currentTier = tier;
@@ -467,9 +447,9 @@ export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new S
             let roll = rng() * totalWeight;
             for (let i = 0; i < candidates.length; i++) {
                 roll -= weights[i];
-                if (roll <= 0) return parseEncounter(candidates[i]);
+                if (roll <= 0) return encounterToRoomPlan(candidates[i]);
             }
-            return parseEncounter(candidates[candidates.length - 1]);
+            return encounterToRoomPlan(candidates[candidates.length - 1]);
         }
 
         currentTier = TIER_FALLBACK[currentTier];
@@ -478,27 +458,32 @@ export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new S
 }
 
 /**
- * 把解析后的模板居中放进房间（四周自然留 ≥2 tile 通带），输出绝对 tile 坐标。
- * @param {Object} parsed parseEncounter 结果
+ * 把 RoomPlan 居中放进房间（四周自然留 ≥2 tile 通带），输出绝对 tile 坐标。
+ * [room-v2:p1] 只吃 RoomPlan（字符模板经 encounterToRoomPlan 进入）。
+ * 输出形状保持旧 placeEncounter 契约（DungeonLayoutGenerator 消费链逐 tile 不变）：
+ *   内墙由 mask===0 还原、掩体/装饰/道具按类别拆分（保留 row-major 顺序 → rng 序列一致）、
+ *   出怪波次由 IR 的 1|2 还原为下游 0|1。
+ * @param {Object} plan RoomPlan
  * @param {Object} room {x, y, w, h}
  */
-export function placeEncounter(parsed, room) {
+export function placeEncounter(plan, room) {
     const interiorX = room.x + 2;
     const interiorY = room.y + 2;
     const interiorW = room.w - 4;
     const interiorH = room.h - 4;
-    const offsetX = interiorX + Math.floor((interiorW - parsed.w) / 2);
-    const offsetY = interiorY + Math.floor((interiorH - parsed.h) / 2);
+    const offsetX = interiorX + Math.floor((interiorW - plan.w) / 2);
+    const offsetY = interiorY + Math.floor((interiorH - plan.h) / 2);
 
-    const shift = (p) => ({ ...p, x: p.x + offsetX, y: p.y + offsetY });
+    const shift = (x, y) => ({ x: x + offsetX, y: y + offsetY });
     return {
-        id: parsed.id,
-        floorType: parsed.floorType || null,
-        walls: parsed.walls.map(shift),
-        covers: parsed.covers.map(shift),
-        decors: parsed.decors.map(shift),
-        spawns: parsed.spawns.map(shift),
-        props: parsed.props.map(shift),
-        pits: parsed.pits.map(shift)
+        id: plan.meta.id,
+        floorType: plan.meta.floorType || null,
+        walls: maskToWallCoords(plan).map((p) => shift(p.x, p.y)),
+        covers: objectsOfKind(plan, OBJECT_COVER).map((o) => shift(o.x, o.y)),
+        decors: objectsOfKind(plan, OBJECT_DECOR).map((o) => shift(o.x, o.y)),
+        // 波次 1|2 → 0|1（下游 DungeonManager 按 !wave / wave===1 分波）
+        spawns: plan.spawns.map((s) => ({ ...shift(s.x, s.y), role: s.role, wave: s.wave - 1 })),
+        props: objectsOfKind(plan, OBJECT_PROP).map((o) => ({ ...shift(o.x, o.y), type: o.type })),
+        pits: plan.pits.map((p) => shift(p.x, p.y))
     };
 }
