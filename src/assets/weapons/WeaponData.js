@@ -64,6 +64,7 @@ export const WEAPONS = {
         magazineSize: 12,
         maxReserve: 60,
         reloadTime: 1500,
+        infiniteAmmo: true, // 起始手枪无限子弹：地牢内保底输出手段，永不打空
         rarity: 'common'
     },
     rocket_launcher: {

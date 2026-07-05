@@ -1031,6 +1031,8 @@ export class UIManager {
 
         if (weapon.isMelee) {
             this.ammoText.innerText = "MELEE";
+        } else if (weapon.infiniteAmmo) {
+            this.ammoText.innerText = "∞";
         } else if (weaponState) {
             this.ammoText.innerText = `${weaponState.currentAmmo} / ${weaponState.reserveAmmo}`;
         } else {

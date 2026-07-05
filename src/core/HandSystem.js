@@ -94,11 +94,15 @@ export class HandSystem {
     canShoot() {
         if (this.currentWeapon && this.currentWeapon.isMelee) return false;
         if (this.isReloading) return false;
+        // 无限子弹武器：忽略弹药数，始终可射（仍受 fireRate 限制）
+        if (this.currentWeapon && this.currentWeapon.infiniteAmmo) return true;
         const state = this.getWeaponState();
         return state && state.currentAmmo > 0;
     }
 
     consumeAmmo() {
+        // 无限子弹武器：不消耗弹药
+        if (this.currentWeapon && this.currentWeapon.infiniteAmmo) return;
         const state = this.getWeaponState();
         if (state && state.currentAmmo > 0) {
             state.currentAmmo--;
