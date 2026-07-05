@@ -12,33 +12,34 @@ import { getFloorConfig, getDepthTier } from '../../dungeon/FloorConfigs.js';
 
 const DUNGEON_CONFIG = {
     // Generate dungeon inside a compact central work area, not the full world map.
-    dungeonBoundsSize: 80,
+    // W4：房间全面加大（容纳叙事化遭遇战模板 13~16 宽），工作区同步扩到 100。
+    dungeonBoundsSize: 100,
     mapPadding: 4,
 
-    roomCountMin: 10,
-    roomCountMax: 14,
-    normalRoomMin: 10,
-    normalRoomMax: 16,
-    bossRoomMin: 16,
-    bossRoomMax: 20,
+    roomCountMin: 9,
+    roomCountMax: 12,
+    normalRoomMin: 13,
+    normalRoomMax: 20,
+    bossRoomMin: 18,
+    bossRoomMax: 22,
     startRoomMin: 10,
     startRoomMax: 13,
 
     corridorWidth: 3,
-    bspMinRegion: 14,
+    bspMinRegion: 18,
     roomPadding: 1,
 
     // Graph shaping for short corridors.
     neighborLimit: 4,
-    edgeDistanceThreshold: 34,
-    loopEdgeMaxDistance: 30,
+    edgeDistanceThreshold: 42,
+    loopEdgeMaxDistance: 38,
     extraEdgeMin: 1,
     extraEdgeMax: 2,
 
     // Generation quality gates.
     maxGenerationAttempts: 8,
-    maxCorridorLenHard: 90,
-    maxCorridorAvg: 45
+    maxCorridorLenHard: 110,
+    maxCorridorAvg: 55
 };
 
 function createRng(seed) {
@@ -1273,6 +1274,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
             const occupied = new Set();
             for (const c of room.encounter.covers) occupied.add(tileKey(c.x, c.y));
             for (const dPos of room.encounter.decors) occupied.add(tileKey(dPos.x, dPos.y));
+            for (const p of (room.encounter.props || [])) occupied.add(tileKey(p.x, p.y));
             for (const s of room.encounter.spawns) occupied.add(tileKey(s.x, s.y));
 
             lightObjects.push(...generateRoomBraziers(room, interiorWallTiles, occupied));
@@ -1288,6 +1290,10 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
             for (const dPos of room.encounter.decors) {
                 const type = pickWeighted(theme.decorWeights, rng) || 'dungeon_rubble';
                 decorObjects.push({ x: dPos.x, y: dPos.y, type, roomId: room.id });
+            }
+            // 叙事道具（legend 指定的具体家具：桌椅/书架/牢栏/刑架…环境叙事词汇）
+            for (const p of (room.encounter.props || [])) {
+                decorObjects.push({ x: p.x, y: p.y, type: p.type, roomId: room.id });
             }
 
             decals.push(...generateRoomDecals(room, rng, interiorWallTiles, theme.decalWeights));

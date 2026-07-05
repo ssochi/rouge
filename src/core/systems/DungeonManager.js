@@ -131,13 +131,23 @@ export class DungeonManager {
             }
         }
 
-        // Check if active rooms are cleared
+        // Check if active rooms are cleared（支持遭遇战多波次）
         for (const [, rs] of this.rooms) {
-            if (rs.state === 'active') {
-                this._cleanDeadEnemies(rs);
-                if (rs.enemies.size === 0) {
-                    this.clearRoom(rs);
+            if (rs.state !== 'active') continue;
+            this._cleanDeadEnemies(rs);
+            if (rs.enemies.size > 0) continue;
+
+            if (rs.waveTelegraphTimer > 0) {
+                // 下一波预警中：计时结束后刷新
+                rs.waveTelegraphTimer--;
+                if (rs.waveTelegraphTimer === 0) {
+                    const wave = rs.pendingWaves.shift();
+                    this._spawnEncounterWave(rs, wave, getFloorConfig(this.currentFloor));
                 }
+            } else if (Array.isArray(rs.pendingWaves) && rs.pendingWaves.length > 0) {
+                rs.waveTelegraphTimer = 50; // ~0.83s 出怪点预警（Renderer 画收缩圈）
+            } else {
+                this.clearRoom(rs);
             }
         }
 
@@ -225,8 +235,15 @@ export class DungeonManager {
         const floorConfig = getFloorConfig(this.currentFloor);
 
         // 遭遇战房：按模板出怪点 + 角色映射生成（掩体/地形已在生成时落位）
+        // 第一波立即刷新，后续波存入 pendingWaves（首波全灭后预警刷新）
         if (Array.isArray(room.encounterSpawns) && room.encounterSpawns.length > 0) {
-            this._spawnEncounterEnemies(room, floorConfig);
+            const firstWave = room.encounterSpawns.filter(s => !s.wave);
+            const laterWaves = [];
+            const wave1 = room.encounterSpawns.filter(s => s.wave === 1);
+            if (wave1.length > 0) laterWaves.push(wave1);
+            room.pendingWaves = laterWaves;
+            room.waveTelegraphTimer = 0;
+            this._spawnEncounterWave(room, firstWave.length > 0 ? firstWave : room.encounterSpawns, floorConfig);
             return;
         }
 
@@ -264,14 +281,36 @@ export class DungeonManager {
     }
 
     /**
-     * 遭遇战房出怪：逐出怪点按角色映射抽敌人类型，点位被占时向邻格退让；
+     * 波次预警数据（Renderer 画出怪点收缩圈）。
+     * @returns {Array<{x: number, y: number, progress: number}>} 世界像素坐标
+     */
+    getWaveTelegraphs() {
+        const out = [];
+        for (const [, rs] of this.rooms) {
+            if (rs.state !== 'active' || !rs.waveTelegraphTimer || rs.waveTelegraphTimer <= 0) continue;
+            const nextWave = rs.pendingWaves && rs.pendingWaves[0];
+            if (!nextWave) continue;
+            const progress = 1 - rs.waveTelegraphTimer / 50;
+            for (const spawn of nextWave) {
+                out.push({
+                    x: spawn.x * TILE_SIZE + TILE_SIZE / 2,
+                    y: spawn.y * TILE_SIZE + TILE_SIZE / 2,
+                    progress
+                });
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 遭遇战出怪（单波）：逐出怪点按角色映射抽敌人类型，点位被占时向邻格退让；
      * e 角色保底词缀精英，其余走常规精英概率。
      */
-    _spawnEncounterEnemies(room, floorConfig) {
+    _spawnEncounterWave(room, spawns, floorConfig) {
         const roleMap = floorConfig.roleMap || {};
         const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
 
-        for (const spawn of room.encounterSpawns) {
+        for (const spawn of spawns) {
             const pool = roleMap[spawn.role] || roleMap.m || ['zombie'];
             const type = pool[Math.floor(Math.random() * pool.length)];
 

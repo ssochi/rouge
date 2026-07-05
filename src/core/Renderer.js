@@ -230,6 +230,25 @@ export class Renderer {
         // Draw dungeon energy barrier gates
         if (this.worldSystem && this.worldSystem.dungeonManager) {
             const dm = this.worldSystem.dungeonManager;
+
+            // 波次预警：下一波出怪点地面收缩圈（画在地面层，实体之下）
+            if (dm.getWaveTelegraphs) {
+                for (const t of dm.getWaveTelegraphs()) {
+                    const radius = 16 * (1.3 - t.progress * 0.5);
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.25 + t.progress * 0.45;
+                    this.ctx.strokeStyle = '#ff5040';
+                    this.ctx.lineWidth = t.progress > 0.7 ? 2 : 1;
+                    this.ctx.beginPath();
+                    this.ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.globalAlpha = 0.1 + t.progress * 0.2;
+                    this.ctx.fillStyle = '#ff5040';
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+            }
+
             for (const gate of dm.gates) {
                 if (gate.alpha <= 0) continue;
                 const firstTile = gate.tiles[0];

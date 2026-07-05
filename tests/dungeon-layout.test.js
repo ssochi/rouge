@@ -15,8 +15,8 @@ describe('DungeonLayoutGenerator', () => {
             const layout = generateDungeonLayout(130, 130, SEED, floor);
 
             expect(layout.floor).toBe(floor);
-            expect(layout.rooms.length).toBeGreaterThanOrEqual(10);
-            expect(layout.rooms.length).toBeLessThanOrEqual(14);
+            expect(layout.rooms.length).toBeGreaterThanOrEqual(9);
+            expect(layout.rooms.length).toBeLessThanOrEqual(12);
 
             const byType = (t) => layout.rooms.filter(r => r.type === t);
             expect(byType('start').length).toBe(1);
