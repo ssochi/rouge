@@ -143,3 +143,39 @@ describe('EncounterTemplates', () => {
         }
     });
 });
+
+describe('楼层主题基建（floors 亲和 + floorType 地板覆写）', () => {
+    it('parseEncounter/placeEncounter 透传 floorType', () => {
+        const tpl = {
+            id: 'infra_probe', tier: 'shallow', weight: 1, floorType: 'WOOD',
+            rows: ['m...', '....', '...M']
+        };
+        const parsed = parseEncounter(tpl);
+        expect(parsed.floorType).toBe('WOOD');
+        const placed = placeEncounter(parsed, { x: 10, y: 10, w: 8, h: 7 });
+        expect(placed.floorType).toBe('WOOD');
+    });
+
+    it('无 floorType 的模板解析为 null（沿用楼层默认石板）', () => {
+        const parsed = parseEncounter({ id: 'plain', tier: 'shallow', weight: 1, rows: ['m..M'] });
+        expect(parsed.floorType).toBeNull();
+    });
+
+    it('floors 亲和：带标记的模板只在对应楼层出现', () => {
+        const rng = () => 0.5;
+        // 现有通用池无 floors 标记 → 任意楼层均可选出
+        expect(selectEncounter('shallow', 16, 12, rng, new Set(), 1)).not.toBeNull();
+        expect(selectEncounter('shallow', 16, 12, rng, new Set(), 3)).not.toBeNull();
+        // 带 floors 标记的模板在其它楼层不可见
+        for (const t of ENCOUNTER_TEMPLATES) {
+            if (!t.floors) continue;
+            for (const f of [1, 2, 3]) {
+                if (t.floors.includes(f)) continue;
+                for (let i = 0; i < 20; i++) {
+                    const picked = selectEncounter(t.tier, 30, 30, () => i / 20, new Set(), f);
+                    expect(picked && picked.id).not.toBe(t.id);
+                }
+            }
+        }
+    });
+});

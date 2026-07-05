@@ -734,10 +734,21 @@ export class WorldSystem {
         this.floorMap.fill(FLOOR_TYPES.NONE);
 
         const dungeonFloorType = FLOOR_TYPES[`DUNGEON_F${Math.min(floor, 3)}`] || FLOOR_TYPES.STONE;
+        // 每房间地板材质覆写（主题模板 floorType）：tileKey → FLOOR_TYPES 值
+        const floorOverrideByTile = new Map();
+        for (const o of (layout.floorOverrides || [])) {
+            const overrideType = FLOOR_TYPES[o.floorType];
+            if (overrideType === undefined) continue;
+            for (let y = o.y; y < o.y + o.h; y++) {
+                for (let x = o.x; x < o.x + o.w; x++) {
+                    floorOverrideByTile.set(`${x},${y}`, overrideType);
+                }
+            }
+        }
         for (const key of layout.floorTiles) {
             const [tx, ty] = key.split(',').map(Number);
             const isPit = layout.pitTiles && layout.pitTiles.has(key);
-            const type = isPit ? FLOOR_TYPES.PIT : dungeonFloorType;
+            const type = isPit ? FLOOR_TYPES.PIT : (floorOverrideByTile.get(key) ?? dungeonFloorType);
             for (let sy = 0; sy < S; sy++) {
                 for (let sx = 0; sx < S; sx++) {
                     const fx = tx * S + sx;

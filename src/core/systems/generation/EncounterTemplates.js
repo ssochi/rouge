@@ -15,9 +15,15 @@
 //   - 含远程（r/h）的模板掩体 ≥2（玩家有依托）
 //   - 模板放进房间后四周保留 ≥2 tile 通带（放置逻辑保证）
 
-const T = (id, tier, weight, rows, legend) => ({ id, tier, weight, rows, legend });
+import { F1_PRISON_TEMPLATES } from './encounters/f1_prison.js';
+import { F2_TEMPLE_TEMPLATES } from './encounters/f2_temple.js';
+import { F3_DEPTHS_TEMPLATES } from './encounters/f3_depths.js';
 
-export const ENCOUNTER_TEMPLATES = [
+// opts 可选：{ floors: [1], floorType: 'WOOD' } —— 楼层亲和（缺省=全楼层）与每房间地板材质
+const T = (id, tier, weight, rows, legend, opts = {}) => ({ id, tier, weight, rows, legend, ...opts });
+
+// 楼层主题模板（encounters/ 下按层拆分，故事化房间；本文件为通用池）
+const BASE_TEMPLATES = [
     // ═══════════ 浅层：热身节奏（波1 轻 3-4 → 波2 上强度 4-5） ═══════════
     // 空旷斗殴场：无家具的空房，被围攻的开阔地
     T('open_brawl', 'shallow', 0.6, [
@@ -375,6 +381,14 @@ export const ENCOUNTER_TEMPLATES = [
     ], { x: 'dungeon_rack', q: 'chair' })
 ];
 
+// 通用池 + 三层主题池（f1 监狱 / f2 圣殿 / f3 深渊实验室）
+export const ENCOUNTER_TEMPLATES = [
+    ...BASE_TEMPLATES,
+    ...F1_PRISON_TEMPLATES,
+    ...F2_TEMPLE_TEMPLATES,
+    ...F3_DEPTHS_TEMPLATES
+];
+
 /** 深度 → 模板档位（与 FloorConfigs.getDepthTier 同口径）。 */
 export function tierForDepth(depth) {
     if (depth <= 2) return 'shallow';
@@ -419,18 +433,20 @@ export function parseEncounter(template) {
         }
     }
 
-    return { id: template.id, w, h, walls, pits, covers, decors, spawns, props };
+    return { id: template.id, w, h, walls, pits, covers, decors, spawns, props, floorType: template.floorType || null };
 }
 
 /**
  * 按档位与房间内部尺寸选模板（放不下则降档，已用减权防重复）。
  * @returns 解析后的模板或 null
  */
-export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new Set()) {
+export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new Set(), floor = null) {
     let currentTier = tier;
     while (currentTier) {
         const candidates = ENCOUNTER_TEMPLATES.filter(t => {
             if (t.tier !== currentTier) return false;
+            // 楼层亲和：带 floors 标记的模板只在对应楼层出现（缺省=全楼层通用）
+            if (t.floors && floor != null && !t.floors.includes(floor)) return false;
             const th = t.rows.length;
             const tw = t.rows[0].length;
             return tw <= interiorW && th <= interiorH;
@@ -475,6 +491,7 @@ export function placeEncounter(parsed, room) {
     const shift = (p) => ({ ...p, x: p.x + offsetX, y: p.y + offsetY });
     return {
         id: parsed.id,
+        floorType: parsed.floorType || null,
         walls: parsed.walls.map(shift),
         covers: parsed.covers.map(shift),
         decors: parsed.decors.map(shift),

@@ -1156,7 +1156,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
             && room.category !== 'elite';
         if (!isCombatRoom) continue;
 
-        const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds);
+        const parsed = selectEncounter(tierForDepth(room.depth), room.w - 4, room.h - 4, rng, usedEncounterIds, floor);
         if (!parsed) continue;
         usedEncounterIds.add(parsed.id);
 
@@ -1214,12 +1214,21 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
     const interiorWallTiles = new Set();
     const pitTiles = new Set();
     const usedTemplateIds = new Set();
+    // 每房间地板材质覆写（模板 floorType 字段 → WorldSystem 铺地时应用）
+    const floorOverrides = [];
 
     for (const room of rooms) {
         // 遭遇战房（定形阶段已选定模板）：铺设墙/坑/掩体/出怪点/道具
         if (room.encounterParsed) {
             const placed = placeEncounter(room.encounterParsed, room);
             room.encounter = placed;
+            if (placed.floorType) {
+                floorOverrides.push({
+                    x: room.x + 1, y: room.y + 1,
+                    w: room.w - 2, h: room.h - 2,
+                    floorType: placed.floorType
+                });
+            }
             for (const w of placed.walls) {
                 const key = tileKey(w.x, w.y);
                 interiorWallTiles.add(key);
@@ -1357,6 +1366,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         wallTiles,
         floorTiles,
         pitTiles,
+        floorOverrides,
         coverObjects,
         decorObjects,
         lightObjects,
