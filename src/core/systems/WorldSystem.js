@@ -749,7 +749,10 @@ export class WorldSystem {
         this.dungeonTheme = getDungeonTheme(floor);
 
         // Generate dungeon layout
-        const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), dungeonSeed, floor);
+        // [room-v2:p3] 默认走连接算法 V2（图优先拓扑 + 宏观网格嵌入）；?layout=v1 回退旧 BSP 算法调试对照。
+        const layoutAlgorithm = (typeof window !== 'undefined'
+            && new URLSearchParams(window.location.search).get('layout') === 'v1') ? 'v1' : 'v2';
+        const layout = generateDungeonLayout(this.getWorldTileWidth(), this.getWorldTileHeight(), dungeonSeed, floor, { algorithm: layoutAlgorithm });
 
         // Boundary walls
         this.addBoundaryWalls();

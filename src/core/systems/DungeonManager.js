@@ -86,6 +86,9 @@ export class DungeonManager {
         this.currentRoomId = layout.startRoomId;
         this.prevRoomId = null;
 
+        // [room-v2:p3] 连接算法 V2 与 v1 共用同一 layout 契约（graph.nodes/edges 为房间 id 图，
+        // corridors[].connectsRooms/tiles 口径不变）——V2 的 edges 可能含 1 条 loop 捷径边，
+        // 状态机/封门/波次/小地图折线全部无感消费，无需按算法分支。
         this.graphNodesById = new Map((layout.graph?.nodes || []).map(node => [node.id, node]));
         this.graphEdges = Array.isArray(layout.graph?.edges) && layout.graph.edges.length > 0
             ? layout.graph.edges

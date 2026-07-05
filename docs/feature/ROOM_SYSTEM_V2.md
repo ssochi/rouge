@@ -5,6 +5,8 @@
 > **P1 已交付（2026-07-06）**：`generation/rooms/RoomPlan.js`（IR + `createRoomPlan`/`validateRoomPlan`/`checkConnectivity`）+ `generation/rooms/EncounterAdapter.js`（`encounterToRoomPlan` 字符模板适配器 + `roomPlanToParsed` 旧口径视图）；`selectEncounter` 返回 RoomPlan、`placeEncounter` 只吃 RoomPlan、`parseEncounter` 降级为兼容视图（`[room-v2:p1]` 锚点）。零观感/零行为变化，三重验证守护（黄金测试 70/70 + placeEncounter 字节等价 + 全楼层 SHA-256 指纹一致，seed 7/42 × floor 1/2/3）。详见本文档末「P1 交付记录」。
 >
 > **P2 已交付（2026-07-06）**：`generation/rooms/RoomBuilder.js`（PixelDraw 式链式构建器 `defineRoom` + shape/floor/objects/spawns/pits 工具集 + mirror/rot4 对称 + 归一化坐标 + 种子变体）+ 5 个示范房 `generation/encounters/v2_showcase.js`（圆形大厅/放射八向柱阵/参数化柱廊/同心环回廊/渐变污渍大厅，全字符画做不出的形态）；代码模板与字符模板同池选中（`SELECTABLE_TEMPLATES` + `selectEncounterById`），逐格地板层经 `placeEncounter.floorCells` → 1×1 `floorOverrides` 落地渲染（`[room-v2:p2]` 锚点）。测试 `tests/room-builder.test.js`（40 例）；全量 508 + build 全绿；5 房实机截图双种子对比通过。详见本文档末「P2 交付记录」。
+>
+> **P3 已交付（2026-07-06）**：连接算法重做——`generation/rooms/FloorTopology.js`（图优先拓扑规划 + 宏观网格嵌入）+ `DungeonLayoutGenerator.js` 拆分为 v1/v2 双路径（共用 `selectAndShrinkEncounters`/`finalizeLayout` 收尾，下游契约字段零变）。默认 V2：先规划有意图的图（主干 spine + 宝藏/商店/精英支线 + 至多 1 条捷径环，三动词保底），再嵌入 24×20 cell 网格（自避行走蛇形推进 + 支线垂直外挂），门开在共享格边重叠中点、走廊恒为 3 宽短直段（`[room-v2:p3]` 锚点）。`?layout=v1` 回退旧 BSP 算法，V2 放不下自动降级 v1（实测 600 布局 0 降级）。测试 `tests/dungeon-topology.test.js`（10 例，24 seed×3 层不变量）；全量 518 + build 全绿；3 seed 大地图 + 走廊实景 + v1 对照实机截图通过。详见本文档末「P3 交付记录」。
 > 背景：用户提出两点架构诉求——①房间设计从字符画转向"像素化分层+代码构建"（类比 PixelDraw：每个 tile 是一个像素，分地板/物件/出怪多层，形状任意自定义）；②连接算法重做（现状被评"没有逻辑，瞎连的"——属实，见下文诊断）。
 
 ## 0. 现状诊断
@@ -192,3 +194,66 @@ defineRoom('f1_arrow_court', { tier: 'mid', floors: [1], weight: 1.5 }, (R) => {
 - `rot4` 要求方形栅格；矩形房只能用 `mirrorX/mirrorY`。
 - 逐格地板层走 1×1 floorOverrides，单房上百格时会产上百条覆写记录（一次性生成开销，无运行时负担）；若后续大批量代码房上线可考虑批量矩形合并。
 - 环形/柱阵类房的「物件成环」不影响 `validateRoomPlan` 的 mask 连通性（物件非 mask），但会形成游戏内障碍——务必用 `skip` 留缺口保证可穿行（示范房已遵循）。
+
+## 6. P3 交付记录（2026-07-06）—— 连接算法 V2
+
+**病根 → 药方**：旧算法 BSP 撒房 → MST + 随机环边 → 事后 BFS 深度贴房型（§0 诊断：拓扑无意图、门位无纪律、环边随机）。V2 反转顺序——**先规划有意图的图，再落空间**。
+
+### 6.1 拓扑规划器（`generation/rooms/FloorTopology.js`）
+
+两步：`planTopologyGraph`（抽象图，不含坐标）→ `embedTopology`（嵌入 cols×rows cell 网格）；`planFloorTopology` 组合入口，放不下返回 null。
+
+**主干 spine**：`start → S 个战斗/动词房 → Boss 前厅 → Boss`。房型（category）在规划期直接指定（不再事后贴标签）；三动词房（survival/hunt/pact）洗牌取前 3 间战斗房轮转保底，**每层各 ≥1**。
+
+**支线 branch**（各垂直外挂于指定深度的主干战斗节点，1 房）：
+
+| 支线 | 锚点深度（占主干战斗段 S） | category |
+|---|---|---|
+| 宝藏 treasure | ~40%（`round(0.4·S)`） | treasure（安全区，不刷怪） |
+| 商店 shop | ~60%（`round(0.6·S)`，严格深于宝藏） | shop（安全区） |
+| 精英 elite | 随机 55%~85% | elite（固定精锐编成） |
+
+**环 loop**（至多 1 条，`loopChance=0.75`）：只在主干战斗节点间找**相邻格且 spineIndex 间隔 ≥3** 的一对，取间隔最大者连边——「深处 → 前段」的捷径。**永不含 Boss 前厅 / Boss / 起点**。
+
+**楼层参数表**（`topologyConfigForFloor`）：
+
+| 楼层 | spineCombat（战斗/动词房数） | 总房数 = start+S+前厅+Boss+宝藏/商店/精英 |
+|---|---|---|
+| F1 | [4, 4] | 10 |
+| F2 | [4, 5] | 10~11 |
+| F3 | [4, 5] | 10~11 |
+
+### 6.2 宏观网格嵌入与开门纪律
+
+- **cell = 24×20 tile**（`gridCellW/H`）。单元尺寸研究：最大遭遇战模板 16×12 → 房 20×16（+4 通带）→ cell 需 ≥24×20；Boss（≤22）亦落单格，故**本期全节点 1×1**（多格 2×1/2×2 在当前尺寸区间无必要，列为后续）。130×130 地图切出 **4 列 × 5 行**，网格居中。
+- **spine 自避行走**：起点靠随机一角，直行偏置 + 前瞻优选开阔落点 → 长可读主干段并给支线留位。窄网格偶会自锁，故 `embedTopology` 内部重试 40 次（每次 rng 前进）→ 实测单层可嵌入率 100%。
+- **支线垂直外挂**：落在锚点垂直于主干走向的空邻格（无垂直空位再退任意空位）。
+- **房间物化**（`materializeRoomsFromTopology`）：每房居中于其 cell + 有机抖动（`gridJitter=2`），clamp 保证四周 ≥1 tile（相邻房 gap ≥2、门位重叠充足）。战斗房先给 cell 最大再由 `selectAndShrinkEncounters` 收缩到模板尺寸；功能房（start/boss/treasure/shop/elite/pact）固定尺寸。
+- **开门纪律**（`straightCorridorTiles`）：门开在共享格边两房投影重叠段中点（`RoomPlan.doorSlots` 有值时优先消费，offset∈[0,1] 归一化——现有模板均未标注，为规范预留口）；走廊 = 门宽 3 × 间隙长的**实心直段**，各走廊独占其相邻格间隙 → **永不斜穿、永不交叉**。重叠不足返回 null 触发重试。
+
+### 6.3 双路径与下游兼容
+
+- `DungeonLayoutGenerator.js` 拆为 `generateDungeonLayoutAttemptV1`（旧 BSP，原样保留）/ `generateDungeonLayoutAttemptV2`（新），**共用** `selectAndShrinkEncounters`（遭遇战定形）与 `finalizeLayout`（走廊质量闸 → 地板/门/墙 → 遭遇战放置/模板墙 → 掩体/装饰/光源/贴花/编成 → 小地图图 → 返回）。收尾函数逐字提取旧尾段，rng 消费顺序不变 → v1 路径行为等价。
+- `generateDungeonLayout(w, h, seed, floor, { algorithm })`：默认 v2；`algorithm:'v1'` 或 v2 失败时回退 v1（`console.warn('[room-v2:p3] ... 降级 v1')`）。**返回结构字段口径完全不变**（rooms/corridors/gates/graph/floorOverrides/decals/lightObjects…）。
+- 下游适配点（全部无感或注释级）：
+  - `WorldSystem.initDungeonMap`：读 `?layout=v1` → 传 `{algorithm}`（`[room-v2:p3]` 锚点）。
+  - `DungeonManager` 构造：graph.nodes/edges + corridors 口径不变，V2 的 edges 多含 1 条 loop 边，状态机/封门/波次/小地图折线全部无感消费（`[room-v2:p3]` 注释锚点，**无逻辑改动**）。
+  - `Renderer` 小地图折线（`getMinimapData().edges[].path`）、门口预告（`getDoorPreviews`）：消费同一契约，V2 房间格对齐后折线天然更短更直，**零改动**。
+
+### 6.4 不变量测试（`tests/dungeon-topology.test.js`，24 seed × 3 层）
+
+抽象拓扑层：① 每层恰好 1 start/boss/前厅/宝藏/商店/精英；② 主干长度在楼层配置区间、start=spineIndex0、Boss 最深；③ 三动词各 ≥1 且落主干战斗节点（非前厅）；④ 宝藏深度带 < 商店深度带；⑤ 至多 1 环、两端为战斗节点且间隔 ≥loopMinGap（不穿前厅/Boss/起点）；⑥ 嵌入合法（cell 不重叠、每边相邻格、全图连通）。
+
+整层布局：⑦ 走廊为轴对齐实心短直矩形（短边 ≤3）、互不交叉、不穿房间；⑧ 每走廊贴其两端房间（门在共享边）、门 tile 恒为可通行地板；⑨ 房间图 BFS 全连通；⑩ `?layout=v1` 回退仍产健全布局。
+
+### 6.5 改动文件清单
+
+- 新增：`generation/rooms/FloorTopology.js`、`tests/dungeon-topology.test.js`。
+- 改动：`DungeonLayoutGenerator.js`（v1/v2 拆分 + 共用收尾 + 网格嵌入 + 直走廊 + 算法选项/降级）、`WorldSystem.js`（`?layout=v1` 接线）、`DungeonManager.js`（`[room-v2:p3]` 兼容注释）、`tests/dungeon-layout.test.js`（房数区间改 9~12，说明见 6.6）。
+- 文档：本文档 §6 + `TECH_OVERVIEW.md`。
+
+### 6.6 验证与已知限制
+
+- 全量测试 **518 通过**（P2 后 508 + 新增 10）；`npm run build` 通过。600 布局（seed 1~200 × F1/2/3）实测 **100% 走 V2、0 次降级**，房数分布 10:396 / 11:204。
+- `tests/dungeon-layout.test.js` 房数断言由旧 `8~10` 改为 `9~12`：旧区间是 BSP 撒房叶子数的实现副产物；V2 房数是「起点+4~5 战斗+前厅+Boss+宝藏/商店/精英」的**有意图房数**（10~11）。其余断言（1 start/boss、各 1 宝藏/精英/商店、安全区不刷怪、门 tile 可通行、火把/装饰/贴花/Boss 顺序、同种子可复现）**语义不变、全部保留通过** → 证明共用收尾等价。
+- **已知限制**：① 本期全节点 1×1，多格 Boss/大战斗房（2×1/2×2）未实现（当前尺寸区间无必要，列为后续）；② `doorSlots` 消费口已实现但现有模板均未标注（恒走重叠中点）；③ 4 列窄网格下主干偶呈中心 hub 状（非纯线性 spine），仍清晰可读；④ v2 失败降级 v1 为保底路径（实测触发率 0，长期共存一版本期）。

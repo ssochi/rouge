@@ -15,8 +15,10 @@ describe('DungeonLayoutGenerator', () => {
             const layout = generateDungeonLayout(130, 130, SEED, floor);
 
             expect(layout.floor).toBe(floor);
-            expect(layout.rooms.length).toBeGreaterThanOrEqual(8);
-            expect(layout.rooms.length).toBeLessThanOrEqual(10);
+            // [room-v2:p3] 连接 V2 拓扑房数 = start + 4~5 战斗 + 前厅 + Boss + 宝藏/商店/精英 = 10~11
+            // （旧 BSP 的 8~10 是撒房叶子数的实现副产物，已随图优先拓扑改为有意图的房数）。
+            expect(layout.rooms.length).toBeGreaterThanOrEqual(9);
+            expect(layout.rooms.length).toBeLessThanOrEqual(12);
 
             const byType = (t) => layout.rooms.filter(r => r.type === t);
             expect(byType('start').length).toBe(1);

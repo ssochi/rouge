@@ -3,6 +3,8 @@ import { applyTemplate } from './RoomInteriorTemplates.js';
 import { selectEncounter, placeEncounter, tierForDepth } from './EncounterTemplates.js';
 import { getDungeonTheme } from '../../dungeon/DungeonThemes.js';
 import { getFloorConfig, getDepthTier } from '../../dungeon/FloorConfigs.js';
+// [room-v2:p3] 连接算法 V2：图优先拓扑 + 宏观网格嵌入（默认路径；?layout=v1 回退旧 BSP 算法）。
+import { planFloorTopology } from './rooms/FloorTopology.js';
 
 /**
  * Compact dungeon layout generator.
@@ -39,7 +41,16 @@ const DUNGEON_CONFIG = {
     // Generation quality gates.
     maxGenerationAttempts: 8,
     maxCorridorLenHard: 130,
-    maxCorridorAvg: 65
+    maxCorridorAvg: 65,
+
+    // [room-v2:p3] 宏观网格嵌入参数：cell = 24×20 tile（含房间 + 走廊余量）。
+    // 单元尺寸研究：最大遭遇战模板 16×12 → 房 20×16（+4 通带）→ cell 需 ≥ 24×20；
+    // Boss（≤22）亦落单格，故本期全节点 1×1（多格 2×1/2×2 在当前尺寸区间无必要，列为后续）。
+    gridCellW: 24,
+    gridCellH: 20,
+    gridRoomMargin: 1,   // 房在 cell 内四周至少留 1 tile（保证相邻房 gap ≥2、走廊短直）
+    gridJitter: 2,       // 房在 cell 内的有机抖动幅度（clamp 保证邻接不变、门位重叠充足）
+    doorWidth: 3         // 门 / 走廊宽（共享边重叠不足时收窄至 ≥2）
 };
 
 function createRng(seed) {
@@ -1074,7 +1085,7 @@ function computeCorridorMetrics(corridors) {
     };
 }
 
-function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
+function generateDungeonLayoutAttemptV1(mapWidth, mapHeight, rng, floor, cfg) {
     const theme = getDungeonTheme(floor);
     const bounds = computeDungeonBounds(mapWidth, mapHeight, cfg);
 
@@ -1175,6 +1186,22 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
     assignRoomCategories(rooms, depths, startIdx, bossIdx, rng);
 
+    selectAndShrinkEncounters(rooms, rng, floor);
+
+    const { corridors, allCorridorTiles } = buildCorridorsV1(rooms, graphEdges, cfg, rng);
+
+    return finalizeLayout({
+        rooms, graphEdges, corridors, allCorridorTiles,
+        startIdx, bossIdx, bounds, floor, theme, cfg, rng
+    });
+}
+
+/**
+ * [room-v2:p3] 遭遇战定形（v1/v2 共用）：把战斗房收缩到所选模板尺寸 + 2 tile 通带，房心不变。
+ * category/type 已由前置阶段（v1 assignRoomCategories / v2 拓扑规划）定好，此处只按 isCombatRoom
+ * 选模板并写 room.encounterParsed。契约房用空旷布景，不套遭遇战模板。
+ */
+function selectAndShrinkEncounters(rooms, rng, floor) {
     // ── 战斗房定形（Gungeon 式：房间尺寸=模板尺寸+2 tile 通带） ──
     // 在走廊/门/地板生成之前收缩房间到所选模板大小（房心保持），
     // 根治「随机大矩形里居中放小模板」造成的四周空旷带。
@@ -1203,7 +1230,12 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         room.h = newH;
         room.encounterParsed = plan;
     }
+}
 
+/**
+ * [room-v2:p3] v1 走廊：房心最近边点 + L 形肘线（保留旧几何，供 ?layout=v1 回退）。
+ */
+function buildCorridorsV1(rooms, graphEdges, cfg, rng) {
     const allCorridorTiles = new Set();
     const corridors = [];
 
@@ -1222,6 +1254,18 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
 
         for (const t of tiles) allCorridorTiles.add(t);
     }
+
+    return { corridors, allCorridorTiles };
+}
+
+/**
+ * [room-v2:p3] 布局收尾（v1/v2 共用）：走廊质量闸 → 地板/门/墙 → 遭遇战放置/模板墙 →
+ * 掩体/装饰/光源/贴花/编成 → 小地图图 → 返回完整 layout（下游契约字段不变）。
+ * rng 消费顺序与旧实现逐字一致（走廊在各自 attempt 内先消费，进入本函数后依次消费
+ * applyTemplate → 掩体/装饰/贴花），故 v1 路径行为等价。
+ */
+function finalizeLayout(ctx) {
+    const { rooms, graphEdges, corridors, allCorridorTiles, startIdx, bossIdx, bounds, floor, theme, cfg, rng } = ctx;
 
     const corridorMetrics = computeCorridorMetrics(corridors);
     if (corridorMetrics.max > cfg.maxCorridorLenHard || corridorMetrics.avg > cfg.maxCorridorAvg) {
@@ -1422,30 +1466,262 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
     };
 }
 
+// ───────────────────────── [room-v2:p3] 连接算法 V2 ─────────────────────────
+
 /**
- * Main dungeon generation function.
- * @param {number} mapWidth - Map width in tiles
- * @param {number} mapHeight - Map height in tiles
- * @param {number} [seed] - Optional random seed
- * @param {number} [floor=1] - Dungeon floor (1-3)
- * @returns {Object} Dungeon layout
+ * [room-v2:p3] 网格规格：从工作区 bounds 切出 cols×rows 的 cell 网格并居中放置。
  */
-export function generateDungeonLayout(mapWidth, mapHeight, seed, floor = 1) {
-    const cfg = DUNGEON_CONFIG;
-    const baseSeed = (seed || (Date.now() & 0xFFFFFFFF)) | 0;
+function computeGridSpec(bounds, cfg) {
+    const availW = bounds.w - cfg.mapPadding * 2;
+    const availH = bounds.h - cfg.mapPadding * 2;
+    const cols = Math.max(3, Math.floor(availW / cfg.gridCellW));
+    const rows = Math.max(3, Math.floor(availH / cfg.gridCellH));
+    const gridW = cols * cfg.gridCellW;
+    const gridH = rows * cfg.gridCellH;
+    return {
+        cols, rows,
+        w: cfg.gridCellW, h: cfg.gridCellH,
+        originX: bounds.x + cfg.mapPadding + Math.floor((availW - gridW) / 2),
+        originY: bounds.y + cfg.mapPadding + Math.floor((availH - gridH) / 2),
+        roomMargin: cfg.gridRoomMargin,
+        jitter: cfg.gridJitter
+    };
+}
 
+/**
+ * [room-v2:p3] 按拓扑角色定房间尺寸（受 cell 上限约束）。
+ * 战斗/前厅/生存/猎杀房先给 cell 最大（供选大模板），随后 selectAndShrinkEncounters 收缩到模板；
+ * 其余角色为固定尺寸功能房；契约房固定中等（不套模板）。
+ */
+function roomSizeForRole(node, cell, rng) {
+    const maxW = cell.w - cell.roomMargin * 2;
+    const maxH = cell.h - cell.roomMargin * 2;
+    const fit = (w, h) => ({ rw: Math.min(w, maxW), rh: Math.min(h, maxH) });
+
+    switch (node.role) {
+        case 'start':
+            return fit(randomInt(rng, 11, 13), randomInt(rng, 10, 12));
+        case 'boss':
+            return { rw: maxW, rh: maxH }; // 填满单元 → 大型 Boss 竞技场
+        case 'treasure':
+            return fit(randomInt(rng, 14, 17), randomInt(rng, 12, 14));
+        case 'shop':
+            return fit(randomInt(rng, 15, 18), randomInt(rng, 12, 14));
+        case 'elite':
+            return fit(randomInt(rng, 16, 19), randomInt(rng, 13, 15));
+        default:
+            // combat / antechamber：契约房固定中等，其余（含 survival/hunt）给最大待收缩。
+            if (node.category === 'pact') return fit(randomInt(rng, 15, 18), randomInt(rng, 12, 14));
+            return { rw: maxW, rh: maxH };
+    }
+}
+
+function clampVal(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/**
+ * [room-v2:p3] 由已嵌入 cell 的拓扑节点物化房间矩形：每房居中于其 cell + 有机抖动，
+ * clamp 保证四周 ≥roomMargin（相邻房 gap ≥2、门位重叠充足）。
+ */
+function materializeRoomsFromTopology(topo, cell, rng) {
+    const rooms = new Array(topo.nodes.length);
+    for (const node of topo.nodes) {
+        const { col, row } = node.cell;
+        const cellX = cell.originX + col * cell.w;
+        const cellY = cell.originY + row * cell.h;
+        const { rw, rh } = roomSizeForRole(node, cell, rng);
+        const m = cell.roomMargin;
+        const baseX = cellX + Math.floor((cell.w - rw) / 2);
+        const baseY = cellY + Math.floor((cell.h - rh) / 2);
+        const x = clampVal(baseX + randomInt(rng, -cell.jitter, cell.jitter), cellX + m, cellX + cell.w - m - rw);
+        const y = clampVal(baseY + randomInt(rng, -cell.jitter, cell.jitter), cellY + m, cellY + cell.h - m - rh);
+        rooms[node.id] = {
+            x, y, w: rw, h: rh,
+            id: `dungeon_room_${node.id}`,
+            type: node.type,
+            category: node.category,
+            connectedTo: []
+        };
+    }
+    return rooms;
+}
+
+/**
+ * [room-v2:p3] 读遭遇战模板 doorSlots 建议门位（RoomBuilder R.door(side,offset)，offset∈[0,1]）。
+ * 现有模板均未标注 → 恒返回 null（走共享边重叠中点）；此为规范预留消费口。
+ */
+function doorSlotOffset(room, side) {
+    const slots = room && room.encounterParsed && room.encounterParsed.doorSlots;
+    if (!slots || slots.length === 0) return null;
+    const hit = slots.find(s => s.side === side);
+    return hit ? clampVal(hit.offset, 0, 1) : null;
+}
+
+/** [room-v2:p3] 门在共享重叠段 [lo,hi] 内的起始坐标：默认取中点；有 doorSlot 则按归一化偏移。 */
+function doorStart(lo, hi, width, slotOffset) {
+    const span = hi - lo + 1;
+    const start = (slotOffset != null)
+        ? lo + Math.round(slotOffset * (span - width))
+        : lo + Math.floor((span - width) / 2);
+    return clampVal(start, lo, hi - width + 1);
+}
+
+/**
+ * [room-v2:p3] 相邻格两房的短直走廊 tile：门开在共享格边两房投影重叠段中点（doorSlots 优先），
+ * 走廊 = 门宽 × 间隙长的直段，永不斜穿、永不交叉（各走廊独占其相邻格间隙）。
+ * 重叠不足返回 null（触发重试）。
+ */
+function straightCorridorTiles(A, B, cellA, cellB, cfg) {
+    const dCol = cellB.col - cellA.col;
+    const dRow = cellB.row - cellA.row;
+
+    if (dRow === 0 && Math.abs(dCol) === 1) {
+        const left = dCol > 0 ? A : B;
+        const right = dCol > 0 ? B : A;
+        const gapStart = left.x + left.w;
+        const gapEnd = right.x - 1;
+        if (gapStart > gapEnd) return null;
+        const top = Math.max(left.y, right.y);
+        const bot = Math.min(left.y + left.h, right.y + right.h) - 1;
+        if (bot - top + 1 < 2) return null;
+        const width = Math.min(cfg.doorWidth, bot - top + 1);
+        const slot = doorSlotOffset(left, 'E') ?? doorSlotOffset(right, 'W');
+        const dy0 = doorStart(top, bot, width, slot);
+        const tiles = new Set();
+        for (let x = gapStart; x <= gapEnd; x++) {
+            for (let dy = 0; dy < width; dy++) tiles.add(tileKey(x, dy0 + dy));
+        }
+        return tiles;
+    }
+
+    if (dCol === 0 && Math.abs(dRow) === 1) {
+        const up = dRow > 0 ? A : B;
+        const down = dRow > 0 ? B : A;
+        const gapStart = up.y + up.h;
+        const gapEnd = down.y - 1;
+        if (gapStart > gapEnd) return null;
+        const lft = Math.max(up.x, down.x);
+        const rgt = Math.min(up.x + up.w, down.x + down.w) - 1;
+        if (rgt - lft + 1 < 2) return null;
+        const width = Math.min(cfg.doorWidth, rgt - lft + 1);
+        const slot = doorSlotOffset(up, 'S') ?? doorSlotOffset(down, 'N');
+        const dx0 = doorStart(lft, rgt, width, slot);
+        const tiles = new Set();
+        for (let y = gapStart; y <= gapEnd; y++) {
+            for (let dx = 0; dx < width; dx++) tiles.add(tileKey(dx0 + dx, y));
+        }
+        return tiles;
+    }
+
+    return null; // 非相邻格（不应出现）
+}
+
+/**
+ * [room-v2:p3] v2 走廊：按拓扑图边逐一在相邻格间隙落短直走廊（开门纪律）。
+ */
+function buildCorridorsV2(rooms, graphEdges, nodes, cell, cfg) {
+    const allCorridorTiles = new Set();
+    const corridors = [];
+    for (const edge of graphEdges) {
+        const A = rooms[edge.a];
+        const B = rooms[edge.b];
+        const tiles = straightCorridorTiles(A, B, nodes[edge.a].cell, nodes[edge.b].cell, cfg);
+        if (!tiles || tiles.size === 0) {
+            throw new Error(`room-v2:p3 走廊落位失败（门位重叠不足）: ${A.id}<->${B.id}`);
+        }
+        const tileArray = [...tiles].map(k => {
+            const [x, y] = k.split(',').map(Number);
+            return { x, y };
+        });
+        corridors.push({
+            id: `corridor_${corridors.length}`,
+            tiles: tileArray,
+            connectsRooms: [A.id, B.id]
+        });
+        for (const t of tiles) allCorridorTiles.add(t);
+    }
+    return { corridors, allCorridorTiles };
+}
+
+/**
+ * [room-v2:p3] V2 单次尝试：图优先拓扑 + 宏观网格嵌入 + 开门纪律，复用共用收尾。
+ */
+function generateDungeonLayoutAttemptV2(mapWidth, mapHeight, rng, floor, cfg) {
+    const theme = getDungeonTheme(floor);
+    const bounds = computeDungeonBounds(mapWidth, mapHeight, cfg);
+    const cell = computeGridSpec(bounds, cfg);
+
+    const topo = planFloorTopology(rng, floor, cell.cols, cell.rows);
+    if (!topo) throw new Error('room-v2:p3 拓扑嵌入失败（网格放不下）');
+
+    const rooms = materializeRoomsFromTopology(topo, cell, rng);
+
+    const graphEdges = topo.edges.map(e => ({ a: e.a, b: e.b }));
+    for (const room of rooms) room.connectedTo = [];
+    for (const e of graphEdges) {
+        rooms[e.a].connectedTo.push(rooms[e.b].id);
+        rooms[e.b].connectedTo.push(rooms[e.a].id);
+    }
+
+    const startIdx = topo.startId;
+    const bossIdx = topo.bossId;
+
+    // 深度：BFS from start（含 loop 捷径）→ 敌人档位（category 已在拓扑期定，此处不再事后贴标签）
+    const { depths } = computeDepths(rooms, graphEdges, startIdx);
+    for (let i = 0; i < rooms.length; i++) rooms[i].depth = depths[i];
+
+    selectAndShrinkEncounters(rooms, rng, floor);
+
+    const { corridors, allCorridorTiles } = buildCorridorsV2(rooms, graphEdges, topo.nodes, cell, cfg);
+
+    return finalizeLayout({
+        rooms, graphEdges, corridors, allCorridorTiles,
+        startIdx, bossIdx, bounds, floor, theme, cfg, rng
+    });
+}
+
+/**
+ * [room-v2:p3] 多次尝试跑一个 attempt 函数（换种子重试），全失败抛最后错误。
+ */
+function runAttempts(attemptFn, mapWidth, mapHeight, baseSeed, floor, cfg) {
     let lastErr = null;
-
     for (let attempt = 0; attempt < cfg.maxGenerationAttempts; attempt++) {
         const attemptSeed = (baseSeed + attempt * 0x9E3779B9) | 0;
         const rng = createRng(attemptSeed);
-
         try {
-            return generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg);
+            return attemptFn(mapWidth, mapHeight, rng, floor, cfg);
         } catch (err) {
             lastErr = err;
         }
     }
+    throw lastErr || new Error('unknown generation error');
+}
 
-    throw new Error(`Dungeon generation failed after ${cfg.maxGenerationAttempts} attempts: ${lastErr?.message || 'unknown error'}`);
+/**
+ * Main dungeon generation function.
+ * [room-v2:p3] 默认走 V2（图优先拓扑 + 网格嵌入）；options.algorithm==='v1' 或 V2 失败时回退旧 BSP。
+ * @param {number} mapWidth - Map width in tiles
+ * @param {number} mapHeight - Map height in tiles
+ * @param {number} [seed] - Optional random seed
+ * @param {number} [floor=1] - Dungeon floor (1-3)
+ * @param {{algorithm?: 'v1'|'v2'}} [options] - 连接算法选择（缺省 v2）
+ * @returns {Object} Dungeon layout
+ */
+export function generateDungeonLayout(mapWidth, mapHeight, seed, floor = 1, options = {}) {
+    const cfg = DUNGEON_CONFIG;
+    const baseSeed = (seed || (Date.now() & 0xFFFFFFFF)) | 0;
+    const algorithm = options.algorithm === 'v1' ? 'v1' : 'v2';
+
+    if (algorithm === 'v1') {
+        return runAttempts(generateDungeonLayoutAttemptV1, mapWidth, mapHeight, baseSeed, floor, cfg);
+    }
+
+    try {
+        return runAttempts(generateDungeonLayoutAttemptV2, mapWidth, mapHeight, baseSeed, floor, cfg);
+    } catch (err) {
+        // 放不下自动降级 v1（保底可玩）
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn(`[room-v2:p3] V2 布局生成失败，降级 v1：${err?.message || 'unknown'}`);
+        }
+        return runAttempts(generateDungeonLayoutAttemptV1, mapWidth, mapHeight, baseSeed, floor, cfg);
+    }
 }
