@@ -17,6 +17,8 @@ const STICK_MAX = 52;        // 左摇杆最大位移半径（px）
 const MOVE_DEADZONE = 0.16;  // 左摇杆移动死区（占最大半径比例）
 const DRIVE_THRESHOLD = 0.35; // 驾驶态摇杆分量→WASD 置位阈值（每轴独立，支持斜推=油门+转向）
 const AIM_FALLBACK_RANGE = 450; // 无相机信息时的自动瞄准半径（世界像素）
+const TAP_MOVE_TOL = 10;      // 触屏桥：位移小于此值判定为 tap（补发 click）；大于则为拖拽
+const LONG_PRESS_MS = 450;    // 触屏桥：长按阈值（不移动且超时→合成右键）
 
 export class MobileControls {
     constructor({ input, player, camera, canvas }) {
@@ -62,6 +64,15 @@ export class MobileControls {
         /* 金币/钥匙 HUD 移到左上角（让出右侧给动作按钮），行改为左对齐 */
         #dungeon-hud { top: 92px !important; left: 10px !important; right: auto !important; }
         #dungeon-hud > div { justify-content: flex-start !important; max-width: 150px; }
+        /* 弹窗面板（快捷栏菜单/背包）在小屏可能超高：限高 + 内部竖向滚动，
+           保证内容可触达。touch-action:pan-y + 桥的滚动让位配合使用。 */
+        .shortcut-menu-window, .inventory-window {
+            max-height: 92vh; overflow-y: auto; overflow-x: hidden;
+            touch-action: pan-y; -webkit-overflow-scrolling: touch;
+        }
+        /* 键位说明子面板：小屏限高使整窗不溢出视口；BACK 键 sticky 常驻底部保证可触达。 */
+        .keybind-list { max-height: 46vh !important; touch-action: pan-y; }
+        .shortcut-menu-back-btn { position: sticky; bottom: 0; background: var(--ui-bg-color); z-index: 1; }
 
         #mobile-controls {
             position: fixed; inset: 0; z-index: 10;
@@ -131,6 +142,16 @@ export class MobileControls {
         .mc-btn-sm { width: 48px; height: 48px; }
         .mc-btn-sm .mc-btn-glyph { font-size: 16px; }
         .mc-btn-sm .mc-btn-label { font-size: 8px; margin-top: 1px; }
+
+        /* pixelOS（电脑）移动端关闭钮：桌面靠 ESC，触屏补一个可点关闭钮，仅移动模式显示。 */
+        .pixel-os-close-btn {
+            display: flex !important; position: fixed; top: 12px; right: 12px; z-index: 100;
+            width: 46px; height: 46px; border-radius: 50%;
+            align-items: center; justify-content: center;
+            font-size: 22px; line-height: 1; color: #fff;
+            background: rgba(200, 40, 40, 0.9); border: 2px solid rgba(255,255,255,0.75);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.55); pointer-events: auto;
+        }
 
         /* 弹药角标：挂在「换弹」按钮右上角；桌面版右下角武器面板在移动端隐藏 */
         .weapon-panel { display: none !important; }
@@ -348,21 +369,24 @@ export class MobileControls {
     }
 
     // ---------- 触屏→鼠标事件桥 ----------
+    // 让纯 DOM UI（onmousedown/onclick/右键）在触屏工作。跳过 canvas 与摇杆层。
+    // - tap（位移<10px）：touchend 补发 mousedown+mouseup+**click**（复活所有 click 监听：死亡重开/菜单等）
+    // - 拖拽（位移>10px）：起点补发 mousedown，过程补发 mousemove（背包/衣装光标跟随不回归）
+    // - 长按（~450ms 不动）：补发 button=2 的 mousedown/mouseup（背包右键：取半/拆分），本次不再发 click
     _installTouchMouseBridge() {
         const isBridgeTarget = (el) => {
             if (!el) return false;
-            if (el === this.canvas || el.tagName === 'CANVAS') return false;
-            if (this.root.contains(el)) return false;
-            return true;
+            if (el === this.canvas) return false;      // 游戏主画布：射击/移动走按钮/摇杆，不桥接
+            if (this.root.contains(el)) return false;  // 摇杆/按钮层
+            return true; // 其余（含 pixelOS 画布等 DOM）均桥接，使其触屏可点
         };
-        const dispatch = (type, touch) => {
-            const el = document.elementFromPoint(touch.clientX, touch.clientY) || document;
-            const ev = new MouseEvent(type, {
+        const dispatchAt = (type, x, y, button = 0) => {
+            const el = document.elementFromPoint(x, y) || document;
+            const pressed = (type === 'mousedown') ? (button === 2 ? 2 : 1) : 0;
+            el.dispatchEvent(new MouseEvent(type, {
                 bubbles: true, cancelable: true, view: window,
-                clientX: touch.clientX, clientY: touch.clientY,
-                button: 0, buttons: type === 'mouseup' ? 0 : 1
-            });
-            el.dispatchEvent(ev);
+                clientX: x, clientY: y, button, buttons: pressed
+            }));
         };
 
         document.addEventListener('touchstart', (e) => {
@@ -370,31 +394,102 @@ export class MobileControls {
             const el = document.elementFromPoint(t.clientX, t.clientY);
             if (!isBridgeTarget(el)) return;
             this.bridgeTouchId = t.identifier;
-            dispatch('mousedown', t);
-            e.preventDefault();
+            this._bridgeStart = { x: t.clientX, y: t.clientY };
+            this._bridgeStartEl = el;
+            this._bridgeMoved = false;
+            this._bridgeMousedownFired = false;
+            this._bridgeLongPressed = false;
+            this._bridgeScrolling = false;
+            this._clearLongPress();
+            this._bridgeLongPressTimer = setTimeout(() => {
+                // 长按：未移动且未开始左键拖拽 → 补发右键
+                if (this.bridgeTouchId === t.identifier && !this._bridgeMoved && !this._bridgeMousedownFired) {
+                    this._bridgeLongPressed = true;
+                    const { x, y } = this._bridgeStart;
+                    dispatchAt('mousedown', x, y, 2);
+                    dispatchAt('mouseup', x, y, 2);
+                }
+            }, LONG_PRESS_MS);
+            e.preventDefault(); // 抑制浏览器原生 click/300ms 合成，改由本桥统一补发
         }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
             if (this.bridgeTouchId === null) return;
             for (const t of e.changedTouches) {
-                if (t.identifier === this.bridgeTouchId) {
-                    dispatch('mousemove', t);
-                    e.preventDefault();
+                if (t.identifier !== this.bridgeTouchId) continue;
+                if (this._bridgeScrolling) return; // 已判定为滚动：交给浏览器原生滚动，不 preventDefault
+                const dx = t.clientX - this._bridgeStart.x;
+                const dy = t.clientY - this._bridgeStart.y;
+                if (!this._bridgeMoved && Math.hypot(dx, dy) > TAP_MOVE_TOL) {
+                    this._bridgeMoved = true;
+                    this._clearLongPress();
+                    // 竖向拖拽且落在可滚动容器上 → 让位给原生滚动（背包/菜单溢出可上下滑）
+                    if (Math.abs(dy) > Math.abs(dx) && this._hasScrollableAncestor(this._bridgeStartEl)) {
+                        this._bridgeScrolling = true;
+                        return;
+                    }
+                    // 否则转为拖拽：在起点补发 mousedown 开始交互（背包/衣装拾取并跟随）
+                    if (!this._bridgeLongPressed && !this._bridgeMousedownFired) {
+                        dispatchAt('mousedown', this._bridgeStart.x, this._bridgeStart.y, 0);
+                        this._bridgeMousedownFired = true;
+                    }
                 }
+                if (this._bridgeMousedownFired) dispatchAt('mousemove', t.clientX, t.clientY, 0);
+                e.preventDefault();
             }
         }, { passive: false });
 
-        const end = (e) => {
+        const finishTouch = (t, cancelled) => {
+            this._clearLongPress();
+            const x = t.clientX, y = t.clientY;
+            if (this._bridgeScrolling) {
+                // 滚动手势：无任何鼠标合成
+            } else if (this._bridgeLongPressed) {
+                // 右键已补发，无需 click
+            } else if (this._bridgeMousedownFired) {
+                dispatchAt('mouseup', x, y, 0); // 拖拽收尾
+            } else if (!cancelled) {
+                // tap：完整左键序列 + click
+                dispatchAt('mousedown', x, y, 0);
+                dispatchAt('mouseup', x, y, 0);
+                dispatchAt('click', x, y, 0);
+            }
+            this.bridgeTouchId = null;
+            this._bridgeMoved = false;
+            this._bridgeMousedownFired = false;
+            this._bridgeLongPressed = false;
+            this._bridgeScrolling = false;
+        };
+        document.addEventListener('touchend', (e) => {
             if (this.bridgeTouchId === null) return;
             for (const t of e.changedTouches) {
-                if (t.identifier === this.bridgeTouchId) {
-                    dispatch('mouseup', t);
-                    this.bridgeTouchId = null;
-                }
+                if (t.identifier === this.bridgeTouchId) finishTouch(t, false);
             }
-        };
-        document.addEventListener('touchend', end, { passive: false });
-        document.addEventListener('touchcancel', end, { passive: false });
+        }, { passive: false });
+        document.addEventListener('touchcancel', (e) => {
+            if (this.bridgeTouchId === null) return;
+            for (const t of e.changedTouches) {
+                if (t.identifier === this.bridgeTouchId) finishTouch(t, true);
+            }
+        }, { passive: false });
+    }
+
+    _clearLongPress() {
+        if (this._bridgeLongPressTimer) {
+            clearTimeout(this._bridgeLongPressTimer);
+            this._bridgeLongPressTimer = null;
+        }
+    }
+
+    // 从 el 向上查找是否存在可竖向滚动的祖先（用于触屏桥让位原生滚动）
+    _hasScrollableAncestor(el) {
+        let node = el;
+        while (node && node !== document.body && node.nodeType === 1) {
+            const oy = getComputedStyle(node).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 2) return true;
+            node = node.parentElement;
+        }
+        return false;
     }
 
     // ---------- 横屏检测（JS 双保险） ----------

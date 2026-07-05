@@ -20,6 +20,19 @@ export class PixelOSOverlay {
 
         monitor.appendChild(this.canvas);
         this.overlay.appendChild(monitor);
+
+        // 移动端专用关闭钮：桌面靠 ESC 关闭，触屏无键盘，故补一个可点关闭钮。
+        // 默认隐藏（inline display:none）；MobileControls 在移动模式注入 CSS 以 !important 显示。
+        this.closeBtn = document.createElement('div');
+        this.closeBtn.className = 'pixel-os-close-btn';
+        this.closeBtn.textContent = '✕';
+        this.closeBtn.style.display = 'none';
+        this.closeBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            if (this.onClickOutside) this.onClickOutside();
+        });
+        this.overlay.appendChild(this.closeBtn);
+
         document.body.appendChild(this.overlay);
 
         this.ctx = this.canvas.getContext('2d');
