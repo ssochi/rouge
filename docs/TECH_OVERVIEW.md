@@ -372,3 +372,13 @@
 
 - **方法论**：`docs/feature/COMBAT_BALANCE_METHODOLOGY.md` —— 锚点体系（初始手枪有效 DPS 38 / 玩家 100 HP）、敌人角色档位（炮灰 1 枪 / 标准 2-3 枪 / 重装 4-6 枪 / Boss 按 TTK 反推）、武器稀有度→等效 DPS 带宽（成本曲线）、特效折算（AOE×2.2 / DoT / 控制加值 / 近战风险折扣）、楼层 hpMult 与掉落稀有度同步防"海绵感"。
 - **审计工具**：`node tools/balance_report.mjs`（只读）——自动产出武器等效 DPS 表（含折算）、敌人 TTK 矩阵（含各层 hpMult）、稀有度带宽越界与 Boss 血量单调性告警。目标参数（带宽/档位/折算系数）集中在文件头常量区，是平衡目标的单一事实源。改动任何武器/敌人数值后必跑。
+
+## 移动端稳定性与崩溃取证 [mobile-fix]
+
+针对手机端"玩着玩着突然变亮然后卡死"（光照合成阶段抛异常 → 无 try/catch 的 rAF 主循环当场死亡，画面停在"已画亮场景但未叠暗色"那一帧）与 iOS canvas 内存超限两条主线：
+
+- **主循环 try/catch**（`Game.start`）：`update()/draw()` 单帧异常不再永久冻结——捕获后取证 + 顶部错误条 + 继续下一帧；连续 10 帧异常才停机并显示"游戏已崩溃"（成功一帧即清零连击计数，容忍偶发抖动）。
+- **崩溃取证**（`src/core/debug/CrashReporter.js`）：`window.onerror` / `unhandledrejection` 全局捕获；移动端（或 `?debug=1`）屏幕顶部红色错误条显示消息+栈首行；`localStorage` 环形缓冲保留最近 3 条崩溃（带时间戳），`?debug=1` 开机回放历史。模块内所有 DOM/localStorage 操作自吞异常，绝不成为新崩溃源。
+- **地板缓冲 iOS 安全化**（`WorldSystem.buildFloorCanvas` / `FloorChunkCache`）：130 格地图整图 canvas = 4160×4160（17.3M 像素）超 iOS Safari 单 canvas 上限（单边约 4096 / 面积约 16.7M），超限即渲染空白或分配抛错。现超限/profile 要求分块时改走分块缓存（每块 768×768 远低于上限，LRU 可回收，超限降级图缓存上限 24 块覆盖视口）。切图/重建时旧位图显式置 0×0 立即释放（不等 GC），淘汰块同样置 0。
+- **易失资源恢复**（`Game._recoverVolatileBuffers`）：`visibilitychange` 回前台 / 2D canvas `contextrestored` 时重建地板缓冲（`WorldSystem.rebuildFloorBuffers`）+ 强制光照静态刷新，对抗 iOS 后台丢弃 canvas 位图导致的空白。
+- **注**：项目为纯 2D canvas（无 WebGL），故无 `webglcontextlost`；光照缓冲 `LightBufferRenderer` 已是视口尺寸（非全图），不随地图放大。

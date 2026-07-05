@@ -22,6 +22,7 @@ import { DungeonRunState } from './dungeon/DungeonRunState.js';
 import { RelicSystem } from './dungeon/RelicSystem.js';
 import { MobileControls, isMobileMode } from '../ui/MobileControls.js';
 import { SoundSystem } from './audio/SoundSystem.js';
+import { installGlobalHandlers, recordCrash, showErrorBar } from './debug/CrashReporter.js';
 
 export class Game {
     constructor(canvas) {
@@ -30,6 +31,13 @@ export class Game {
         
         // 移动端检测：真实触摸设备或 ?mobile=1。移动模式用更小缩放以扩大视野。
         this.isMobile = isMobileMode();
+
+        // [mobile-fix] 尽早安装全局错误捕获与崩溃取证：
+        // 手机端把错误画到屏幕顶部并写入 localStorage，?debug=1 开机回放历史崩溃。
+        this._debugMode = new URLSearchParams(window.location.search).get('debug') === '1';
+        installGlobalHandlers({ isMobile: this.isMobile, debug: this._debugMode });
+        this._loopErrorStreak = 0; // 连续异常帧计数，超阈值则停机避免刷屏死循环
+        this._loopHalted = false;
 
         // Fullscreen and Scaling
         // Increased from 1.5 to 2.5 (approx 1.5x larger) for better visibility
@@ -844,13 +852,70 @@ export class Game {
     }
 
     start() {
+        // [mobile-fix] 主循环 try/catch：单帧异常不再永久冻结游戏。
+        // 之前 update()/draw() 任何一处抛错（尤其光照合成阶段），rAF 就此死亡，
+        // 画面停在"已画亮场景但未叠暗色"的那一帧 —— 即用户报告的"变亮然后卡死"。
+        // 现在：捕获异常 → 取证 + 顶部错误条 → 继续下一帧；连续 10 帧异常才停机。
+        const MAX_ERROR_STREAK = 10;
         const loop = () => {
-            this.profiler.beginFrame();
-            this.update();
-            this.draw();
-            this.profiler.endFrame();
+            if (this._loopHalted) return;
+
+            let ok = true;
+            try {
+                this.profiler.beginFrame();
+                this.update();
+                this.draw();
+                this.profiler.endFrame();
+            } catch (err) {
+                ok = false;
+                this._loopErrorStreak++;
+                const map = this.worldSystem?.currentMapType || this.worldSystem?.mapType || '?';
+                const entry = recordCrash('loop', err, {
+                    frame: this.frameCount,
+                    map,
+                    streak: this._loopErrorStreak
+                });
+
+                if (this._loopErrorStreak >= MAX_ERROR_STREAK) {
+                    this._loopHalted = true;
+                    showErrorBar(
+                        `游戏已崩溃（连续${MAX_ERROR_STREAK}帧异常，已停机）\n${entry.msg}\n${entry.at}\n刷新页面重试；?debug=1 可查看历史`,
+                        { fatal: true }
+                    );
+                    return;
+                }
+
+                showErrorBar(`运行异常(已跳过该帧): ${entry.msg}\n${entry.at}`);
+            }
+
+            if (ok) {
+                // 成功渲染一帧即重置连击计数：只惩罚"持续"崩溃，容忍偶发抖动。
+                this._loopErrorStreak = 0;
+            }
+
             requestAnimationFrame(loop);
         };
+
+        // [mobile-fix] 后台切回 / 上下文恢复时重建易失资源：
+        // iOS 在页面进入后台或内存吃紧时会丢弃 canvas 位图，回前台后地板/光照缓冲可能变空白。
+        try {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') this._recoverVolatileBuffers();
+            });
+            // 2D canvas 上下文丢失/恢复（Chrome 121+ 等支持），恢复后重建缓冲。
+            this.canvas.addEventListener('contextrestored', () => this._recoverVolatileBuffers());
+        } catch (_) { /* 事件不可用则忽略 */ }
+
         loop();
+    }
+
+    // [mobile-fix] 重建"易失"缓冲：地板离屏 canvas + 强制光照静态刷新。
+    _recoverVolatileBuffers() {
+        try {
+            this.worldSystem?.rebuildFloorBuffers?.();
+            if (this.lightSystem) this.lightSystem._forceStaticRefresh = true;
+        } catch (err) {
+            recordCrash('recover', err);
+        }
     }
 }

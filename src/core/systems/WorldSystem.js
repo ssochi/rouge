@@ -197,11 +197,10 @@ export class WorldSystem {
         this.relicAltars.length = 0; // [tension-batch:power]
         this.groundHazards.length = 0; // [horde:enemies] 切图清空延迟 AoE
         if (this.vehicles) this.vehicles.length = 0;
+        this._releaseFloorBuffers(); // [mobile-fix] 切图时显式释放旧地板位图，不留给 GC 拖延
         this.floorMap = null;
         this.floorMapWidth = 0;
         this.floorMapHeight = 0;
-        this.floorCanvas = null;
-        this.floorChunkCache = null;
         this.generatedLayoutMeta = null;
         this.markWorldStaticDirty();
         if (this.obstacleIndex) {
@@ -557,23 +556,37 @@ export class WorldSystem {
         const fw = this.floorMapWidth;
         const fh = this.floorMapHeight;
         const FT = FLOOR_TILE_SIZE;
-        this.floorCanvas = null;
-        this.floorChunkCache = null;
+        // [mobile-fix] 显式释放旧地板缓冲的位图内存（置 0×0），不等 GC。
+        // 多楼层切换时旧的整图 canvas（130 格地牢 = 4160×4160 ≈ 69MB）若滞留，
+        // 与新缓冲叠加会把 iOS canvas 内存顶爆 —— 玩着玩着崩溃的主要诱因之一。
+        this._releaseFloorBuffers();
 
-        const shouldUseChunkCache = this.currentMapProfile?.floorChunking === true;
+        const canvasW = fw * FT;
+        const canvasH = fh * FT;
+
+        // [mobile-fix] iOS Safari 单 canvas 有硬上限（单边约 4096、总面积约 16.7M 像素）。
+        // 130 格地图 → 4160×4160 = 17.3M 像素，超限后 iOS 会渲染空白甚至分配抛错。
+        // 超限或地图 profile 要求分块时，一律走分块缓存（每块 768×768 远低于上限，且 LRU 可回收）。
+        const MAX_FLOOR_CANVAS_DIM = 4096;
+        const MAX_FLOOR_CANVAS_AREA = 16 * 1024 * 1024; // 16,777,216
+        const oversized = canvasW > MAX_FLOOR_CANVAS_DIM
+            || canvasH > MAX_FLOOR_CANVAS_DIM
+            || (canvasW * canvasH) > MAX_FLOOR_CANVAS_AREA;
+        const shouldUseChunkCache = this.currentMapProfile?.floorChunking === true || oversized;
+
         if (shouldUseChunkCache) {
+            // profile 显式分块的（超大城镇 420 格）用较大缓存；因超限被降级的中型图用较小缓存，
+            // 覆盖视口即可，避免"全图分块"反而占用比单图更多内存。
+            const maxCachedChunks = this.currentMapProfile?.floorChunking === true ? 42 : 24;
             this.floorChunkCache = new FloorChunkCache({
                 floorMap: fm,
                 width: fw,
                 height: fh,
                 chunkSize: 48,
-                maxCachedChunks: 42
+                maxCachedChunks
             });
             return;
         }
-
-        const canvasW = fw * FT;
-        const canvasH = fh * FT;
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasW;
@@ -595,6 +608,34 @@ export class WorldSystem {
         }
 
         this.floorCanvas = canvas;
+    }
+
+    /**
+     * [mobile-fix] 释放地板离屏缓冲的位图内存。
+     * 把 canvas 尺寸置 0 可让 iOS/Safari 立即回收后备位图（比等 GC 快得多），
+     * 分块缓存则逐块置 0 后清空。
+     */
+    _releaseFloorBuffers() {
+        if (this.floorCanvas) {
+            try {
+                this.floorCanvas.width = 0;
+                this.floorCanvas.height = 0;
+            } catch (_) { /* ignore */ }
+            this.floorCanvas = null;
+        }
+        if (this.floorChunkCache) {
+            this.floorChunkCache.dispose();
+            this.floorChunkCache = null;
+        }
+    }
+
+    /**
+     * [mobile-fix] 重建易失的地板缓冲（后台切回 / canvas 上下文恢复后调用）。
+     * iOS 进入后台或内存吃紧时会丢弃 canvas 位图，回前台后需要重画，否则地板空白。
+     */
+    rebuildFloorBuffers() {
+        if (!this.floorMap || this.floorMapWidth <= 0 || this.floorMapHeight <= 0) return;
+        this.buildFloorCanvas();
     }
 
     /** Update a single sub-tile in the floor map and re-render it on the canvas. */

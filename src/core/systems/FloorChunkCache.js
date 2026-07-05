@@ -17,8 +17,25 @@ export class FloorChunkCache {
         this._chunkCache = new Map();
     }
 
+    // [mobile-fix] 置 0×0 立即释放后备位图（iOS/Safari 内存敏感），不等 GC。
+    _disposeChunk(chunk) {
+        if (!chunk || !chunk.canvas) return;
+        try {
+            chunk.canvas.width = 0;
+            chunk.canvas.height = 0;
+        } catch (_) { /* ignore */ }
+    }
+
     clear() {
+        for (const chunk of this._chunkCache.values()) {
+            this._disposeChunk(chunk);
+        }
         this._chunkCache.clear();
+    }
+
+    // 换图/释放时调用：与 clear 等价，命名区分"缓存失效"与"整体销毁"。
+    dispose() {
+        this.clear();
     }
 
     draw(ctx, cameraX, cameraY, viewportWidth, viewportHeight) {
@@ -60,7 +77,9 @@ export class FloorChunkCache {
 
         while (this._chunkCache.size > this.maxCachedChunks) {
             const oldestKey = this._chunkCache.keys().next().value;
+            const evicted = this._chunkCache.get(oldestKey);
             this._chunkCache.delete(oldestKey);
+            this._disposeChunk(evicted); // [mobile-fix] 释放被淘汰块的位图内存
         }
 
         return chunk;
