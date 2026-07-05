@@ -3,6 +3,7 @@ import { StatusEffectSystem } from './StatusEffectSystem.js';
 import { BulletSystem } from './BulletSystem.js';
 import { CollisionUtils } from '../../utils/CollisionUtils.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
+import { getCostumeStats } from '../../assets/characters/player/costumes/CostumeStats.js';
 
 export class CombatSystem {
     constructor(deps) {
@@ -111,6 +112,8 @@ export class CombatSystem {
 
         // 遗物弹道改造只作用于玩家子弹
         const relics = source === 'player' ? this.relicSystem : null;
+        // 服装属性乘区（全局生效，与遗物乘区并联）
+        const costume = source === 'player' && this.player ? getCostumeStats(this.player.costume) : null;
         // 敌人伤害乘区（地牢楼层缩放，DungeonManager._applyFloorScaling 赋值）
         const enemyDmgMult = source === 'enemy' && owner && Number.isFinite(owner.damageMult) ? owner.damageMult : 1;
         // R4 平衡：敌人武器弹速 ×0.75（可读可躲），寿命 ×1.33 保持射程
@@ -141,7 +144,7 @@ export class CombatSystem {
                 vy: Math.sin(finalAngle) * (weapon.bulletSpeed || 12) * speedMul * enemySpeedMult,
                 life: Math.round((weapon.bulletLife || 60) * lifeMul * enemyLifeMult),
                 maxLife: weapon.bulletLife || 60,
-                damage: Math.round((weapon.damage || 10) * enemyDmgMult),
+                damage: Math.round((weapon.damage || 10) * enemyDmgMult * (costume ? costume.damageMult : 1)),
                 color: weapon.bulletColor || '#f1c40f',
                 size: Math.max(1, (weapon.bulletSize || 5) + sizeVar),
                 type: weapon.bulletType || 'standard',
@@ -355,6 +358,11 @@ export class CombatSystem {
             }
 
             if (relics) relics.modifyPlayerBullet(bullet);
+            // 服装暴击 roll（独立于遗物暴击）
+            if (costume && costume.critChance > 0 && !bullet.isCrit && Math.random() < costume.critChance) {
+                bullet.damage = Math.round(bullet.damage * 2);
+                bullet.isCrit = true;
+            }
             this.bullets.push(bullet);
             created++;
         }

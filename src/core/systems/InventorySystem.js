@@ -2,6 +2,7 @@ import { Assets } from '../../graphics/Assets.js';
 import { BreakableObject } from '../entities/BreakableObject.js';
 import { FLOOR_TYPES } from '../../utils/FloorTypes.js';
 import { RELICS } from '../../assets/relics/RelicData.js';
+import { costumeStatsDescription } from '../../assets/characters/player/costumes/CostumeStats.js';
 import {
     cloneWeaponInstanceData,
     createWeaponInstanceData,
@@ -632,6 +633,14 @@ export class InventorySystem {
                 maxStack: 64,
                 data: { isFloorTile: true, floorType: ft.floorType }
             });
+        }
+
+        // 服装属性描述统一回填（tooltip 显示加成，数据来自 CostumeStats）
+        for (const def of this.items.values()) {
+            if (def.type === 'costume' && def.data && def.data.costumePieceId) {
+                const statsDesc = costumeStatsDescription(def.data.costumePieceId);
+                if (statsDesc) def.description = statsDesc;
+            }
         }
 
         // 4. Register Relics（地牢遗物凭证：拾取自动入包可查看，效果由 RelicSystem 生效；

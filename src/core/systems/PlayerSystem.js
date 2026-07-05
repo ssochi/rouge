@@ -1,12 +1,14 @@
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
+import { getCostumeStats } from '../../assets/characters/player/costumes/CostumeStats.js';
 import { PetDog } from '../entities/PetDog.js';
 import { PetCat } from '../entities/PetCat.js';
 import { Pet2B } from '../entities/Pet2B.js';
 
 export class PlayerSystem {
-    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles, pets, onInteract }) {
+    constructor({ player, input, handSystem, combatSystem, worldSystem, droppedItems, vehicles, inventorySystem, buildSystem, meleeSystem, particles, pets, onInteract, costumeSystem }) {
         this.player = player;
+        this.costumeSystem = costumeSystem || null;
         this.input = input;
         this.handSystem = handSystem;
         this.combatSystem = combatSystem;
@@ -274,6 +276,23 @@ export class PlayerSystem {
             return true;
         }
 
+        // 服装：拾取立即自动穿戴（被替换的旧件回背包）
+        if (this.inventorySystem && this.costumeSystem) {
+            const pickupDef = this.inventorySystem.getItemDef(closestItem.itemId);
+            if (pickupDef && pickupDef.type === 'costume' && pickupDef.data) {
+                const { costumeSlot, costumePieceId } = pickupDef.data;
+                const oldPieceId = this.player.costume ? this.player.costume[costumeSlot] : null;
+                if (this.costumeSystem.equipCostume(this.player, costumeSlot, costumePieceId)) {
+                    if (oldPieceId && oldPieceId !== costumePieceId) {
+                        this.inventorySystem.add(`costume:${oldPieceId}`, 1);
+                    }
+                    const index = this.droppedItems.indexOf(closestItem);
+                    if (index > -1) this.droppedItems.splice(index, 1);
+                    return true;
+                }
+            }
+        }
+
         if (this.inventorySystem) {
             const remaining = this.inventorySystem.add(closestItem.itemId, closestItem.count, closestItem.instanceData);
 
@@ -429,9 +448,10 @@ export class PlayerSystem {
 
     getEffectivePlayerSpeed() {
         if (this.player.frozenTimer > 0) return 0;
-        const relicMult = (this.worldSystem && this.worldSystem.relicSystem)
+        const costumeMult = getCostumeStats(this.player.costume).moveSpeedMult;
+        const relicMult = costumeMult * ((this.worldSystem && this.worldSystem.relicSystem)
             ? this.worldSystem.relicSystem.moveSpeedMult()
-            : 1;
+            : 1);
         if (this.player.slowTimer > 0) {
             return this.player.speed * relicMult * Math.max(0, 1 - (this.player.slowAmount || 0));
         }

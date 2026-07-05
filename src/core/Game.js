@@ -245,6 +245,7 @@ export class Game {
             meleeSystem: this.meleeSystem,
             particles: this.particles,
             pets: this.pets,
+            costumeSystem: null, // 构造顺序在 CostumeSystem 之前，下方回填
             onInteract: (obj) => {
                 if (obj.type === 'computer_desk') {
                     this.isComputerOpen = true;
@@ -255,6 +256,7 @@ export class Game {
 
         this.profiler = new ProfilerSystem();
         this.costumeSystem = new CostumeSystem();
+        this.playerSystem.costumeSystem = this.costumeSystem;
         this.iPressed = false;
         this.lightSystem = new LightSystem({
             player: this.player,

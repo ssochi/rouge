@@ -1,5 +1,6 @@
 import { PlayerGenerator } from '../../assets/characters/player/PlayerGenerator.js';
 import { getCostumePiece } from '../../assets/characters/player/costumes/CostumeData.js';
+import { getCostumeStats } from '../../assets/characters/player/costumes/CostumeStats.js';
 
 /**
  * CostumeSystem
@@ -16,12 +17,13 @@ export class CostumeSystem {
         this.cache = new Map(); // cacheKey -> { idle: Canvas[], run: Canvas[] }
 
         // Default costume IDs (used for initial state only)
+        // 出生裸装（仅保留发型）：服装作为地牢掉落装备逐步获取并自动穿戴
         this.defaultSlots = {
             hairstyle: 'hair_long',
             hat: null,
-            clothes: 'clothes_coat',
-            glasses: 'glasses_sun',
-            beard: 'beard_full',
+            clothes: null,
+            glasses: null,
+            beard: null,
         };
     }
 
@@ -44,7 +46,9 @@ export class CostumeSystem {
         const piece = getCostumePiece(slot, pieceId);
         if (!piece) return false;
 
+        const before = getCostumeStats(player.costume);
         player.costume[slot] = pieceId;
+        this._applyMaxHpDiff(player, before, getCostumeStats(player.costume));
         this.invalidateCache(player.costume);
         return true;
     }
@@ -57,9 +61,20 @@ export class CostumeSystem {
      */
     unequipCostume(player, slot) {
         const current = player.costume[slot];
+        const before = getCostumeStats(player.costume);
         player.costume[slot] = null;
+        this._applyMaxHpDiff(player, before, getCostumeStats(player.costume));
         this.invalidateCache(player.costume);
         return current;
+    }
+
+    /** 服装 maxHp 加成记账：装备/卸下时同步调整上限与当前血量。 */
+    _applyMaxHpDiff(player, before, after) {
+        const diff = after.maxHpBonus - before.maxHpBonus;
+        if (diff === 0 || !Number.isFinite(player.maxHp)) return;
+        player.maxHp += diff;
+        // 增加上限时血量同步增加；降低上限时血量夹到新上限（至少保留 1）
+        player.hp = Math.max(1, Math.min(player.maxHp, player.hp + Math.max(0, diff)));
     }
 
     /**
