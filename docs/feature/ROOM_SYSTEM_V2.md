@@ -3,6 +3,8 @@
 > 状态：已确认（2026-07-06）——连接采用宏观网格嵌入；分期 P1 IR+适配器 → P2 构建器 → P3 连接重做 → P4 渐进迁移；人潮批次（horde-enemies/cover-templates）落地合并后开工。
 >
 > **P1 已交付（2026-07-06）**：`generation/rooms/RoomPlan.js`（IR + `createRoomPlan`/`validateRoomPlan`/`checkConnectivity`）+ `generation/rooms/EncounterAdapter.js`（`encounterToRoomPlan` 字符模板适配器 + `roomPlanToParsed` 旧口径视图）；`selectEncounter` 返回 RoomPlan、`placeEncounter` 只吃 RoomPlan、`parseEncounter` 降级为兼容视图（`[room-v2:p1]` 锚点）。零观感/零行为变化，三重验证守护（黄金测试 70/70 + placeEncounter 字节等价 + 全楼层 SHA-256 指纹一致，seed 7/42 × floor 1/2/3）。详见本文档末「P1 交付记录」。
+>
+> **P2 已交付（2026-07-06）**：`generation/rooms/RoomBuilder.js`（PixelDraw 式链式构建器 `defineRoom` + shape/floor/objects/spawns/pits 工具集 + mirror/rot4 对称 + 归一化坐标 + 种子变体）+ 5 个示范房 `generation/encounters/v2_showcase.js`（圆形大厅/放射八向柱阵/参数化柱廊/同心环回廊/渐变污渍大厅，全字符画做不出的形态）；代码模板与字符模板同池选中（`SELECTABLE_TEMPLATES` + `selectEncounterById`），逐格地板层经 `placeEncounter.floorCells` → 1×1 `floorOverrides` 落地渲染（`[room-v2:p2]` 锚点）。测试 `tests/room-builder.test.js`（40 例）；全量 508 + build 全绿；5 房实机截图双种子对比通过。详见本文档末「P2 交付记录」。
 > 背景：用户提出两点架构诉求——①房间设计从字符画转向"像素化分层+代码构建"（类比 PixelDraw：每个 tile 是一个像素，分地板/物件/出怪多层，形状任意自定义）；②连接算法重做（现状被评"没有逻辑，瞎连的"——属实，见下文诊断）。
 
 ## 0. 现状诊断
@@ -69,7 +71,7 @@ defineRoom('f1_arrow_court', { tier: 'mid', floors: [1], weight: 1.5 }, (R) => {
 | 期 | 内容 | 风险控制 |
 |---|---|---|
 | **P1 IR+适配器 ✅** | RoomPlan 定义 + encounterToRoomPlan 适配器 + placeEncounter 只吃 RoomPlan（**已交付 2026-07-06**） | 纯重构零观感变化，黄金测试 70/70 + 布局指纹一致 |
-| **P2 RoomBuilder** | 构建器 API+种子变体+对称/散布工具；5 个示范房（圆厅/放射对称/参数化柱阵/巨型 2×2/环形回廊 v2） | 新旧前端并存，示范房入池验证 |
+| **P2 RoomBuilder ✅** | 构建器 API+种子变体+对称/散布工具；5 个示范房（圆厅/放射八向柱阵/参数化柱廊/同心环回廊/渐变污渍大厅）（**已交付 2026-07-06**） | 新旧前端同池，示范房入池验证 + 逐格地板首秀 |
 | **P3 连接 V2** | 拓扑规划器+宏观网格嵌入+开门纪律；DungeonManager/小地图适配 | 老算法留 `?layout=v1` 调试开关一个版本期 |
 | **P4 存量迁移**（渐进） | 字符模板按层逐步改写为代码模板（每层翻新时顺手做） | 无 deadline，双前端长期共存也可接受 |
 
@@ -134,3 +136,59 @@ defineRoom('f1_arrow_court', { tier: 'mid', floors: [1], weight: 1.5 }, (R) => {
 - `RoomPlan.floor`（逐格地板层）与 `doorSlots` 对字符模板恒为空/全 0——它们是给 P2 RoomBuilder / P3 连接算法预留的层，本期不产内容。
 - `objects.kind` 的 cover/decor 为「延迟具体化」标记（具体箱桶/主题装饰仍在放置期由 rng 决定），P2 代码构建器若要放确定性物件，直接产 `kind:'prop', type` 即可复用同一 placeEncounter。
 - 波次口径 IR 用 1\|2、下游用 0\|1，转换点唯一（placeEncounter 输出边界），P2 产 spawns 时须用 1\|2。
+
+## 5. P2 交付记录（2026-07-06）
+
+### 5.1 RoomBuilder API 清单（`generation/rooms/RoomBuilder.js`）
+
+`defineRoom(id, opts, build(R))` → 「模板工厂」descriptor `{ id, tier, weight, floors, w, h, __code:true, meta, build(rng) }`。
+- `opts`：`{ tier, floors?, weight?, w, h, floorType?, story? }`——`w/h` 为栅格尺寸（形状在此固定网格上作画，选池尺寸过滤依赖），`size:[w,h]` 亦可。
+- `build(rng)`：每次 new 一个 `RoomBuilder`，逐层作画后 `toRoomPlan()` 校验产出 RoomPlan；**注入种子 rng → 每局变体**。
+- 定义期 fail-fast：`defineRoom` 用确定性 rng 做一次 dry-run，构建/校验错误在模块加载即抛。
+
+| 工具 | 方法 | 说明 |
+|---|---|---|
+| `R.shape` | `rect()`/`rect(x,y,w,h)` · `ellipse()`/`ellipse(cx,cy,rx,ry)` · `carve` · `carveEllipse` · `union(fn)` | 操作 mask 层，任意形状；无参 rect=全矩形、无参 ellipse=内切椭圆 |
+| `R.floor` | `fill(k)` · `rect(k,x,y,w,h)` · `border(k,thickness)` · `checker(a,b)` · `scatter(k,{count\|density})` | 逐格地板层，参数为 FLOOR_TYPES 键名（内部转数值 id）；仅作用 mask 内 tile |
+| `R.objects` | `place(type,x,y)` · `cover/decor(x,y)` · `row(type,{from,to,count})` · `ring(type,{radius,count,skip,cx,cy})` · `scatter(type,{count})` | prop 确定件产 `kind:'prop',type`；`cover/decor` 产抽象件 |
+| `R.spawns` | `wave(1\|2).at(role,x,y)` · `.ring(role,{...})` · `.cluster(role,{count,near:'edges'\|'center'})` | **波次口径强制 1\|2**（`wave(其它)` 抛错） |
+| `R.pits` | `rect(x,y,w,h)` · `ring({radius,count})` | 危险层 |
+| 对称 | `R.mirrorX()` · `R.mirrorY()` · `R.rot4()` | 已产内容（mask/floor/objects/spawns/pits）镜像/四向旋转复制（去重）；`rot4` 需方形栅格 |
+| 其它 | `R.door(side,offset)` | 开门位建议（P3 连接消费） |
+
+坐标：**整数=绝对 tile；非整数小数=归一化**（坐标乘 `w-1`/`h-1`，半径乘「中心到最近边」）。`count` 支持 `[min,max]` 种子区间。
+
+### 5.2 5 示范房（`generation/encounters/v2_showcase.js`）
+
+| id | 形状/手法 | 楼层/档位 | 种子变体 |
+|---|---|---|---|
+| `v2_circular_hall` 圆形大厅 | `ellipse` 圆厅 + 红毯 `border` 镶边 + `ring` 环形烛台（留缺口）+ 中央血祭石 + `ring/cluster` 放射出怪 | F2 · mid · 15×15 | 烛台缺口位偏移 + 波2 僧侣 5-7 |
+| `v2_radial_pillars` 放射八向柱阵 | `rot4` 四向全等辐条 + 参数化八向柱环留对向双缺口 + 中央反应堆芯 | F3 · mid · 13×13 | 柱环缺口位旋转 + 碎石 `scatter` 2-4 |
+| `v2_colonnade` 参数化柱廊 | `row` 柱列（列数随种子）+ 骨堆 `scatter` | F1 · shallow · 13×11 | **柱列数 2-4** + 骨堆 2-5 |
+| `v2_concentric_ring` 同心环回廊 | 双层 `carveEllipse` 嵌套（挖中盘→加回内盘→挖中心）+ 十字连廊接通内外环 + 环上立柱/烛台/出怪 | F2 · mid · 15×15 | 立柱缺口偏移 + 骨堆 2-4 + 波2 环上 4-6 |
+| `v2_stain_hall` 渐变污渍大厅 | **逐格地板首秀**：`checker` 格栅/湿石拼花 + 中央血滩 `rect` + 向外飞溅 `scatter`（渐变污渍） | F1 · mid · 14×11 | 血渍飞溅点 12-24 |
+
+### 5.3 选池接入与逐格地板落地（`EncounterTemplates.js` + `DungeonLayoutGenerator.js`，`[room-v2:p2]` 锚点）
+
+- `ENCOUNTER_TEMPLATES` 保持**纯字符模板池**（黄金测试/encounter-templates 测试逐一遍历 `rows`，口径不变）；新增 `SELECTABLE_TEMPLATES = ENCOUNTER_TEMPLATES + V2_SHOWCASE_ROOMS(5)` 为真正的选池。
+- `selectEncounter` 改为消费 `SELECTABLE_TEMPLATES`，尺寸/加权经统一接口 `templateGridSize(t)`（字符走 `rows`、代码走 `w/h`）与 `materializeTemplate(t,rng)`（字符 `encounterToRoomPlan`、代码 `t.build(rng)`）——**代码模板选中时用当局 rng 重新 build，变体确定性生效**。新增 `selectEncounterById(id,rng)`（按 id 物化，供测试/调试）。
+- 逐格地板：`placeEncounter` 新增 `floorCells`（`plan.floor` 非 0 tile → `{x,y,floorType}`，数值 id 反查 `FLOOR_ID_TO_KEY`；**字符模板 floor 恒全 0 → floorCells 空 = 零回归**）；`DungeonLayoutGenerator` 把 `floorCells` 转 1×1 `floorOverrides` 推入，**置于整房 `floorType` 覆写之后**（逐格精确色胜出），复用 `WorldSystem` 既有 floorOverride 铺地管线（无需改 WorldSystem）。
+
+### 5.4 改动文件清单
+
+- 新增：`generation/rooms/RoomBuilder.js`、`generation/encounters/v2_showcase.js`、`tests/room-builder.test.js`。
+- 改动：`EncounterTemplates.js`（选池聚合 + selectEncounter 统一接口 + selectEncounterById + placeEncounter.floorCells，`[room-v2:p2]` 锚点）、`DungeonLayoutGenerator.js`（floorCells → 1×1 floorOverrides）。
+- 文档：本文档 §5 + `TECH_OVERVIEW.md`。
+
+### 5.5 验证
+
+- 全量测试 **508 通过**（P1 后 468 + 新增 40，零回归）；`npm run build` 通过。
+- 实机截图（`?map=dungeon_f2&seed=N&peace=1` + 临时 `?enc=<id>` 强制放置钩子，**截图后已撤除干净**，`selectEncounterById` 作为正式 API 保留）：5 房各双种子对比通过——圆厅/同心环截全貌、渐变污渍大厅可见逐格棋盘+血渍、参数化柱廊双种子柱列数可见差异、放射八向柱阵可见 rot4 四向全等。
+
+### 5.6 已知限制 / 交接 P3
+
+- `R.door(side,offset)` 已产 `doorSlots`，但连接算法 V2（P3）尚未消费——示范房暂缺省未主动标注门位，留给 P3 按共享格边中点/doorSlots 落门。
+- 代码房尺寸固定（`w/h` 在 defineRoom 定死）：过大的房（如 15×15）只在原始 BSP 房 ≥19 时才被选中；如需在小房出现应控制在 ≤13。
+- `rot4` 要求方形栅格；矩形房只能用 `mirrorX/mirrorY`。
+- 逐格地板层走 1×1 floorOverrides，单房上百格时会产上百条覆写记录（一次性生成开销，无运行时负担）；若后续大批量代码房上线可考虑批量矩形合并。
+- 环形/柱阵类房的「物件成环」不影响 `validateRoomPlan` 的 mask 连通性（物件非 mask），但会形成游戏内障碍——务必用 `skip` 留缺口保证可穿行（示范房已遵循）。

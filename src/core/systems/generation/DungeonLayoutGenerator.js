@@ -1262,6 +1262,11 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
                     floorType: placed.floorType
                 });
             }
+            // [room-v2:p2] 逐格地板层：代码构建器 floor.checker/scatter/border 产 1x1 覆写，
+            // 置于整房 floorType 之后 → 逐格精确色胜出（渐变污渍/棋盘拼花即由此渲染）。
+            for (const c of (placed.floorCells || [])) {
+                floorOverrides.push({ x: c.x, y: c.y, w: 1, h: 1, floorType: c.floorType });
+            }
             for (const w of placed.walls) {
                 const key = tileKey(w.x, w.y);
                 interiorWallTiles.add(key);

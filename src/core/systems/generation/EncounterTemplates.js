@@ -22,6 +22,9 @@ import { F3_DEPTHS_TEMPLATES } from './encounters/f3_depths.js';
 // [room-v2:p1] 字符模板经适配器进入 RoomPlan IR；selectEncounter/placeEncounter 只认 RoomPlan。
 import { encounterToRoomPlan, roomPlanToParsed } from './rooms/EncounterAdapter.js';
 import { maskToWallCoords, objectsOfKind, OBJECT_COVER, OBJECT_DECOR, OBJECT_PROP } from './rooms/RoomPlan.js';
+// [room-v2:p2] 代码构建器示范房与字符模板同池：defineRoom 产物（__code）经统一接口进入选池。
+import { V2_SHOWCASE_ROOMS } from './encounters/v2_showcase.js';
+import { FLOOR_TYPES } from '../../../utils/FloorTypes.js';
 
 // 适配器出口再导出，供模板测试从单一入口取用。
 export { encounterToRoomPlan };
@@ -389,13 +392,38 @@ const BASE_TEMPLATES = [
     ], { x: 'dungeon_rack', q: 'chair' })
 ];
 
-// 通用池 + 三层主题池（f1 监狱 / f2 圣殿 / f3 深渊实验室）
+// 通用池 + 三层主题池（f1 监狱 / f2 圣殿 / f3 深渊实验室）—— 字符模板池（黄金测试口径，仅 rows 前端）
 export const ENCOUNTER_TEMPLATES = [
     ...BASE_TEMPLATES,
     ...F1_PRISON_TEMPLATES,
     ...F2_TEMPLE_TEMPLATES,
     ...F3_DEPTHS_TEMPLATES
 ];
+
+// [room-v2:p2] 真正的「选池」= 字符模板 + 代码构建器示范房（两种授权前端同池选中）。
+// ENCOUNTER_TEMPLATES 保持纯字符模板（供 room-plan-golden / encounter-templates 测试逐一遍历 rows）；
+// selectEncounter 消费本合并池，代码模板（__code）每次选中用当局 rng 重新 build（变体生效）。
+export const SELECTABLE_TEMPLATES = [
+    ...ENCOUNTER_TEMPLATES,
+    ...V2_SHOWCASE_ROOMS
+];
+
+// [room-v2:p2] 模板栅格尺寸统一读取：字符模板走 rows，代码模板走 defineRoom 固定的 w/h。
+function templateGridSize(t) {
+    if (t.__code) return { w: t.w, h: t.h };
+    return { w: t.rows[0].length, h: t.rows.length };
+}
+
+// [room-v2:p2] 物化为 RoomPlan：字符模板确定性解析；代码模板用传入 rng 重新 build 出变体。
+function materializeTemplate(t, rng) {
+    return t.__code ? t.build(rng) : encounterToRoomPlan(t);
+}
+
+// [room-v2:p2] 地板层数值 id → FLOOR_TYPES 枚举键名（placeEncounter 把逐格地板还原为覆写用键名）。
+const FLOOR_ID_TO_KEY = {};
+for (const [k, v] of Object.entries(FLOOR_TYPES)) {
+    if (FLOOR_ID_TO_KEY[v] === undefined) FLOOR_ID_TO_KEY[v] = k;
+}
 
 /** 深度 → 模板档位（与 FloorConfigs.getDepthTier 同口径）。 */
 export function tierForDepth(depth) {
@@ -425,12 +453,12 @@ export function parseEncounter(template) {
 export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new Set(), floor = null) {
     let currentTier = tier;
     while (currentTier) {
-        const candidates = ENCOUNTER_TEMPLATES.filter(t => {
+        // [room-v2:p2] 选池含字符模板 + 代码构建器示范房；尺寸经统一接口读取。
+        const candidates = SELECTABLE_TEMPLATES.filter(t => {
             if (t.tier !== currentTier) return false;
             // 楼层亲和：带 floors 标记的模板只在对应楼层出现（缺省=全楼层通用）
             if (t.floors && floor != null && !t.floors.includes(floor)) return false;
-            const th = t.rows.length;
-            const tw = t.rows[0].length;
+            const { w: tw, h: th } = templateGridSize(t);
             return tw <= interiorW && th <= interiorH;
         });
 
@@ -439,7 +467,8 @@ export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new S
             const weights = candidates.map(t => {
                 let weight = usedIds.has(t.id) ? t.weight * 0.4 : t.weight;
                 // 面积利用率加权：模板越接近房间内部尺寸越优先（避免小模板落进大房显空）
-                const util = (t.rows[0].length * t.rows.length) / (interiorW * interiorH);
+                const { w: tw, h: th } = templateGridSize(t);
+                const util = (tw * th) / (interiorW * interiorH);
                 weight *= 0.35 + util;
                 totalWeight += weight;
                 return weight;
@@ -447,14 +476,25 @@ export function selectEncounter(tier, interiorW, interiorH, rng, usedIds = new S
             let roll = rng() * totalWeight;
             for (let i = 0; i < candidates.length; i++) {
                 roll -= weights[i];
-                if (roll <= 0) return encounterToRoomPlan(candidates[i]);
+                // [room-v2:p2] 代码模板用当局 rng 重新 build（同一 rng 流延续消费，变体确定性）。
+                if (roll <= 0) return materializeTemplate(candidates[i], rng);
             }
-            return encounterToRoomPlan(candidates[candidates.length - 1]);
+            return materializeTemplate(candidates[candidates.length - 1], rng);
         }
 
         currentTier = TIER_FALLBACK[currentTier];
     }
     return null;
+}
+
+/**
+ * [room-v2:p2] 按 id 直接从选池物化一个 RoomPlan（代码模板用 rng 出变体）。
+ * 供测试断言「入池可被选中」与调试直达，不参与常规加权选择。
+ * @returns {Object|null} RoomPlan 或 null（id 不存在）
+ */
+export function selectEncounterById(id, rng = Math.random) {
+    const t = SELECTABLE_TEMPLATES.find(x => x.id === id);
+    return t ? materializeTemplate(t, rng) : null;
 }
 
 /**
@@ -475,6 +515,21 @@ export function placeEncounter(plan, room) {
     const offsetY = interiorY + Math.floor((interiorH - plan.h) / 2);
 
     const shift = (x, y) => ({ x: x + offsetX, y: y + offsetY });
+
+    // [room-v2:p2] 逐格地板层 → 绝对坐标覆写单元（字符模板 floor 恒全 0 → floorCells 为空，零回归）。
+    // 数值 id 反查回 FLOOR_TYPES 键名，交下游 floorOverrides（1x1）着色，实现「地板即像素画」。
+    const floorCells = [];
+    for (let y = 0; y < plan.h; y++) {
+        for (let x = 0; x < plan.w; x++) {
+            const id = plan.floor[y * plan.w + x];
+            if (id === 0) continue;
+            const key = FLOOR_ID_TO_KEY[id];
+            if (key === undefined) continue;
+            const p = shift(x, y);
+            floorCells.push({ x: p.x, y: p.y, floorType: key });
+        }
+    }
+
     return {
         id: plan.meta.id,
         floorType: plan.meta.floorType || null,
@@ -484,6 +539,7 @@ export function placeEncounter(plan, room) {
         // 波次 1|2 → 0|1（下游 DungeonManager 按 !wave / wave===1 分波）
         spawns: plan.spawns.map((s) => ({ ...shift(s.x, s.y), role: s.role, wave: s.wave - 1 })),
         props: objectsOfKind(plan, OBJECT_PROP).map((o) => ({ ...shift(o.x, o.y), type: o.type })),
-        pits: plan.pits.map((p) => shift(p.x, p.y))
+        pits: plan.pits.map((p) => shift(p.x, p.y)),
+        floorCells
     };
 }
