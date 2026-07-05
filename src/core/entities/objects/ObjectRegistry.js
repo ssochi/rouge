@@ -56,6 +56,38 @@ import {
     DungeonRackObject,
     DungeonMushroomsObject
 } from './DungeonDecorObjects.js';
+// ── F1 监狱层物件 ──
+import {
+    PrisonCellDoorObject,
+    PrisonFileCabinetObject,
+    PrisonLockerObject,
+    PrisonDirtMoundObject,
+    PrisonVisitBoothObject,
+    PrisonWatchtowerObject,
+    PrisonBunkObject
+} from './F1PrisonObjects.js';
+// ── F3 深渊实验室层物件 ──
+import {
+    F3CultureTankObject,
+    F3CultureTankBrokenObject,
+    F3SurgeryTableObject,
+    F3ReactorCoreObject,
+    F3GolemTorsoObject,
+    F3CryoPodObject,
+    F3TargetDummyObject,
+    F3PipeObject
+} from './F3LabObjects.js';
+// ── F2 圣殿层叙事物件 ──
+import {
+    TemplePewObject,
+    TemplePulpitObject,
+    AlchemyCauldronObject,
+    PotionShelfObject,
+    TempleCandelabraObject,
+    BrokenOrganObject,
+    ReliquaryCaseObject,
+    SacrificeSlabObject
+} from './F2TempleObjects.js';
 
 const OBJECT_DEFS = new Map([
     ['box', BoxObject],
@@ -119,8 +151,35 @@ const OBJECT_DEFS = new Map([
     ['dungeon_banner', DungeonBannerObject],
     ['dungeon_bars', DungeonBarsObject],
     ['dungeon_rack', DungeonRackObject],
-    ['dungeon_mushrooms', DungeonMushroomsObject]
+    ['dungeon_mushrooms', DungeonMushroomsObject],
+    // ── F1 监狱层物件 ──
+    ['prison_cell_door', PrisonCellDoorObject],
+    ['prison_file_cabinet', PrisonFileCabinetObject],
+    ['prison_locker', PrisonLockerObject],
+    ['prison_dirt_mound', PrisonDirtMoundObject],
+    ['prison_visit_booth', PrisonVisitBoothObject],
+    ['prison_watchtower', PrisonWatchtowerObject],
+    ['prison_bunk', PrisonBunkObject],
+    // ── F3 深渊实验室层物件 ──
+    ['f3_culture_tank', F3CultureTankObject],
+    ['f3_culture_tank_broken', F3CultureTankBrokenObject],
+    ['f3_surgery_table', F3SurgeryTableObject],
+    ['f3_reactor_core', F3ReactorCoreObject],
+    ['f3_golem_torso', F3GolemTorsoObject],
+    ['f3_cryo_pod', F3CryoPodObject],
+    ['f3_target_dummy', F3TargetDummyObject],
+    ['f3_pipe', F3PipeObject]
 ]);
+
+// ── F2 圣殿层叙事物件（.set 追加，避免并行编辑 Map 字面量冲突）──
+OBJECT_DEFS.set('temple_pew', TemplePewObject);
+OBJECT_DEFS.set('temple_pulpit', TemplePulpitObject);
+OBJECT_DEFS.set('alchemy_cauldron', AlchemyCauldronObject);
+OBJECT_DEFS.set('potion_shelf', PotionShelfObject);
+OBJECT_DEFS.set('temple_candelabra', TempleCandelabraObject);
+OBJECT_DEFS.set('broken_organ', BrokenOrganObject);
+OBJECT_DEFS.set('reliquary_case', ReliquaryCaseObject);
+OBJECT_DEFS.set('sacrifice_slab', SacrificeSlabObject);
 
 export function getObjectDef(type) {
     return OBJECT_DEFS.get(type) || null;

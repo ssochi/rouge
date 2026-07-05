@@ -232,6 +232,7 @@
   - 贴花：`DungeonDecalSprites.js` 7 类（裂纹/苔藓/血迹/水洼/角落蛛网/散页/Boss 160×160 圆环刻纹），`WorldSystem._stampDungeonDecals` 在 buildFloorCanvas 后一次性盖印，零每帧成本。配比随主题（F1 裂纹蛛网/F2 苔藓水洼/F3 血迹）。
   - 光源：壁挂火把（`dungeon_torch`，不阻挡/不吃子弹 `noBulletCollision`/不可破坏，光心下移至墙南侧地板防自遮蔽）+ 落地火盆（`dungeon_brazier`，可破坏）。`OBJECT_LIGHTS` 注册，火光色按主题经实例 `lightColor` 覆盖，2 帧火焰动画走 BreakableObject 数组帧。
   - 装饰库 13 种：碎石/骨堆/铁笼 + P5 新增石柱/断柱/石雕像/烛台祭坛（暖微光）/旗帜架/牢栏残段/木刑架/荧光蘑菇（冷微光，不阻挡）。柱/雕像为 `isLocked` 永久结构。
+- **楼层主题故事房间（「深渊监狱」主线，三 agent 并行批次，详见 `docs/feature/DUNGEON_ROOM_STORY_OVERHAUL.md`）**：模板系统新增 `floors` 楼层亲和（selectEncounter 按层过滤）与 `floorType` 每房间地板覆写（layout.floorOverrides → WorldSystem 铺地应用，坑优先）；模板文件按层拆分至 `generation/encounters/`（f1_prison 9 个/f2_temple 10 个/f3_depths 10 个，共 16 个异形房：`#` 雕刻 L 型/十字/环形/凹龛/阶梯坛 + `p` 坑塑形献祭井/深渊裂口）。新地板 9 种（ID 10-18：监狱铆接钢板/湿石板/血渍石板、青石菱纹/仪式红毯/祭阵黑石、金属格栅/无菌瓷砖/做旧警示纹）；新叙事物件 23 个（F1 牢门/档案柜/探视台等 7，F2 长椅/讲坛/坩埚/圣物展柜等 8，F3 培养槽/手术台/反应堆芯/魔像躯干等 8）。调试直达 `?map=dungeon_f2`/`dungeon_f3`（种子+楼层正确开局）。
 - 小地图：`Renderer.drawDungeonMinimap()` 在右上角绘制拓扑节点图（约 158×158 区域），采用“邻接预览 + 动态探索”：已探索房间实心、前沿房间半透明轮廓、已探索连线实线、前沿连线虚线；当前房间高亮，锁门状态脉冲描边，玩家标记为朝向箭头，标题显示 `F层 + 已探索/总房间`，底部附状态图例（CLR/ACT/BOSS/FR）。特殊房节点带专属色与字母标记：宝箱房青色 `+`、商店房金色 `$`、精英房紫红 `!`。
 - 地板使用主题石板瓦片 `DUNGEON_F1/F2/F3`（`DungeonFloorSprites.js` 按主题色板程序化生成，4 变体位置哈希混铺）。
 - **地牢经济系统（P1，详见 `docs/feature/DUNGEON_ROGUELIKE_OVERHAUL.md`）**：

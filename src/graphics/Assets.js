@@ -115,11 +115,39 @@ import { createDungeonBannerSprite } from '../assets/objects/dungeon/DungeonBann
 import { createDungeonBarsSprite } from '../assets/objects/dungeon/DungeonBarsSprite.js';
 import { createDungeonRackSprite } from '../assets/objects/dungeon/DungeonRackSprite.js';
 import { createDungeonMushroomsSprite } from '../assets/objects/dungeon/DungeonMushroomsSprite.js';
+// ── F1 监狱层物件 ──
+import { createF1PrisonCellDoorSprite } from '../assets/objects/dungeon/F1PrisonCellDoorSprite.js';
+import { createF1PrisonFileCabinetSprite } from '../assets/objects/dungeon/F1PrisonFileCabinetSprite.js';
+import { createF1PrisonLockerSprite } from '../assets/objects/dungeon/F1PrisonLockerSprite.js';
+import { createF1PrisonDirtMoundSprite } from '../assets/objects/dungeon/F1PrisonDirtMoundSprite.js';
+import { createF1PrisonVisitBoothSprite } from '../assets/objects/dungeon/F1PrisonVisitBoothSprite.js';
+import { createF1PrisonWatchtowerSprite } from '../assets/objects/dungeon/F1PrisonWatchtowerSprite.js';
+import { createF1PrisonBunkSprite } from '../assets/objects/dungeon/F1PrisonBunkSprite.js';
+// ── F3 深渊实验室层物件 ──
+import { createF3CultureTankSprite } from '../assets/objects/dungeon/f3_culture_tank.js';
+import { createF3CultureTankBrokenSprite } from '../assets/objects/dungeon/f3_culture_tank_broken.js';
+import { createF3SurgeryTableSprite } from '../assets/objects/dungeon/f3_surgery_table.js';
+import { createF3ReactorCoreSprite } from '../assets/objects/dungeon/f3_reactor_core.js';
+import { createF3GolemTorsoSprite } from '../assets/objects/dungeon/f3_golem_torso.js';
+import { createF3CryoPodSprite } from '../assets/objects/dungeon/f3_cryo_pod.js';
+import { createF3TargetDummySprite } from '../assets/objects/dungeon/f3_target_dummy.js';
+import { createF3PipeSprite } from '../assets/objects/dungeon/f3_pipe.js';
+// ── F2 圣殿层物件 ──
+import { createF2PewSprite } from '../assets/objects/dungeon/F2PewSprite.js';
+import { createF2PulpitSprite } from '../assets/objects/dungeon/F2PulpitSprite.js';
+import { createF2CauldronSprite } from '../assets/objects/dungeon/F2CauldronSprite.js';
+import { createF2PotionShelfSprite } from '../assets/objects/dungeon/F2PotionShelfSprite.js';
+import { createF2CandelabraSprite } from '../assets/objects/dungeon/F2CandelabraSprite.js';
+import { createF2OrganSprite } from '../assets/objects/dungeon/F2OrganSprite.js';
+import { createF2ReliquarySprite } from '../assets/objects/dungeon/F2ReliquarySprite.js';
+import { createF2SacrificeSlabSprite } from '../assets/objects/dungeon/F2SacrificeSlabSprite.js';
 import { DUNGEON_THEMES } from '../core/dungeon/DungeonThemes.js';
 import { createAdaptiveWallSprites } from '../assets/objects/AdaptiveWallSprite.js';
 import { createDoorSprites } from '../assets/objects/DoorSprite.js';
 import { createCarpetSprites } from '../assets/objects/CarpetSprite.js';
 import { createFloorSprites } from '../assets/floors/FloorSprites.js';
+// ── F2 圣殿层地板变体（room-f2 独占）──
+import { createTempleTilesVariants, createTempleCarpetVariants, createRitualDarkVariants } from '../assets/floors/FloorSprites.js';
 import { createTreeSprite } from '../assets/objects/nature/TreeSprite.js';
 import { createTreeSmallSprite } from '../assets/objects/nature/TreeSmallSprite.js';
 import { createBushSprites } from '../assets/objects/nature/BushSprite.js';
@@ -282,6 +310,32 @@ const dungeonBannerSprite = createDungeonBannerSprite();
 const dungeonBarsSprite = createDungeonBarsSprite();
 const dungeonRackSprite = createDungeonRackSprite();
 const dungeonMushroomsSprite = createDungeonMushroomsSprite();
+// ── F1 监狱层物件 ──
+const prisonCellDoorSprite = createF1PrisonCellDoorSprite();
+const prisonFileCabinetSprite = createF1PrisonFileCabinetSprite();
+const prisonLockerSprite = createF1PrisonLockerSprite();
+const prisonDirtMoundSprite = createF1PrisonDirtMoundSprite();
+const prisonVisitBoothSprite = createF1PrisonVisitBoothSprite();
+const prisonWatchtowerSprite = createF1PrisonWatchtowerSprite();
+const prisonBunkSprite = createF1PrisonBunkSprite();
+// ── F3 深渊实验室层物件精灵 ──
+const f3CultureTankSprite = createF3CultureTankSprite();
+const f3CultureTankBrokenSprite = createF3CultureTankBrokenSprite();
+const f3SurgeryTableSprite = createF3SurgeryTableSprite();
+const f3ReactorCoreSprite = createF3ReactorCoreSprite();
+const f3GolemTorsoSprite = createF3GolemTorsoSprite();
+const f3CryoPodSprite = createF3CryoPodSprite();
+const f3TargetDummySprite = createF3TargetDummySprite();
+const f3PipeSprite = createF3PipeSprite();
+// ── F2 圣殿层物件精灵 ──
+const f2PewSprite = createF2PewSprite();
+const f2PulpitSprite = createF2PulpitSprite();
+const f2CauldronSprite = createF2CauldronSprite();
+const f2PotionShelfSprite = createF2PotionShelfSprite();
+const f2CandelabraSprite = createF2CandelabraSprite();
+const f2OrganSprite = createF2OrganSprite();
+const f2ReliquarySprite = createF2ReliquarySprite();
+const f2SacrificeSlabSprite = createF2SacrificeSlabSprite();
 const dungeonCoinFrames = createCoinSprite();
 const dungeonKeySprite = createKeySprite();
 const relicIconSprites = createRelicIcons();
@@ -306,6 +360,10 @@ for (const floor of Object.keys(DUNGEON_THEMES)) {
     floorSprites[`dungeon_${theme.id}`] = createDungeonFloorVariants(theme);
 }
 floorSprites.pit = createPitVariants(); // 地牢坑（全主题通用深渊贴图）
+// ── F2 圣殿层地板变体并入 Assets.floors（room-f2 独占）──
+floorSprites.temple_tiles = createTempleTilesVariants();
+floorSprites.temple_carpet = createTempleCarpetVariants();
+floorSprites.ritual_dark = createRitualDarkVariants();
 const treeSprite = createTreeSprite();
 const treeSmallSprite = createTreeSmallSprite();
 const bushSprites = createBushSprites();
@@ -657,6 +715,55 @@ export const Assets = {
         dungeon_rack_flash: PixelDraw.createSilhouette(dungeonRackSprite),
         dungeon_mushrooms: dungeonMushroomsSprite,
         dungeon_mushrooms_flash: PixelDraw.createSilhouette(dungeonMushroomsSprite),
+        // ── F1 监狱层物件 ──
+        prison_cell_door: prisonCellDoorSprite,
+        prison_cell_door_flash: PixelDraw.createSilhouette(prisonCellDoorSprite),
+        prison_file_cabinet: prisonFileCabinetSprite,
+        prison_file_cabinet_flash: PixelDraw.createSilhouette(prisonFileCabinetSprite),
+        prison_locker: prisonLockerSprite,
+        prison_locker_flash: PixelDraw.createSilhouette(prisonLockerSprite),
+        prison_dirt_mound: prisonDirtMoundSprite,
+        prison_dirt_mound_flash: PixelDraw.createSilhouette(prisonDirtMoundSprite),
+        prison_visit_booth: prisonVisitBoothSprite,
+        prison_visit_booth_flash: PixelDraw.createSilhouette(prisonVisitBoothSprite),
+        prison_watchtower: prisonWatchtowerSprite,
+        prison_watchtower_flash: PixelDraw.createSilhouette(prisonWatchtowerSprite),
+        prison_bunk: prisonBunkSprite,
+        prison_bunk_flash: PixelDraw.createSilhouette(prisonBunkSprite),
+        // ── F3 深渊实验室层物件 ──
+        f3_culture_tank: f3CultureTankSprite,
+        f3_culture_tank_flash: PixelDraw.createSilhouette(f3CultureTankSprite),
+        f3_culture_tank_broken: f3CultureTankBrokenSprite,
+        f3_culture_tank_broken_flash: PixelDraw.createSilhouette(f3CultureTankBrokenSprite),
+        f3_surgery_table: f3SurgeryTableSprite,
+        f3_surgery_table_flash: PixelDraw.createSilhouette(f3SurgeryTableSprite),
+        f3_reactor_core: f3ReactorCoreSprite,
+        f3_reactor_core_flash: PixelDraw.createSilhouette(f3ReactorCoreSprite),
+        f3_golem_torso: f3GolemTorsoSprite,
+        f3_golem_torso_flash: PixelDraw.createSilhouette(f3GolemTorsoSprite),
+        f3_cryo_pod: f3CryoPodSprite,
+        f3_cryo_pod_flash: PixelDraw.createSilhouette(f3CryoPodSprite),
+        f3_target_dummy: f3TargetDummySprite,
+        f3_target_dummy_flash: PixelDraw.createSilhouette(f3TargetDummySprite),
+        f3_pipe: f3PipeSprite,
+        f3_pipe_flash: PixelDraw.createSilhouette(f3PipeSprite),
+        // ── F2 圣殿层叙事物件 ──
+        temple_pew: f2PewSprite,
+        temple_pew_flash: PixelDraw.createSilhouette(f2PewSprite),
+        temple_pulpit: f2PulpitSprite,
+        temple_pulpit_flash: PixelDraw.createSilhouette(f2PulpitSprite),
+        alchemy_cauldron: f2CauldronSprite,
+        alchemy_cauldron_flash: PixelDraw.createSilhouette(f2CauldronSprite),
+        potion_shelf: f2PotionShelfSprite,
+        potion_shelf_flash: PixelDraw.createSilhouette(f2PotionShelfSprite),
+        temple_candelabra: f2CandelabraSprite,
+        temple_candelabra_flash: PixelDraw.createSilhouette(f2CandelabraSprite),
+        broken_organ: f2OrganSprite,
+        broken_organ_flash: PixelDraw.createSilhouette(f2OrganSprite),
+        reliquary_case: f2ReliquarySprite,
+        reliquary_case_flash: PixelDraw.createSilhouette(f2ReliquarySprite),
+        sacrifice_slab: f2SacrificeSlabSprite,
+        sacrifice_slab_flash: PixelDraw.createSilhouette(f2SacrificeSlabSprite),
         tree: treeSprite,
         tree_flash: PixelDraw.createSilhouette(treeSprite),
         tree_small: treeSmallSprite,
