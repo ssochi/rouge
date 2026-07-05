@@ -323,3 +323,8 @@
 - **触屏→鼠标事件桥**：`document` 上 `touchstart/move/end` 合成 `MouseEvent`，让背包/衣装等纯 DOM UI（`onmousedown/onmousemove`）在触屏可用；跳过 canvas 与摇杆层，`preventDefault` 抑制浏览器 300ms 合成事件避免双触发。
 - **画面适配**：移动模式 `Game.scale` 用 2（桌面 2.5）扩大视野；`html/body { touch-action:none }` + viewport `maximum-scale=1,user-scalable=no` 阻止页面滚动/缩放。
 - **调试**：`tools/screenshot_mobile.mjs`（puppeteer 移动视口 + 触摸仿真截图，横屏会注入按住触摸以显形浮动摇杆）。
+
+## 战斗数值方法论与审计工具
+
+- **方法论**：`docs/feature/COMBAT_BALANCE_METHODOLOGY.md` —— 锚点体系（初始手枪有效 DPS 38 / 玩家 100 HP）、敌人角色档位（炮灰 1 枪 / 标准 2-3 枪 / 重装 4-6 枪 / Boss 按 TTK 反推）、武器稀有度→等效 DPS 带宽（成本曲线）、特效折算（AOE×2.2 / DoT / 控制加值 / 近战风险折扣）、楼层 hpMult 与掉落稀有度同步防"海绵感"。
+- **审计工具**：`node tools/balance_report.mjs`（只读）——自动产出武器等效 DPS 表（含折算）、敌人 TTK 矩阵（含各层 hpMult）、稀有度带宽越界与 Boss 血量单调性告警。目标参数（带宽/档位/折算系数）集中在文件头常量区，是平衡目标的单一事实源。改动任何武器/敌人数值后必跑。
