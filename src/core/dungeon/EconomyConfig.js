@@ -2,7 +2,7 @@
 // 所有掉落/奖励相关的数值均在此定义，供 P6 数值调优时统一调整。
 
 // 敌人死亡掉落金币基准值（按敌人类型），default 为兜底值。
-export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, default: 2, boss: 50 };
+export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, default: 2, boss: 50 };
 
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
 export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };
@@ -30,11 +30,12 @@ export const TREASURE_ROOM_CHESTS = { 1: ['iron', 'wood'], 2: ['mithril', 'iron'
 export const ELITE_CLEAR = { chestTier: 'iron', coinMult: 1.5 };
 
 // 宝箱档位：是否需要钥匙、金币区间、稀有度权重分布。
+// petChance：产出宠物物品的概率（优先级低于遗物、高于武器）。仅高档箱设置，wood/iron 不产宠物。
 export const CHEST_TIERS = {
     wood: { needsKey: false, coins: [3, 8], relicChance: 0.10, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },
     iron: { needsKey: true, coins: [6, 14], relicChance: 0.25, rarityWeights: { common: 15, uncommon: 45, rare: 30, epic: 9, legendary: 1 } },
-    mithril: { needsKey: true, coins: [10, 20], relicChance: 0.45, rarityWeights: { common: 0, uncommon: 20, rare: 45, epic: 28, legendary: 7 } },
-    dragon: { needsKey: true, coins: [15, 30], relicChance: 0.55, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
+    mithril: { needsKey: true, coins: [10, 20], relicChance: 0.45, petChance: 0.06, rarityWeights: { common: 0, uncommon: 20, rare: 45, epic: 28, legendary: 7 } },
+    dragon: { needsKey: true, coins: [15, 30], relicChance: 0.55, petChance: 0.10, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
 };
 
 // 商店定价与商品权重。

@@ -6,6 +6,14 @@ export class PetCat {
         this.y = y;
         this.width = 16;
         this.height = 16;
+        this.petType = 'cat';
+
+        // 独特技能「治愈呼噜」参数
+        this.worldSystem = null;      // 召唤时注入（保持接口一致，本技能仅用 player）
+        this.purrRange = 40;          // 依偎距离阈值（px）：<该值才累计呼噜
+        this.purrTimer = 0;           // 呼噜蓄力计时（帧）
+        this.purrInterval = 900;      // 满 900 帧（15s）触发一次治愈
+        this.purrHeal = 3;            // 每次回复 HP
 
         // Movement hitbox (bottom-aligned, for wall collision)
         this.hitboxWidth = 8;
@@ -40,6 +48,9 @@ export class PetCat {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 独特技能「治愈呼噜」：依偎玩家累计呼噜，满则回血
+        this._healingPurr(player, dist, particles);
 
         // Teleport if too far
         if (dist > this.teleportDistance && particles) {
@@ -113,6 +124,63 @@ export class PetCat {
         } else {
             if (dx > 5) this.facingRight = true;
             else if (dx < -5) this.facingRight = false;
+        }
+    }
+
+    /**
+     * 独特技能「治愈呼噜」：猫距玩家 < purrRange 时累计呼噜计时，
+     * 满 purrInterval 帧为玩家回复 purrHeal HP（不超过 maxHp），
+     * 治愈瞬间在猫身上冒粉色心形/音符像素粒子、玩家身上冒绿色 + 粒子。
+     * 离开范围则计时缓慢回落（不清零，允许断续依偎累积）。
+     */
+    _healingPurr(player, dist, particles) {
+        if (!player) return;
+
+        if (dist < this.purrRange) {
+            this.purrTimer++;
+            if (this.purrTimer >= this.purrInterval) {
+                this.purrTimer = 0;
+                const maxHp = Number.isFinite(player.maxHp) ? player.maxHp : Infinity;
+                if (player.hp < maxHp) {
+                    player.hp = Math.min(maxHp, player.hp + this.purrHeal);
+                }
+                this._spawnHealVFX(player, particles);
+            }
+        } else if (this.purrTimer > 0) {
+            // 离开依偎范围：缓慢回落而非立即清零
+            this.purrTimer = Math.max(0, this.purrTimer - 2);
+        }
+    }
+
+    _spawnHealVFX(player, particles) {
+        if (!particles) return;
+        // 猫身上：粉色心形/音符像素粒子（上浮）
+        for (let i = 0; i < 6; i++) {
+            particles.push({
+                type: 'heart',
+                x: this.x + (Math.random() - 0.5) * 10,
+                y: this.y - 4 - Math.random() * 4,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: -0.7 - Math.random() * 0.6,
+                life: 28 + Math.random() * 12,
+                color: Math.random() < 0.5 ? '#ff9ec7' : '#ffc0e0',
+                size: 2 + Math.random() * 1.5,
+                alpha: 0.9
+            });
+        }
+        // 玩家身上：绿色治愈 + 粒子（上浮）
+        for (let i = 0; i < 8; i++) {
+            particles.push({
+                type: 'plus',
+                x: player.x + (Math.random() - 0.5) * 14,
+                y: player.y - 2 - Math.random() * 6,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: -0.8 - Math.random() * 0.7,
+                life: 26 + Math.random() * 12,
+                color: Math.random() < 0.5 ? '#7CFC7C' : '#b8f5b8',
+                size: 2 + Math.random() * 1.5,
+                alpha: 0.9
+            });
         }
     }
 

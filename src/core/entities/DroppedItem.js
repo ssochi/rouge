@@ -82,6 +82,9 @@ export class DroppedItem {
             this.name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             if (Assets[key]) {
                 this.sprite = Assets[key];
+            } else if (Assets[key + '_item']) {
+                // 宠物凭证等图标以 _item 结尾注册（如 pet_dog_item）
+                this.sprite = Assets[key + '_item'];
             }
         } else if (this.itemId.startsWith('costume:')) {
             this.isCostume = true;

@@ -6,6 +6,12 @@ export class PetDog {
         this.y = y;
         this.width = 16;
         this.height = 16;
+        this.petType = 'dog';
+
+        // 独特技能「寻宝嗅觉」参数
+        this.worldSystem = null;      // 召唤时注入，读取 droppedItems / pickups
+        this.scentRadius = 90;        // 嗅探半径（px）
+        this.scentPull = 1.2;         // 每帧向玩家轻拽距离（px）
 
         // Movement hitbox (bottom-aligned, for wall collision)
         this.hitboxWidth = 10;
@@ -36,6 +42,9 @@ export class PetDog {
 
     update(player, getFlowDirection, getNavDirection, moveResolver, particles) {
         this.animationTimer++;
+
+        // 独特技能「寻宝嗅觉」：将附近掉落物/金币轻拽向玩家
+        this._treasureScent(player, particles);
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -122,6 +131,56 @@ export class PetDog {
             // Face toward player when idle
             if (dx > 5) this.facingRight = true;
             else if (dx < -5) this.facingRight = false;
+        }
+    }
+
+    /**
+     * 独特技能「寻宝嗅觉」：把狗身周 scentRadius 内的地牢掉落物与金币拾取物
+     * 每帧向玩家方向轻拽 scentPull 像素（直接改写目标 x/y），并低频冒出淡金色嗅探粒子。
+     * 依赖召唤时注入的 worldSystem.droppedItems / worldSystem.pickups。
+     */
+    _treasureScent(player, particles) {
+        const ws = this.worldSystem;
+        if (!ws || !player) return;
+
+        const r2 = this.scentRadius * this.scentRadius;
+        const pull = this.scentPull;
+
+        const tug = (obj) => {
+            const sdx = obj.x - this.x;
+            const sdy = obj.y - this.y;
+            if (sdx * sdx + sdy * sdy > r2) return; // 超出嗅探半径
+            const pdx = player.x - obj.x;
+            const pdy = player.y - obj.y;
+            const d = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (d > 4) {
+                obj.x += (pdx / d) * pull;
+                obj.y += (pdy / d) * pull;
+            }
+        };
+
+        if (ws.droppedItems) {
+            for (const it of ws.droppedItems) tug(it);
+        }
+        if (ws.pickups) {
+            for (const p of ws.pickups) {
+                if (p.kind === 'coin' && !p.collected) tug(p);
+            }
+        }
+
+        // 淡金色嗅探粒子（低频，避免刷屏）
+        if (particles && this.animationTimer % 24 === 0) {
+            particles.push({
+                type: 'smoke',
+                x: this.x + (Math.random() - 0.5) * 8,
+                y: this.y - 2 - Math.random() * 3,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: -0.25 - Math.random() * 0.3,
+                life: 16 + Math.random() * 8,
+                color: Math.random() < 0.5 ? '#ffe9a8' : '#f7d774',
+                size: 1.5 + Math.random(),
+                alpha: 0.5
+            });
         }
     }
 

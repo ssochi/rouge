@@ -4,10 +4,13 @@
 
 import { Assets } from '../../graphics/Assets.js';
 import { CHEST_TIERS } from '../dungeon/EconomyConfig.js';
-import { rollChest } from '../dungeon/LootTable.js';
+import { rollChest, PET_ITEM_IDS } from '../dungeon/LootTable.js';
 import { weaponItemIdFromConfigId, createWeaponInstanceData } from '../systems/WeaponInstanceUtils.js';
 import { DroppedItem } from './DroppedItem.js';
 import { CHEST_W, CHEST_H } from '../../assets/dungeon/ChestSprites.js';
+
+// 宠物实体 petType → 召唤凭证物品 id，用于判定"已召唤同类宠物"。
+const PET_TYPE_TO_ITEM_ID = { dog: 'consumable:pet_dog', cat: 'consumable:pet_cat', '2b': 'consumable:pet_2b' };
 
 export class Chest {
     /**
@@ -47,8 +50,10 @@ export class Chest {
         this.isOpen = true;
 
         const ownedRelicIds = runState ? runState.relicIds : [];
+        const ownedPetItemIds = this._gatherOwnedPetItemIds(worldSystem);
         const result = rollChest(this.tier, Math.random, {
             ownedRelicIds,
+            ownedPetItemIds,
             forceRelic: this.guaranteedRelic,
         });
         const cx = this.x + this.width / 2;
@@ -61,6 +66,10 @@ export class Chest {
         if (worldSystem.relicSystem && worldSystem.relicSystem.chestDoubleRoll()) {
             const bonus = rollChest(this.tier, Math.random, {
                 ownedRelicIds: runState ? runState.relicIds : [],
+                // 首抽已产宠物则并入去重集，避免双倍抽出重复宠物
+                ownedPetItemIds: result.kind === 'pet'
+                    ? [...ownedPetItemIds, result.petItemId]
+                    : ownedPetItemIds,
             });
             this._spawnLoot(bonus, cx - 20, cy, worldSystem);
             worldSystem.spawnCoinBurst(cx, cy, bonus.coins);
@@ -68,10 +77,42 @@ export class Chest {
         return 'opened';
     }
 
+    /**
+     * 汇总玩家已"拥有"的宠物物品 id：背包中持有的宠物凭证 + 已召唤的同类宠物。
+     * 供 rollChest 去重，避免掉落无用的重复宠物。
+     * @returns {string[]}
+     */
+    _gatherOwnedPetItemIds(worldSystem) {
+        const owned = new Set();
+        const inv = worldSystem && worldSystem.inventorySystem;
+        if (inv && inv.slots) {
+            for (const slot of inv.slots) {
+                if (slot && slot.itemId && PET_ITEM_IDS.includes(slot.itemId)) {
+                    owned.add(slot.itemId);
+                }
+            }
+        }
+        const pets = worldSystem && worldSystem.pets;
+        if (pets) {
+            for (const pet of pets) {
+                const id = PET_TYPE_TO_ITEM_ID[pet.petType];
+                if (id) owned.add(id);
+            }
+        }
+        return Array.from(owned);
+    }
+
     _spawnLoot(result, cx, cy, worldSystem) {
         if (result.kind === 'relic' && result.relicId) {
             worldSystem.droppedItems.push(
                 new DroppedItem(cx, cy + 16, `relic:${result.relicId}`)
+            );
+            return;
+        }
+        if (result.kind === 'pet' && result.petItemId) {
+            // 宠物凭证落地为可拾取物，入背包后走现有 useSelectedConsumable 召唤流。
+            worldSystem.droppedItems.push(
+                new DroppedItem(cx, cy + 16, result.petItemId)
             );
             return;
         }

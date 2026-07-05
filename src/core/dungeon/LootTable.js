@@ -6,6 +6,19 @@ import { RELIC_IDS } from '../../assets/relics/RelicData.js';
 import { LOOT_WEAPON_BLACKLIST, CHEST_TIERS } from './EconomyConfig.js';
 import { WEAPONS } from '../../assets/weapons/WeaponData.js';
 
+// 可作为地牢掉落的宠物物品 id（InventorySystem 中注册的召唤凭证），三选一。
+export const PET_ITEM_IDS = ['consumable:pet_dog', 'consumable:pet_cat', 'consumable:pet_2b'];
+
+// 在未拥有的宠物物品中均匀随机抽取一个；全部已拥有时返回 null。
+// ownedPetItemIds：玩家已在背包持有 或 已召唤同类的宠物物品 id，避免重复无用掉落。
+export function pickPetItem(ownedPetItemIds = [], rng = Math.random) {
+    const owned = new Set(ownedPetItemIds);
+    const pool = PET_ITEM_IDS.filter(id => !owned.has(id));
+    if (pool.length === 0) return null;
+    const idx = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+    return pool[idx];
+}
+
 // 按权重表随机选取稀有度档位（累计权重扫描）。
 // weights: { common, uncommon, rare, epic, legendary } 部分档位可缺省（视为 0）。
 // 权重总和为 0 时兜底返回 'common'。
@@ -59,9 +72,11 @@ export function pickRelic(ownedRelicIds = [], rng = Math.random) {
     return pool[idx];
 }
 
-// 组合稀有度权重 + 武器/遗物抽取 + 金币区间随机，模拟一次开箱。
+// 组合稀有度权重 + 武器/遗物/宠物抽取 + 金币区间随机，模拟一次开箱。
 // opts.ownedRelicIds: 已持有遗物（去重）；opts.forceRelic: 保底遗物（Boss 箱，未全收集时必出遗物）。
-// 返回 { kind: 'weapon'|'relic', weaponConfigId, relicId, coins }。
+// opts.ownedPetItemIds: 已拥有/已召唤的宠物物品 id（去重），避免重复无用掉落。
+// 抽取优先级：遗物 > 宠物 > 武器（前两者未命中或已收满时回退武器）。
+// 返回 { kind: 'weapon'|'relic'|'pet', weaponConfigId, relicId, petItemId, coins }。
 export function rollChest(tierName, rng = Math.random, opts = {}) {
     const tier = CHEST_TIERS[tierName];
     const [min, max] = tier.coins;
@@ -72,12 +87,22 @@ export function rollChest(tierName, rng = Math.random, opts = {}) {
     if (wantRelic) {
         const relicId = pickRelic(ownedRelicIds, rng);
         if (relicId) {
-            return { kind: 'relic', weaponConfigId: null, relicId, coins };
+            return { kind: 'relic', weaponConfigId: null, relicId, petItemId: null, coins };
         }
         // 遗物全收集 → 回退武器
     }
 
+    // 宠物掉落：仅高档箱（petChance>0）参与，命中且尚有未拥有宠物时产出，否则回退武器。
+    const petChance = tier.petChance || 0;
+    if (petChance > 0 && rng() < petChance) {
+        const petItemId = pickPetItem(opts.ownedPetItemIds || [], rng);
+        if (petItemId) {
+            return { kind: 'pet', weaponConfigId: null, relicId: null, petItemId, coins };
+        }
+        // 三只宠物全部已拥有 → 回退武器
+    }
+
     const rarity = pickRarity(tier.rarityWeights, rng);
     const weaponConfigId = pickWeaponByRarity(rarity, rng);
-    return { kind: 'weapon', weaponConfigId, relicId: null, coins };
+    return { kind: 'weapon', weaponConfigId, relicId: null, petItemId: null, coins };
 }
