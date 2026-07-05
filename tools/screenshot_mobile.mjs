@@ -39,7 +39,7 @@ try {
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
     await new Promise((r) => setTimeout(r, wait));
 
-    // 浮动摇杆仅在触摸时浮现：横屏截图前在两个落指区注入按住的触摸以显形摇杆。
+    // 横屏截图前注入按住的触摸：左摇杆显形浮动 + 按住射击大按钮（触发自动瞄准开火）。
     if (width > height) {
         await page.evaluate((w, h) => {
             const root = document.getElementById('mobile-controls');
@@ -53,15 +53,15 @@ try {
                 el.dispatchEvent(ev);
             };
             const leftZone = root.querySelector('.mc-zone-left');
-            const rightZone = root.querySelector('.mc-zone-right');
+            const shootBtn = root.querySelector('.mc-shoot');
             // 左摇杆：落指 + 向右上推
             fire(leftZone, 'touchstart', 1, w * 0.18, h * 0.62);
             fire(window, 'touchmove', 1, w * 0.18 + 34, h * 0.62 - 30);
-            // 右摇杆：在收窄后热区（中右侧）典型落指位 + 向右上推（过死区显示开火色）
-            fire(rightZone, 'touchstart', 2, w * 0.60, h * 0.72);
-            fire(window, 'touchmove', 2, w * 0.60 + 42, h * 0.72 - 26);
+            // 按住射击大按钮（中心约在 right:20+46, bottom:20+46）→ 持续开火 + 自动瞄准
+            fire(shootBtn, 'touchstart', 2, w - 66, h - 66);
         }, width, height);
-        await new Promise((r) => setTimeout(r, 150));
+        // 多按几帧让自动瞄准锁定并打出子弹
+        await new Promise((r) => setTimeout(r, 500));
     }
 
     await page.screenshot({ path: out });

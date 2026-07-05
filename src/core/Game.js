@@ -599,8 +599,9 @@ export class Game {
         const scaledMouseY = this.input.mouse.y / this.scale;
         this.input.mouse.worldX = scaledMouseX + this.camera.x;
         this.input.mouse.worldY = scaledMouseY + this.camera.y;
-        // 移动端：摇杆覆写移动向量/瞄准世界坐标/开火，须在相机换算之后、瞄准消费之前。
-        if (this.mobileControls) this.mobileControls.update(this.player);
+        // 移动端：摇杆覆写移动向量/自动瞄准最近敌人/开火，须在相机换算之后、瞄准消费之前。
+        // this.enemies 与 worldSystem.enemies 同引用（就地 push/splice），恒为当前存活敌人数组。
+        if (this.mobileControls) this.mobileControls.update(this.player, this.enemies);
         this.profiler.end('Camera');
 
         // --- Hand & Melee ---
