@@ -13,11 +13,13 @@ export const FLOOR_TYPES = {
     // 地牢楼层专属石板（P5 楼层主题，色板见 DungeonThemes.js）
     DUNGEON_F1: 6,
     DUNGEON_F2: 7,
-    DUNGEON_F3: 8
+    DUNGEON_F3: 8,
+    // 地牢坑（深渊：敌人坠杀/玩家掉落扣血/翻滚可跨越）
+    PIT: 9
 };
 
 /** Map type ID → key string for Assets.floors lookup */
-export const FLOOR_TYPE_KEYS = ['none', 'grass', 'wood', 'concrete', 'dirt', 'stone', 'dungeon_f1', 'dungeon_f2', 'dungeon_f3'];
+export const FLOOR_TYPE_KEYS = ['none', 'grass', 'wood', 'concrete', 'dirt', 'stone', 'dungeon_f1', 'dungeon_f2', 'dungeon_f3', 'pit'];
 
 /** Base color per floor type (for dithering transitions) */
 export const FLOOR_BASE_COLORS = {
@@ -28,5 +30,6 @@ export const FLOOR_BASE_COLORS = {
     5: '#5a5a6a',
     6: '#565d6e',
     7: '#525c4e',
-    8: '#5c4747'
+    8: '#5c4747',
+    9: '#050508'
 };

@@ -4,7 +4,7 @@
 // 让房间「看得出曾经是干什么的」（囚区/食堂/档案室/刑讯室/祭仪厅…）。
 //
 // 图例：
-//   # 内墙   c 掩体   d 装饰（主题池随机）   . 空地
+//   # 内墙   p 坑（敌人可被击退坠杀/玩家翻滚可跨越）   c 掩体   d 装饰（主题池随机）   . 空地
 //   m/r/h/e 第一波出怪（近战/远程/重装/精英保底词缀）
 //   M/R/H/E 第二波出怪（首波全灭后短暂预警再刷新）
 //   其余字符由模板 legend 映射为具体物件（家具/牢栏/刑架等，可破坏）
@@ -24,8 +24,8 @@ export const ENCOUNTER_TEMPLATES = [
         'm...........m',
         '.............',
         '...c.....c...',
-        '.............',
-        '...r..d......',
+        '....pp.pp....',
+        '...r..d..r...',
         'M....c.c....M',
         '.............',
         '...M.....M...',
@@ -74,7 +74,7 @@ export const ENCOUNTER_TEMPLATES = [
         '..............',
         '...c......c...',
         '.m....rr....m.',
-        '..............',
+        '..pp......pp..',
         '......cc......',
         '..M........M..',
         '....R....R....',
@@ -189,9 +189,9 @@ export const ENCOUNTER_TEMPLATES = [
     T('killbox', 'deep', 0.8, [
         '.r.......r.',
         '...c...c...',
-        '...........',
-        'h....c....h',
-        '...........',
+        '....ppp....',
+        'h...ppp...h',
+        '....ppp....',
         '...c...c...',
         '.M.......M.',
         '....EHE....',
@@ -228,16 +228,16 @@ export const ENCOUNTER_TEMPLATES = [
     T('ritual_hall', 'deep', 1.6, [
         '................',
         '..r..........r..',
-        '................',
+        '.....pp..pp.....',
         '....#......#....',
         '......a.a.......',
         '.....a.e.a......',
         '......a.a.......',
         '....#......#....',
-        '..M...HH.....M..',
+        '.....pp..pp.....',
+        '..M...HH...M....',
         '....M..E..M.....',
-        '..c..........c..',
-        '................'
+        '..c..........c..'
     ], { a: 'dungeon_altar' }),
     // 军械库：箱阵武器架与常驻火力点
     T('armory_vault', 'deep', 1.4, [
@@ -274,6 +274,7 @@ export function parseEncounter(template) {
     const h = rows.length;
     const w = rows[0].length;
     const walls = [];
+    const pits = [];
     const covers = [];
     const decors = [];
     const spawns = [];
@@ -284,6 +285,7 @@ export function parseEncounter(template) {
             const ch = rows[y][x];
             if (ch === '.') continue;
             if (ch === '#') walls.push({ x, y });
+            else if (ch === 'p') pits.push({ x, y });
             else if (ch === 'c') covers.push({ x, y });
             else if (ch === 'd') decors.push({ x, y });
             else if (ch === 'm' || ch === 'r' || ch === 'h' || ch === 'e') {
@@ -296,7 +298,7 @@ export function parseEncounter(template) {
         }
     }
 
-    return { id: template.id, w, h, walls, covers, decors, spawns, props };
+    return { id: template.id, w, h, walls, pits, covers, decors, spawns, props };
 }
 
 /**
@@ -356,6 +358,7 @@ export function placeEncounter(parsed, room) {
         covers: parsed.covers.map(shift),
         decors: parsed.decors.map(shift),
         spawns: parsed.spawns.map(shift),
-        props: parsed.props.map(shift)
+        props: parsed.props.map(shift),
+        pits: parsed.pits.map(shift)
     };
 }

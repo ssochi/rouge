@@ -176,6 +176,7 @@ export class WorldSystem {
         }
         this.dungeonManager = null;
         this.dungeonTheme = null;
+        this.dungeonPitTiles = null;
         this.currentMapType = mapType;
 
         // 单局地牢运行状态生命周期：必须在生成地牢层（initDungeonMap）之前更新，
@@ -227,7 +228,16 @@ export class WorldSystem {
                 this.initHubMap();
         }
         
-        this.navGrid.setWalls(this.walls);
+        // 敌人导航把坑视为墙（绕行）；坑不进 this.walls → 不挡子弹/玩家/击退位移
+        if (this.dungeonPitTiles && this.dungeonPitTiles.size > 0) {
+            const pitRects = [...this.dungeonPitTiles].map(key => {
+                const [tx, ty] = key.split(',').map(Number);
+                return { x: tx * TILE_SIZE, y: ty * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+            });
+            this.navGrid.setWalls([...this.walls, ...pitRects]);
+        } else {
+            this.navGrid.setWalls(this.walls);
+        }
         this.markWorldStaticDirty();
         this._trackedObstacleStates = new WeakMap();
         this._trackedObstacleCount = 0;
@@ -236,6 +246,16 @@ export class WorldSystem {
 
     _isDungeonMapType(mapType) {
         return typeof mapType === 'string' && mapType.startsWith('dungeon');
+    }
+
+    /**
+     * 世界坐标是否位于地牢坑上（掉落/坠杀判定）。
+     */
+    isPitAt(worldX, worldY) {
+        if (!this.dungeonPitTiles || this.dungeonPitTiles.size === 0) return false;
+        const tx = Math.floor(worldX / TILE_SIZE);
+        const ty = Math.floor(worldY / TILE_SIZE);
+        return this.dungeonPitTiles.has(`${tx},${ty}`);
     }
 
     /**
@@ -706,18 +726,23 @@ export class WorldSystem {
         const dungeonFloorType = FLOOR_TYPES[`DUNGEON_F${Math.min(floor, 3)}`] || FLOOR_TYPES.STONE;
         for (const key of layout.floorTiles) {
             const [tx, ty] = key.split(',').map(Number);
+            const isPit = layout.pitTiles && layout.pitTiles.has(key);
+            const type = isPit ? FLOOR_TYPES.PIT : dungeonFloorType;
             for (let sy = 0; sy < S; sy++) {
                 for (let sx = 0; sx < S; sx++) {
                     const fx = tx * S + sx;
                     const fy = ty * S + sy;
                     if (fx >= 0 && fx < this.floorMapWidth && fy >= 0 && fy < this.floorMapHeight) {
-                        this.floorMap[fy * this.floorMapWidth + fx] = dungeonFloorType;
+                        this.floorMap[fy * this.floorMapWidth + fx] = type;
                     }
                 }
             }
         }
         this.buildFloorCanvas();
         this._stampDungeonDecals(layout);
+
+        // 坑集合：玩家掉落判定 + 敌人坠坑判定 + 导航虚拟墙（敌人绕坑，物理不挡=可被击退坠坑）
+        this.dungeonPitTiles = layout.pitTiles || new Set();
 
         // Player spawn in start room
         const startRoom = layout.rooms.find(r => r.id === layout.startRoomId);
@@ -2200,6 +2225,13 @@ export class WorldSystem {
             );
 
             this._updateEnemyBreachBehavior(e);
+
+            // 坠坑：被击退推进坑的敌人直接坠杀（Boss/分段体/出生保护中免疫）
+            if (this.dungeonPitTiles && this.dungeonPitTiles.size > 0
+                && e.hp > 0 && !e.isBoss && !e.isSegment && !(e.spawnGraceTimer > 0)
+                && this.isPitAt(e.x, e.y + (e.hitboxOffsetY || 0))) {
+                e.hp = 0;
+            }
         }
 
         // Run one stable post-update overlap resolution pass to avoid large zombie stacks.

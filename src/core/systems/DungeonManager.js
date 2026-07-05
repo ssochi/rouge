@@ -347,11 +347,11 @@ export class DungeonManager {
 
             let enemy = null;
             for (const [dx, dy] of offsets) {
-                enemy = this.worldSystem.spawnEnemy(type, {
-                    tileX: spawn.x + dx,
-                    tileY: spawn.y + dy,
-                    strict: true
-                });
+                const tx = spawn.x + dx;
+                const ty = spawn.y + dy;
+                // 退让落点不得在坑上
+                if (this.worldSystem.isPitAt && this.worldSystem.isPitAt(tx * TILE_SIZE + 16, ty * TILE_SIZE + 16)) continue;
+                enemy = this.worldSystem.spawnEnemy(type, { tileX: tx, tileY: ty, strict: true });
                 if (enemy) break;
             }
             if (!enemy) continue;

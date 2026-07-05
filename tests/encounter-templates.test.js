@@ -15,9 +15,12 @@ const KNOWN_ENEMY_TYPES = new Set([
     'warlock', 'boomer', 'summoner', 'shieldbearer', 'sentry', 'lobber'
 ]);
 
-/** 模板网格 BFS：所有非墙格必须连通（不允许墙封死区域）。 */
+/** 模板网格 BFS：所有非墙非坑格必须连通（不允许墙/坑封死区域）。 */
 function assertConnected(parsed, rows) {
-    const wallSet = new Set(parsed.walls.map(w => `${w.x},${w.y}`));
+    const wallSet = new Set([
+        ...parsed.walls.map(w => `${w.x},${w.y}`),
+        ...(parsed.pits || []).map(p => `${p.x},${p.y}`)
+    ]);
     const totalOpen = parsed.w * parsed.h - wallSet.size;
 
     let start = null;
@@ -79,6 +82,14 @@ describe('EncounterTemplates', () => {
             const hasRanged = parsed.spawns.some(s => s.role === 'r' || s.role === 'h');
             if (hasRanged) {
                 expect(parsed.covers.length, `${template.id} 掩体保底`).toBeGreaterThanOrEqual(2);
+            }
+
+            // 坑约束：出怪点/掩体/道具不得压在坑上
+            if (parsed.pits && parsed.pits.length > 0) {
+                const pitSet = new Set(parsed.pits.map(p => `${p.x},${p.y}`));
+                for (const s of [...parsed.spawns, ...parsed.covers, ...parsed.props]) {
+                    expect(pitSet.has(`${s.x},${s.y}`), `${template.id} 元素压坑`).toBe(false);
+                }
             }
         });
     }

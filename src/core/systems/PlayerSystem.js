@@ -353,6 +353,8 @@ export class PlayerSystem {
         const startState = this.player.state;
         const effectiveSpeed = this.getEffectivePlayerSpeed();
 
+        this._updatePitFall();
+
         // M12: Grapple movement — pull player toward target
         if (this.player._grappleTarget) {
             const gt = this.player._grappleTarget;
@@ -447,6 +449,40 @@ export class PlayerSystem {
             this.player.animationTimer = 0;
         } else {
             this.player.animationTimer++;
+        }
+    }
+
+    /**
+     * 地牢坑判定：踩空掉坑（扣血 + 回最近安全点 + 黑烟粒子）；
+     * 翻滚/驾驶状态可跨坑（Gungeon 式 dodge roll 过坑）。
+     */
+    _updatePitFall() {
+        const ws = this.worldSystem;
+        if (!ws || !ws.isPitAt || !ws.dungeonPitTiles || ws.dungeonPitTiles.size === 0) return;
+        const p = this.player;
+        if (p.state === 'roll' || p.state === 'driving') return;
+
+        if (ws.isPitAt(p.x, p.y + 12)) {
+            if (p.takeDamage) p.takeDamage(10, null);
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * Math.PI * 2;
+                this.particles.push({
+                    x: p.x,
+                    y: p.y + 8,
+                    vx: Math.cos(a) * 1.5,
+                    vy: Math.sin(a) * 1.5 - 0.5,
+                    life: 20,
+                    color: '#1a1a22',
+                    size: 3,
+                    friction: 0.88
+                });
+            }
+            if (this._lastSafePos) {
+                p.x = this._lastSafePos.x;
+                p.y = this._lastSafePos.y;
+            }
+        } else {
+            this._lastSafePos = { x: p.x, y: p.y };
         }
     }
 

@@ -52,3 +52,23 @@ function createSlabVariant(floor, variant) {
 export function createDungeonFloorVariants(theme) {
     return [0, 1, 2, 3].map(v => createSlabVariant(theme.floor, v));
 }
+
+/**
+ * 坑贴图（16×16 深渊）：近纯黑 + 顶缘断口暗壁 + 微星点。全主题通用。
+ * @returns {HTMLCanvasElement[]}
+ */
+export function createPitVariants() {
+    const out = [];
+    for (const seed of [3, 17]) {
+        const d = new PixelDraw(16, 16);
+        d.rect(0, 0, 16, 16, '#050508');
+        // 顶缘断口壁面（地面厚度感）
+        d.hLine(0, 0, 16, '#2c2c36');
+        d.hLine(0, 1, 16, '#1a1a22');
+        // 深渊微星点
+        d.pixel((seed * 5) % 14 + 1, 6 + (seed % 7), '#141420');
+        d.pixel((seed * 11) % 14 + 1, 9 + (seed % 5), '#10101a');
+        out.push(d.getCanvas());
+    }
+    return out;
+}

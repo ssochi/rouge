@@ -1212,10 +1212,11 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
     const gates = findGatePositions(rooms, allCorridorTiles);
 
     const interiorWallTiles = new Set();
+    const pitTiles = new Set();
     const usedTemplateIds = new Set();
 
     for (const room of rooms) {
-        // 遭遇战房（定形阶段已选定模板）：铺设墙/掩体/出怪点/道具
+        // 遭遇战房（定形阶段已选定模板）：铺设墙/坑/掩体/出怪点/道具
         if (room.encounterParsed) {
             const placed = placeEncounter(room.encounterParsed, room);
             room.encounter = placed;
@@ -1223,6 +1224,10 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
                 const key = tileKey(w.x, w.y);
                 interiorWallTiles.add(key);
                 floorTiles.delete(key);
+            }
+            // 坑保留在 floorTiles（避免坑周长墙），类型由 pitTiles 标记
+            for (const p of (placed.pits || [])) {
+                pitTiles.add(tileKey(p.x, p.y));
             }
             continue;
         }
@@ -1280,7 +1285,8 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         room.spawnPoints = [];
         for (let y = room.y + 2; y < room.y + room.h - 2; y++) {
             for (let x = room.x + 2; x < room.x + room.w - 2; x++) {
-                if (interiorWallTiles.has(tileKey(x, y))) continue;
+                const key = tileKey(x, y);
+                if (interiorWallTiles.has(key) || pitTiles.has(key)) continue;
                 room.spawnPoints.push({ x, y });
             }
         }
@@ -1350,6 +1356,7 @@ function generateDungeonLayoutAttempt(mapWidth, mapHeight, rng, floor, cfg) {
         gates,
         wallTiles,
         floorTiles,
+        pitTiles,
         coverObjects,
         decorObjects,
         lightObjects,

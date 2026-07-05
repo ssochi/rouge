@@ -73,7 +73,7 @@ import { createChestSprite, CHEST_TIER_NAMES } from '../assets/dungeon/ChestSpri
 import { createRelicIcons } from '../assets/relics/RelicIcons.js';
 import { createMerchantSprite } from '../assets/dungeon/MerchantSprite.js';
 import { createDungeonWallSet } from '../assets/dungeon/DungeonWallSprites.js';
-import { createDungeonFloorVariants } from '../assets/dungeon/DungeonFloorSprites.js';
+import { createDungeonFloorVariants, createPitVariants } from '../assets/dungeon/DungeonFloorSprites.js';
 import { createDungeonTorchFrames, createDungeonBrazierFrames } from '../assets/dungeon/DungeonLightSprites.js';
 import { createDungeonDecalSet } from '../assets/dungeon/DungeonDecalSprites.js';
 import { createDungeonPillarSprite } from '../assets/objects/dungeon/DungeonPillarSprite.js';
@@ -274,6 +274,7 @@ for (const floor of Object.keys(DUNGEON_THEMES)) {
     dungeonDecalSets[theme.id] = createDungeonDecalSet(theme);
     floorSprites[`dungeon_${theme.id}`] = createDungeonFloorVariants(theme);
 }
+floorSprites.pit = createPitVariants(); // 地牢坑（全主题通用深渊贴图）
 const treeSprite = createTreeSprite();
 const treeSmallSprite = createTreeSmallSprite();
 const bushSprites = createBushSprites();
