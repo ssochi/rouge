@@ -1,5 +1,6 @@
 // CostumeStats —— 服装属性表（纯数据 + 聚合函数）。
-// 帽子/衣服/眼镜按主题携带属性加成（发型/胡子保持纯外观）；
+// 全部五个槽位（帽子/衣服/眼镜/发型/胡子）按主题携带属性加成；
+// 发型/胡子为附加小档位（2~4%），衣帽眼镜为主档位。
 // 消费点：PlayerSystem 移速、CombatSystem 玩家子弹伤害/暴击、CostumeSystem 装备时 maxHp 记账。
 
 export const COSTUME_STATS = {
@@ -13,6 +14,7 @@ export const COSTUME_STATS = {
     hat_pirate: { damageMult: 1.03, critChance: 0.05 },
 
     // ── 衣服 ──
+    clothes_coat: { damageMult: 1.05, critChance: 0.02 },
     clothes_hoodie: { maxHpBonus: 8 },
     clothes_vest: { maxHpBonus: 12, moveSpeedMult: 0.98 },
     clothes_santa: { maxHpBonus: 10 },
@@ -24,9 +26,21 @@ export const COSTUME_STATS = {
 
     // ── 眼镜 ──
     glasses_round: { maxHpBonus: 5 },
+    glasses_sun: { damageMult: 1.03 },
     glasses_goggles: { critChance: 0.03 },
     glasses_cyber: { critChance: 0.08 },
-    glasses_eyepatch: { damageMult: 1.05 }
+    glasses_eyepatch: { damageMult: 1.05 },
+
+    // ── 发型（附加小档位） ──
+    hair_short: { moveSpeedMult: 1.02 },
+    hair_long: { critChance: 0.02 },
+    hair_messy: { maxHpBonus: 4 },
+    hair_clown: { moveSpeedMult: 1.03 },
+    hair_cyber: { critChance: 0.03 },
+
+    // ── 胡子（附加小档位） ──
+    beard_full: { maxHpBonus: 6 },
+    beard_santa: { maxHpBonus: 8 }
 };
 
 const NEUTRAL = Object.freeze({ maxHpBonus: 0, moveSpeedMult: 1, damageMult: 1, critChance: 0 });
