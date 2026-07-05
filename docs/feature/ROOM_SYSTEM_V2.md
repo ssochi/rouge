@@ -1,6 +1,6 @@
 # 房间系统 V2 —— 分层代码化房间 + 图优先连接
 
-> 状态：已确认（2026-07-06）——连接采用宏观网格嵌入；分期 P1 IR+适配器 → P2 构建器 → P3 连接重做 → P4 渐进迁移；人潮批次（horde-enemies/cover-templates）落地合并后开工。
+> 状态：P1-P3 全部交付（2026-07-06，commit 6e3aedd/453a926/237a0b0）——IR+适配器零回归、RoomBuilder+5示范房、图优先拓扑+宏观网格连接（默认 V2，?layout=v1 回退）。P4 存量迁移渐进不设期限。调参决策：主干房数 10-11 维持、偶现中心 hub 布局可接受、2×2 大 Boss 房进后续待办——三项均待用户实测后可推翻。
 >
 > **P1 已交付（2026-07-06）**：`generation/rooms/RoomPlan.js`（IR + `createRoomPlan`/`validateRoomPlan`/`checkConnectivity`）+ `generation/rooms/EncounterAdapter.js`（`encounterToRoomPlan` 字符模板适配器 + `roomPlanToParsed` 旧口径视图）；`selectEncounter` 返回 RoomPlan、`placeEncounter` 只吃 RoomPlan、`parseEncounter` 降级为兼容视图（`[room-v2:p1]` 锚点）。零观感/零行为变化，三重验证守护（黄金测试 70/70 + placeEncounter 字节等价 + 全楼层 SHA-256 指纹一致，seed 7/42 × floor 1/2/3）。详见本文档末「P1 交付记录」。
 >
