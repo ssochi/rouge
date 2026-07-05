@@ -104,7 +104,18 @@ export class HandSystem {
         if (state && state.currentAmmo > 0) {
             state.currentAmmo--;
             this._commitCurrentWeaponState();
+            // 弹尽销毁：弹匣+备弹全空（非无限弹/非近战）→ 通知上层销毁当前枪并自动切下一把
+            if (state.currentAmmo <= 0 && state.reserveAmmo <= 0 &&
+                !(this.currentWeapon && (this.currentWeapon.infiniteAmmo || this.currentWeapon.isMelee)) &&
+                this._outOfAmmoHandler) {
+                this._outOfAmmoHandler();
+            }
         }
+    }
+
+    /** 弹尽回调注入（PlayerSystem：销毁武器+切枪）。 */
+    bindOutOfAmmo(fn) {
+        this._outOfAmmoHandler = fn;
     }
 
     startReload() {

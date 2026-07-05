@@ -2,17 +2,19 @@
 // 所有掉落/奖励相关的数值均在此定义，供 P6 数值调优时统一调整。
 
 // 敌人死亡掉落金币基准值（按敌人类型），default 为兜底值。
-export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, /* [depth-batch:enemies] loot_goblin 死亡金币由实体 getDungeonCoinValue 覆盖 */ loot_goblin: 2, burrower: 5, arc_twin: 3, revenant: 4, /* [horde:enemies] 炮灰1/唤潮5/弹幕4 */ shambler: 1, bone_piper: 5, rain_archer: 4, default: 2, boss: 50 };
+// 2026-07-06 金币紧缩（用户实测：金币多到买东西不用思考；人潮化后击杀数翻倍雪上加霜）：
+// 击杀值改三档制（炮灰1/标准2/重装支援3），Boss 50→25，目标每层收入≈商店1-1.2件的取舍压力。
+export const ENEMY_COIN_VALUES = { zombie: 1, zombie_female: 1, zombie_brute: 3, hunter: 3, soldier: 3, warlock: 3, boomer: 2, summoner: 3, shieldbearer: 3, sentry: 2, lobber: 2, wraith: 1, archer: 2, hellhound: 2, flail_warden: 3, plague_rat: 1, cultist: 2, gargoyle: 2, spinner: 2, weeper: 2, splitter: 3, /* loot_goblin 死亡金币由实体 getDungeonCoinValue 覆盖 */ loot_goblin: 2, burrower: 3, arc_twin: 2, revenant: 2, shambler: 1, bone_piper: 3, rain_archer: 2, default: 1, boss: 25 };
 
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
-export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };
+export const BREAKABLE_COIN = { chance: 0.2, min: 1, max: 2 }; // 金币紧缩
 
 // 清房奖励：钥匙/武器掉落概率 + 金币数量区间 + 武器稀有度权重。
 export const ROOM_CLEAR = {
     keyChance: 0.15,
     weaponChance: 0.15,
-    coinMin: 3,
-    coinMax: 8,
+    coinMin: 2, // 金币紧缩 3→2
+    coinMax: 5, // 金币紧缩 8→5
     weaponRarityWeights: { common: 40, uncommon: 30, rare: 20, epic: 8, legendary: 2 },
     // [tension-batch:power] 清房武器稀有度按层上移（对齐 COMBAT_BALANCE_METHODOLOGY §4.3）：
     // F1 以 common/uncommon 为主 → F3 以 rare+ 为主。缺省档位视为 0（LootTable.pickRarity 归一化）。
@@ -45,8 +47,8 @@ export const ELITE_CLEAR = { chestTier: 'iron', coinMult: 1.5 };
 //   新增「宝藏房遗物三选一祭坛」每层保底 1 个遗物（3 层共 +3 保底），叠加 Boss 保底宝箱（+3），
 //   期望获取数从 ~10 拉回目标带 6-8（算式见 docs/feature/DUNGEON_RUN_TENSION_BATCH.md 交付报告）。
 export const CHEST_TIERS = {
-    wood: { needsKey: false, coins: [3, 8], relicChance: 0.08, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },
-    iron: { needsKey: true, coins: [6, 14], relicChance: 0.12, rarityWeights: { common: 15, uncommon: 45, rare: 30, epic: 9, legendary: 1 } },
+    wood: { needsKey: false, coins: [2, 5], relicChance: 0.08, rarityWeights: { common: 55, uncommon: 30, rare: 12, epic: 3, legendary: 0 } },
+    iron: { needsKey: true, coins: [5, 10], relicChance: 0.12, rarityWeights: { common: 15, uncommon: 45, rare: 30, epic: 9, legendary: 1 } },
     mithril: { needsKey: true, coins: [10, 20], relicChance: 0.24, petChance: 0.06, rarityWeights: { common: 0, uncommon: 20, rare: 45, epic: 28, legendary: 7 } },
     dragon: { needsKey: true, coins: [15, 30], relicChance: 0.32, petChance: 0.10, rarityWeights: { common: 0, uncommon: 0, rare: 30, epic: 45, legendary: 25 } },
 };

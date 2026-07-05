@@ -173,8 +173,10 @@ export class SlotMachine {
     /** 依据奖励类型产出掉落 / 触发爆炸，并设置结果横幅文案。 */
     _enactReward(reward, worldSystem) {
         if (!reward || !worldSystem) return;
-        const cx = this.centerX;
-        const dropY = this.y + this.height - 2; // 柜体正前方落物
+        // 掉落点推到柜体正前方 40px 外：既不被机身碰撞挡住拾取路径，
+        // 也脱离老虎机 50px 交互半径（用户反馈：掉落物与机身判定重叠无法拾取）
+        const cx = this.centerX + (Math.random() - 0.5) * 16;
+        const dropY = this.y + this.height + 40;
         const topY = this.y + 8;
 
         switch (reward.kind) {

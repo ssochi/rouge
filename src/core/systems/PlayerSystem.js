@@ -26,6 +26,49 @@ export class PlayerSystem {
         if (this.handSystem && this.handSystem.bindInstanceSync) {
             this.handSystem.bindInstanceSync((payload) => this.syncEquippedWeaponInstance(payload));
         }
+        // 弹尽销毁：最后一发打出且备弹为零时，销毁当前枪并自动切到下一把武器
+        if (this.handSystem && this.handSystem.bindOutOfAmmo) {
+            this.handSystem.bindOutOfAmmo(() => this.onWeaponDepleted());
+        }
+    }
+
+    /**
+     * 当前武器弹药彻底耗尽：从背包移除该枪，播放损毁反馈，自动切换到下一个武器槽。
+     * 近战/无限弹武器不会触发（HandSystem 侧已过滤）。
+     */
+    onWeaponDepleted() {
+        const inv = this.inventorySystem;
+        if (!inv) return;
+        const idx = inv.getSelectedSlotIndex();
+        const slot = inv.getSelectedSlot();
+        if (!slot || !slot.itemId) return;
+        const def = inv.getItemDef(slot.itemId);
+        if (!def || def.type !== 'weapon') return;
+
+        inv.remove(idx, slot.count);
+        this.handSystem?.soundSystem?.play('ui_click');
+        // 损毁碎屑
+        for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            this.particles.push({
+                x: this.player.x, y: this.player.y - 4,
+                vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2 - 0.8,
+                life: 18, color: '#9aa4b0', size: 2, friction: 0.9
+            });
+        }
+        // 环扫快捷栏找下一把武器（找不到武器就保持当前空槽）
+        const hotbarSize = Math.min(inv.slots.length, 9);
+        for (let off = 1; off <= hotbarSize; off++) {
+            const j = (idx + off) % hotbarSize;
+            const s = inv.slots[j];
+            if (s && s.itemId) {
+                const d = inv.getItemDef(s.itemId);
+                if (d && d.type === 'weapon') {
+                    inv.selectHotbarSlot(j);
+                    break;
+                }
+            }
+        }
     }
 
     syncEquippedWeaponInstance(payload) {
@@ -45,9 +88,9 @@ export class PlayerSystem {
                 this.tryEnterPortal() ||
                 this.tryBuyShopItem() ||
                 this.tryOpenChest() ||
-                this.tryUseSlotMachine() || // [depth-batch:gamble]
                 this.tryUseRelicAltar() || // [tension-batch:power]
-                this.tryPickupWeapon() ||
+                this.tryPickupWeapon() || // 拾取优先于老虎机：奖品落在机旁时 E 先捡奖品而不是再抽一次
+                this.tryUseSlotMachine() || // [depth-batch:gamble]
                 this.tryInteractWithObject();
             // 无世界交互目标时，E 键回退为「使用当前选中的消耗品」。
             // 这样移动端「交互」按钮（映射 keys.e）与桌面 E 键都能吃血瓶/道具；
