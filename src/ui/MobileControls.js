@@ -15,6 +15,7 @@
 
 const STICK_MAX = 52;        // 左摇杆最大位移半径（px）
 const MOVE_DEADZONE = 0.16;  // 左摇杆移动死区（占最大半径比例）
+const DRIVE_THRESHOLD = 0.35; // 驾驶态摇杆分量→WASD 置位阈值（每轴独立，支持斜推=油门+转向）
 const AIM_FALLBACK_RANGE = 450; // 无相机信息时的自动瞄准半径（世界像素）
 
 export class MobileControls {
@@ -437,11 +438,26 @@ export class MobileControls {
     update(player, enemies) {
         const p = player || this.player;
 
-        // 移动向量
+        // 移动向量（步行态由 PlayerSystem 消费；驾驶态不消费）
         if (this.leftTouchId !== null && (this.leftVec.x !== 0 || this.leftVec.y !== 0)) {
             this.input.moveVector = { x: this.leftVec.x, y: this.leftVec.y };
         } else {
             this.input.moveVector = null;
+        }
+
+        // 驾驶态：把左摇杆向量翻译成 WASD，让载具（读 input.keys：W油门/S倒车/A左转/D右转）随摇杆开动。
+        // 走路态清零 WASD，避免驾驶时置位的键泄漏到步行（步行走 moveVector，keys 仅作后备）。
+        if (p.state === 'driving') {
+            const v = this.leftVec;
+            this.input.keys.w = v.y < -DRIVE_THRESHOLD;
+            this.input.keys.s = v.y > DRIVE_THRESHOLD;
+            this.input.keys.a = v.x < -DRIVE_THRESHOLD;
+            this.input.keys.d = v.x > DRIVE_THRESHOLD;
+        } else {
+            this.input.keys.w = false;
+            this.input.keys.s = false;
+            this.input.keys.a = false;
+            this.input.keys.d = false;
         }
 
         // 自动辅助瞄准：每帧瞄向最近存活敌人（贴身跟踪，不预判）
