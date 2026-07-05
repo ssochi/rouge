@@ -23,12 +23,31 @@ describe('FloorConfigs', () => {
         }
     });
 
-    it('枪兵重定位：F1 roleMap.r 不含 hunter（下放精英位），hunter 仍在 F1 e', () => {
-        const f1 = FLOOR_CONFIGS[1];
-        expect(f1.roleMap.r).not.toContain('hunter');
-        expect(f1.roleMap.e).toContain('hunter'); // 保留于精英保底位
+    it('枪兵出常规池：全楼层 depthTiers/roleMap 无 hunter/soldier，仅精英房/Boss 护卫限量', () => {
+        for (const floor of [1, 2, 3]) {
+            const c = FLOOR_CONFIGS[floor];
+            for (const tier of Object.values(c.depthTiers)) {
+                expect(Object.keys(tier.weights)).not.toContain('hunter');
+                expect(Object.keys(tier.weights)).not.toContain('soldier');
+            }
+            for (const role of Object.values(c.roleMap)) {
+                expect(role).not.toContain('hunter');
+                expect(role).not.toContain('soldier');
+            }
+            // 精英编成中枪兵限量 ≤1 只/条目
+            for (const t of c.eliteSquad.types) {
+                if (t.type === 'hunter' || t.type === 'soldier') {
+                    expect(t.count).toBeLessThanOrEqual(1);
+                }
+            }
+        }
         // 新增弹幕妖已入 F1 远程位
-        expect(f1.roleMap.r).toContain('spinner');
+        expect(FLOOR_CONFIGS[1].roleMap.r).toContain('spinner');
+    });
+
+    it('人潮基调：各档位出怪数量下限不低于人潮标准（F1 shallow ≥8）', () => {
+        expect(FLOOR_CONFIGS[1].depthTiers.shallow.countMin).toBeGreaterThanOrEqual(8);
+        expect(FLOOR_CONFIGS[3].depthTiers.deep.countMax).toBeGreaterThanOrEqual(14);
     });
 
     it('难度缩放随楼层单调递增', () => {

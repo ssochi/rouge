@@ -401,6 +401,9 @@ export class PlayerSystem {
         const startState = this.player.state;
         const effectiveSpeed = this.getEffectivePlayerSpeed();
 
+        // 受击无敌帧递减（takeDamage 置 40）
+        if (this.player.invulnTimer > 0) this.player.invulnTimer--;
+
         this._updatePitFall();
 
         // M12: Grapple movement — pull player toward target
@@ -518,7 +521,12 @@ export class PlayerSystem {
         const p = this.player;
         if (p.state === 'roll' || p.state === 'driving') return;
 
+        if (this._pitCooldown > 0) this._pitCooldown--;
+
         if (ws.isPitAt(p.x, p.y + 12)) {
+            // 坑免疫窗口：刚被拉回时不再重复触发（防止击退把玩家连续顶回坑里连帧扣血）
+            if (this._pitCooldown > 0) return;
+            this._pitCooldown = 30;
             if (p.takeDamage) p.takeDamage(10, null);
             for (let i = 0; i < 8; i++) {
                 const a = (i / 8) * Math.PI * 2;
@@ -533,12 +541,21 @@ export class PlayerSystem {
                     friction: 0.88
                 });
             }
-            if (this._lastSafePos) {
-                p.x = this._lastSafePos.x;
-                p.y = this._lastSafePos.y;
+            // 拉回远端安全采样点（15 帧前的位置，离坑沿有余量），并清零击退避免二次坠坑
+            const safe = this._safePosFar || this._lastSafePos;
+            if (safe) {
+                p.x = safe.x;
+                p.y = safe.y;
+                p.knockbackX = 0;
+                p.knockbackY = 0;
             }
         } else {
             this._lastSafePos = { x: p.x, y: p.y };
+            // 双采样：远端安全点每 15 帧更新一次，保证拉回位置不贴坑沿
+            this._safePosTick = (this._safePosTick || 0) + 1;
+            if (!this._safePosFar || this._safePosTick % 15 === 0) {
+                this._safePosFar = { x: p.x, y: p.y };
+            }
         }
     }
 

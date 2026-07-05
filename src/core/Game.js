@@ -76,6 +76,7 @@ export class Game {
             rollSpeed: 8,
             hp: 100,
             maxHp: 100,
+            invulnTimer: 0, // 受击无敌帧剩余帧数（takeDamage 置 40，PlayerSystem 递减，Renderer 闪烁）
             angle: 0,
             state: 'idle',
             rollDuration: 0,
@@ -103,6 +104,9 @@ export class Game {
         
         this.player.takeDamage = (amount, knockback) => {
             if (this.player.state === 'roll' || this.player.state === 'driving') return;
+            // 受击无敌帧：0.66s 内免疫后续伤害（本类型标配；否则速射敌/坑连帧扣血会瞬秒）
+            if (this.player.invulnTimer > 0) return;
+            this.player.invulnTimer = 40;
             // 遗物减伤/护罩抵挡（石肤护符、能量护罩）：返回实际扣血量
             const dealt = this.relicSystem ? this.relicSystem.mitigateDamage(amount) : amount;
             this.player.hp -= dealt;

@@ -555,7 +555,12 @@ export class Renderer {
                 draw: () => {
                     this.ctx.save();
                     this.ctx.translate(this.player.x, this.player.y);
-                    
+
+                    // 受击无敌帧闪烁：每 8 帧半透明一次（提示玩家当前免伤窗口）
+                    if (this.player.invulnTimer > 0 && Math.floor(this.player.invulnTimer / 4) % 2 === 0) {
+                        this.ctx.globalAlpha = 0.45;
+                    }
+
                     this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
                     this.ctx.beginPath();
                     this.ctx.ellipse(0, 14, 10, 4, 0, 0, Math.PI*2);
