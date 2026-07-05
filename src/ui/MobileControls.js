@@ -64,11 +64,17 @@ export class MobileControls {
         /* 金币/钥匙 HUD 移到左上角（让出右侧给动作按钮），行改为左对齐 */
         #dungeon-hud { top: 92px !important; left: 10px !important; right: auto !important; }
         #dungeon-hud > div { justify-content: flex-start !important; max-width: 150px; }
-        /* 弹窗面板（快捷栏菜单/背包）在小屏可能超高：限高 + 内部竖向滚动，
-           保证内容可触达。touch-action:pan-y + 桥的滚动让位配合使用。 */
-        .shortcut-menu-window, .inventory-window {
+        /* 快捷栏菜单在小屏可能超高：限高 + 内部竖向滚动（配合桥的滚动让位）。 */
+        .shortcut-menu-window {
             max-height: 92vh; overflow-y: auto; overflow-x: hidden;
             touch-action: pan-y; -webkit-overflow-scrolling: touch;
+        }
+        /* 背包窗是固定多列布局（原生 ~751×502，高由 12 行背包格决定）。HUD.css 的 max-height:80vh
+           会把窗压矮、使内容溢出错乱；解除限高让窗容纳全部内容，再整体缩放适配视口。
+           popIn 动画会动 transform 与本缩放打架，移动端关掉。 */
+        .inventory-window {
+            max-height: none !important; animation: none !important;
+            transform: scale(0.68); transform-origin: center center;
         }
         /* 键位说明子面板：小屏限高使整窗不溢出视口；BACK 键 sticky 常驻底部保证可触达。 */
         .keybind-list { max-height: 46vh !important; touch-action: pan-y; }
