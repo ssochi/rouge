@@ -2,7 +2,7 @@
 // 所有掉落/奖励相关的数值均在此定义，供 P6 数值调优时统一调整。
 
 // 敌人死亡掉落金币基准值（按敌人类型），default 为兜底值。
-export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, /* [depth-batch:enemies] loot_goblin 死亡金币由实体 getDungeonCoinValue 覆盖 */ loot_goblin: 2, burrower: 5, arc_twin: 3, revenant: 4, default: 2, boss: 50 };
+export const ENEMY_COIN_VALUES = { zombie: 2, zombie_female: 2, zombie_brute: 5, hunter: 4, soldier: 5, warlock: 6, boomer: 3, summoner: 6, shieldbearer: 5, sentry: 5, lobber: 5, wraith: 2, archer: 4, hellhound: 3, flail_warden: 6, plague_rat: 1, cultist: 5, gargoyle: 5, spinner: 5, weeper: 5, splitter: 6, /* [depth-batch:enemies] loot_goblin 死亡金币由实体 getDungeonCoinValue 覆盖 */ loot_goblin: 2, burrower: 5, arc_twin: 3, revenant: 4, /* [horde:enemies] 炮灰1/唤潮5/弹幕4 */ shambler: 1, bone_piper: 5, rain_archer: 4, default: 2, boss: 50 };
 
 // 可破坏物掉落金币：触发概率 + 数量区间（仅地牢场景生效）。
 export const BREAKABLE_COIN = { chance: 0.3, min: 1, max: 3 };

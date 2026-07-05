@@ -227,6 +227,38 @@ export class Renderer {
             });
         });
 
+        // [horde:enemies] 延迟 AoE 预警圈（雨幕射手箭雨）：画在地面层（实体之下），
+        // 仅在危害最后 warnFrames 帧显示——红圈随倒计时收缩逼近 + 脉冲，落箭前给出躲避窗口。
+        if (this.worldSystem && this.worldSystem.groundHazards && this.worldSystem.groundHazards.length > 0) {
+            const ctxH = this.ctx;
+            for (const h of this.worldSystem.groundHazards) {
+                if (h.timer > h.warnFrames) continue; // 抛射滞空段不显示
+                if (!this._isWorldRectVisible(h.x - h.radius, h.y - h.radius, h.radius * 2, h.radius * 2, 32)) continue;
+                const prog = 1 - h.timer / h.warnFrames; // 0→1 逼近落点
+                const pulse = 0.5 + 0.5 * Math.sin(prog * Math.PI * 8);
+                ctxH.save();
+                // 外圈（收缩指示落点将至）
+                ctxH.globalAlpha = 0.4 + prog * 0.45;
+                ctxH.strokeStyle = h.color || '#ff5040';
+                ctxH.lineWidth = prog > 0.75 ? 2 : 1;
+                ctxH.beginPath();
+                ctxH.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+                ctxH.stroke();
+                // 内圈（随倒计时向落点收拢）
+                ctxH.globalAlpha = 0.35 + prog * 0.4;
+                ctxH.beginPath();
+                ctxH.arc(h.x, h.y, h.radius * (1 - prog * 0.7), 0, Math.PI * 2);
+                ctxH.stroke();
+                // 底色填充微光（临近落点转亮）
+                ctxH.globalAlpha = (0.06 + prog * 0.16) * (0.7 + pulse * 0.3);
+                ctxH.fillStyle = h.color || '#ff5040';
+                ctxH.beginPath();
+                ctxH.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+                ctxH.fill();
+                ctxH.restore();
+            }
+        }
+
         // Draw dungeon energy barrier gates
         if (this.worldSystem && this.worldSystem.dungeonManager) {
             const dm = this.worldSystem.dungeonManager;

@@ -68,13 +68,13 @@ describe('F1 监狱层模板', () => {
         }
     });
 
-    it('波次结构：波1 热身 3-5、波2 不弱于波1', () => {
+    it('波次结构：波1 开局 3-8（人潮化）、波2 不弱于波1', () => {
         for (const t of F1_PRISON_TEMPLATES) {
             const parsed = parseEncounter(t);
             const w0 = parsed.spawns.filter(s => s.wave === 0).length;
             const w1 = parsed.spawns.filter(s => s.wave === 1).length;
             expect(w0, `${t.id} 波1`).toBeGreaterThanOrEqual(3);
-            expect(w0, `${t.id} 波1 上限`).toBeLessThanOrEqual(5);
+            expect(w0, `${t.id} 波1 上限`).toBeLessThanOrEqual(8);
             if (w1 > 0) expect(w1, `${t.id} 波2`).toBeGreaterThanOrEqual(w0);
         }
     });

@@ -328,6 +328,38 @@ export const SfxData = {
             { wave: 'sine', freq: 60, env: { attack: 0, sustainLevel: 1, release: 0 }, gain: 0.3 },
         ],
     },
+
+    // ───────────────────── Boss：变异巨兽 [horde:boss] ─────────────────────
+    // 怒吼：低频喉音上扬 + 失真嘶吼 + 气息噪，用于 P1 环形弹幕前摇与 P2 转阶段
+    boss_roar: {
+        duration: 0.9, gain: 0.9, priority: 5,
+        layers: [
+            { wave: 'sine', freq: 70, freqEnd: 110, glide: 'exp', env: { attack: 0.02, decay: 0.5, release: 0.2 }, drive: 2.0, gain: 1.0 },
+            { wave: 'saw', freq: 150, freqEnd: 90, glide: 'lin', env: { attack: 0.03, decay: 0.45, release: 0.18 }, drive: 1.8, gain: 0.7 },
+            { type: 'noise', filter: { type: 'lowpass', freq: 800, freqEnd: 300, q: 0.9, glide: 'lin' }, env: { attack: 0.02, decay: 0.5, release: 0.15 }, drive: 1.5, gain: 0.6 },
+            { wave: 'triangle', freq: 320, freqEnd: 260, glide: 'exp', env: { attack: 0.03, decay: 0.3, release: 0.1 }, gain: 0.35 },
+        ],
+    },
+    // 落石预警：碎石研磨短促 tick + 低频闷响，红圈出现时提示玩家闪避
+    boss_rockfall_warn: {
+        duration: 0.3, gain: 0.7, priority: 4,
+        layers: [
+            { type: 'noise', filter: { type: 'bandpass', freq: 1800, freqEnd: 800, q: 1.4, glide: 'lin' }, env: { attack: 0.002, decay: 0.14, release: 0.06 }, drive: 1.4, gain: 1.0 },
+            { wave: 'sine', freq: 220, freqEnd: 110, glide: 'exp', env: { attack: 0.002, decay: 0.12, release: 0.05 }, gain: 0.6 },
+            { type: 'noise', filter: { type: 'highpass', freq: 3200, q: 0.7 }, env: { attack: 0, decay: 0.03, release: 0.02 }, gain: 0.35 },
+        ],
+    },
+    // 狂暴：P3 转阶段的加长失真嘶吼（比 boss_roar 更凶更亮），配屏幕震动
+    boss_enrage: {
+        duration: 1.1, gain: 0.95, priority: 6,
+        layers: [
+            { wave: 'sine', freq: 60, freqEnd: 100, glide: 'exp', env: { attack: 0.02, decay: 0.6, release: 0.25 }, drive: 2.5, gain: 1.0 },
+            { wave: 'saw', freq: 120, freqEnd: 200, glide: 'lin', env: { attack: 0.04, decay: 0.55, release: 0.22 }, drive: 2.2, gain: 0.75 },
+            { type: 'noise', filter: { type: 'lowpass', freq: 600, freqEnd: 1600, q: 0.9, glide: 'lin' }, env: { attack: 0.03, decay: 0.6, release: 0.2 }, drive: 1.8, gain: 0.6 },
+            { type: 'noise', filter: { type: 'highpass', freq: 3000, q: 0.7 }, env: { attack: 0.01, decay: 0.2, release: 0.08 }, gain: 0.4 },
+            { wave: 'triangle', freq: 240, freqEnd: 300, glide: 'exp', env: { attack: 0.03, decay: 0.35, release: 0.12 }, gain: 0.35 },
+        ],
+    },
 };
 
 /** 敌人 spawnType → 死亡音效类别（粗分肉/机械/幽体三类，默认肉）。 */

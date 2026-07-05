@@ -69,13 +69,14 @@ describe('EncounterTemplates', () => {
 
             const parsed = parseEncounter(template);
             expect(parsed.spawns.length, '出怪点').toBeGreaterThanOrEqual(3);
-            expect(parsed.spawns.length, '出怪点上限').toBeLessThanOrEqual(12);
+            // 人潮基调：单房出怪上限放宽（波次顺序刷新，同屏峰值≈单波量，仍可控）
+            expect(parsed.spawns.length, '出怪点上限').toBeLessThanOrEqual(18);
 
-            // 波次结构：波1 热身（3-5 只）、波2 上强度（数量不少于波1）
+            // 波次结构：波1 开局（人潮化后 3-8 只）、波2 上强度（数量不少于波1）
             const wave0 = parsed.spawns.filter(s => s.wave === 0);
             const wave1 = parsed.spawns.filter(s => s.wave === 1);
-            expect(wave0.length, `${template.id} 波1 热身量`).toBeGreaterThanOrEqual(3);
-            expect(wave0.length, `${template.id} 波1 上限`).toBeLessThanOrEqual(5);
+            expect(wave0.length, `${template.id} 波1 量`).toBeGreaterThanOrEqual(3);
+            expect(wave0.length, `${template.id} 波1 上限`).toBeLessThanOrEqual(8);
             if (wave1.length > 0) {
                 expect(wave1.length, `${template.id} 波2 强度`).toBeGreaterThanOrEqual(wave0.length);
             }
@@ -83,10 +84,16 @@ describe('EncounterTemplates', () => {
             const { reachable, totalOpen } = assertConnected(parsed, template.rows);
             expect(reachable, `${template.id} 封死区域`).toBe(totalOpen);
 
-            // 掩体保底：含远程/重装威胁的模板必须给玩家 ≥2 个掩体
+            // 掩体提标（人潮基调）：含远程/弹幕（r/h，任一波次）威胁的模板必须给玩家
+            // ≥4 个掩体，且分散布置——不全挤在同一行、也不全挤在同一列，
+            // 以保证房间两侧都有可用依托（防"四个掩体挤一角"）。
             const hasRanged = parsed.spawns.some(s => s.role === 'r' || s.role === 'h');
             if (hasRanged) {
-                expect(parsed.covers.length, `${template.id} 掩体保底`).toBeGreaterThanOrEqual(2);
+                expect(parsed.covers.length, `${template.id} 掩体保底`).toBeGreaterThanOrEqual(4);
+                const coverRows = new Set(parsed.covers.map(c => c.y));
+                const coverCols = new Set(parsed.covers.map(c => c.x));
+                expect(coverRows.size, `${template.id} 掩体不全在同一行`).toBeGreaterThan(1);
+                expect(coverCols.size, `${template.id} 掩体不全在同一列`).toBeGreaterThan(1);
             }
 
             // 坑约束：出怪点/掩体/道具不得压在坑上

@@ -730,6 +730,15 @@ export class DungeonManager {
     }
 
     /**
+     * [horde:enemies] 仅应用楼层缩放、不计入任何房间清除判定的生成登记。
+     * 用于骨笛吹手唤起的 shambler：作为人潮补充存在，不占房间出怪配额（杀光配额怪即可清房）。
+     */
+    scaleUncountedSpawn(enemy) {
+        if (!enemy) return;
+        this._applyFloorScaling(enemy, getFloorConfig(this.currentFloor));
+    }
+
+    /**
      * 楼层数值缩放（FloorConfigs）：HP 与接触伤害直接乘算，
      * 弹幕/武器伤害经 enemy.damageMult 乘区（CombatSystem 消费）。
      * 同时赋首发延迟（锁门后给玩家 ~0.75s 反应窗口，EnemyWeaponController 消费）。

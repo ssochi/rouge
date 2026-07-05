@@ -19,9 +19,9 @@ export const FLOOR_CONFIGS = {
         eliteAffixCount: [1, 1],
         // [depth-batch:enemies] loot_goblin 三层低权重惊喜怪(0.5)；revenant F1 仅 deep 入池
         depthTiers: {
-            shallow: { countMin: 8, countMax: 10, weights: { wraith: 4, zombie: 2, archer: 3, zombie_female: 2, plague_rat: 2, hellhound: 1.5, loot_goblin: 0.5 , cultist: 1.5 } },
-            mid: { countMin: 10, countMax: 13, weights: { wraith: 3, archer: 3, zombie_female: 2, boomer: 2, zombie_brute: 1.5, lobber: 1, gargoyle: 1.5, cultist: 1.5, loot_goblin: 0.5 , plague_rat: 2.5, spinner: 1.5 } },
-            deep: { countMin: 12, countMax: 15, weights: { wraith: 2, archer: 2.5, zombie_brute: 2, warlock: 1.5, boomer: 1.5, shieldbearer: 1.5, sentry: 1, lobber: 1, spinner: 1, loot_goblin: 0.5, revenant: 2 , plague_rat: 2.5, weeper: 1, cultist: 1.5 } }
+            shallow: { countMin: 8, countMax: 10, weights: { wraith: 4, zombie: 2, archer: 3, zombie_female: 2, plague_rat: 2, hellhound: 1.5, loot_goblin: 0.5 , cultist: 1.5, /* [horde:enemies] */ shambler: 3.5 } },
+            mid: { countMin: 10, countMax: 13, weights: { wraith: 3, archer: 3, zombie_female: 2, boomer: 2, zombie_brute: 1.5, lobber: 1, gargoyle: 1.5, cultist: 1.5, loot_goblin: 0.5 , plague_rat: 2.5, spinner: 1.5, /* [horde:enemies] */ shambler: 3, bone_piper: 1, rain_archer: 1.5 } },
+            deep: { countMin: 12, countMax: 15, weights: { wraith: 2, archer: 2.5, zombie_brute: 2, warlock: 1.5, boomer: 1.5, shieldbearer: 1.5, sentry: 1, lobber: 1, spinner: 1, loot_goblin: 0.5, revenant: 2 , plague_rat: 2.5, weeper: 1, cultist: 1.5, /* [horde:enemies] */ bone_piper: 1, rain_archer: 1.5 } }
         },
         eliteSquad: { types: [{ type: 'zombie_brute', count: 3 }, { type: 'hunter', count: 1 }, { type: 'soldier', count: 1 }] }, // 枪兵=精英限量小Boss
         boss: { types: [{ type: 'mutant_beast', count: 1 }, { type: 'zombie', count: 2 }, { type: 'zombie_female', count: 1 }] },
@@ -43,9 +43,9 @@ export const FLOOR_CONFIGS = {
         // [depth-batch:enemies] revenant 全档入池；burrower/arc_twin 进 mid+deep；loot_goblin 低权重惊喜怪。
         //   arc_twin count 语义：每 1 计数生成一对（2 只），故权重取低（1.0）避免刷屏。
         depthTiers: {
-            shallow: { countMin: 10, countMax: 12, weights: { zombie_female: 3, zombie_brute: 3, boomer: 2, loot_goblin: 0.5, revenant: 2 , wraith: 2.5, plague_rat: 2.5, cultist: 2, spinner: 1.5 } },
-            mid: { countMin: 12, countMax: 15, weights: { zombie_brute: 1.5, warlock: 2, boomer: 1.5, shieldbearer: 2, summoner: 1, lobber: 1.5, sentry: 1, flail_warden: 1.5, gargoyle: 1.5, cultist: 2, spinner: 2, weeper: 1.5, splitter: 1.5, loot_goblin: 0.5, revenant: 2, burrower: 1.5, arc_twin: 1 , zombie_female: 2.5, plague_rat: 2 } },
-            deep: { countMin: 13, countMax: 16, weights: { warlock: 2.5, shieldbearer: 2, summoner: 1.5, lobber: 1.5, sentry: 1.5, flail_warden: 1.5, gargoyle: 1.5, cultist: 2, spinner: 2, weeper: 2, splitter: 1.5, loot_goblin: 0.5, revenant: 2, burrower: 1.5, arc_twin: 1 , zombie_female: 2, wraith: 2, boomer: 1.5 } }
+            shallow: { countMin: 10, countMax: 12, weights: { zombie_female: 3, zombie_brute: 3, boomer: 2, loot_goblin: 0.5, revenant: 2 , wraith: 2.5, plague_rat: 2.5, cultist: 2, spinner: 1.5, /* [horde:enemies] */ shambler: 3.5 } },
+            mid: { countMin: 12, countMax: 15, weights: { zombie_brute: 1.5, warlock: 2, boomer: 1.5, shieldbearer: 2, summoner: 1, lobber: 1.5, sentry: 1, flail_warden: 1.5, gargoyle: 1.5, cultist: 2, spinner: 2, weeper: 1.5, splitter: 1.5, loot_goblin: 0.5, revenant: 2, burrower: 1.5, arc_twin: 1 , zombie_female: 2.5, plague_rat: 2, /* [horde:enemies] */ shambler: 3, bone_piper: 1, rain_archer: 1.5 } },
+            deep: { countMin: 13, countMax: 16, weights: { warlock: 2.5, shieldbearer: 2, summoner: 1.5, lobber: 1.5, sentry: 1.5, flail_warden: 1.5, gargoyle: 1.5, cultist: 2, spinner: 2, weeper: 2, splitter: 1.5, loot_goblin: 0.5, revenant: 2, burrower: 1.5, arc_twin: 1 , zombie_female: 2, wraith: 2, boomer: 1.5, /* [horde:enemies] */ bone_piper: 1, rain_archer: 1.5 } }
         },
         // 精英房编成保持不变（精英场合枪兵合理）
         eliteSquad: { types: [{ type: 'shieldbearer', count: 2 }, { type: 'hunter', count: 1 }, { type: 'soldier', count: 1 }] },
@@ -68,9 +68,9 @@ export const FLOOR_CONFIGS = {
         // 用户反馈：soldier 权重减半，各档位加入 spinner/weeper/splitter 弹幕妖
         // [depth-batch:enemies] loot_goblin 全档惊喜怪；burrower/arc_twin 进 mid+deep（arc_twin 每计数=一对）
         depthTiers: {
-            shallow: { countMin: 11, countMax: 13, weights: { zombie_brute: 3, boomer: 2.5, spinner: 2, weeper: 1.5, splitter: 1.5, loot_goblin: 0.5 , zombie_female: 2.5, wraith: 2.5, plague_rat: 2.5, cultist: 2 } },
-            mid: { countMin: 13, countMax: 16, weights: { zombie_brute: 1.5, warlock: 2.5, boomer: 2, shieldbearer: 2, summoner: 1.5, lobber: 2, sentry: 1.5, flail_warden: 2, gargoyle: 2, spinner: 2, weeper: 2, splitter: 1.5, loot_goblin: 0.5, burrower: 1.5, arc_twin: 1 , zombie_female: 2, plague_rat: 2, cultist: 2 } },
-            deep: { countMin: 14, countMax: 18, weights: { warlock: 3, shieldbearer: 2.5, summoner: 2, lobber: 2, sentry: 2, flail_warden: 2, gargoyle: 2, spinner: 2, weeper: 2, splitter: 2, loot_goblin: 0.5, burrower: 1.5, arc_twin: 1 , zombie_female: 2, wraith: 2, cultist: 2 } }
+            shallow: { countMin: 11, countMax: 13, weights: { zombie_brute: 3, boomer: 2.5, spinner: 2, weeper: 1.5, splitter: 1.5, loot_goblin: 0.5 , zombie_female: 2.5, wraith: 2.5, plague_rat: 2.5, cultist: 2, /* [horde:enemies] */ shambler: 3.5 } },
+            mid: { countMin: 13, countMax: 16, weights: { zombie_brute: 1.5, warlock: 2.5, boomer: 2, shieldbearer: 2, summoner: 1.5, lobber: 2, sentry: 1.5, flail_warden: 2, gargoyle: 2, spinner: 2, weeper: 2, splitter: 1.5, loot_goblin: 0.5, burrower: 1.5, arc_twin: 1 , zombie_female: 2, plague_rat: 2, cultist: 2, /* [horde:enemies] */ shambler: 3, bone_piper: 1, rain_archer: 1.5 } },
+            deep: { countMin: 14, countMax: 18, weights: { warlock: 3, shieldbearer: 2.5, summoner: 2, lobber: 2, sentry: 2, flail_warden: 2, gargoyle: 2, spinner: 2, weeper: 2, splitter: 2, loot_goblin: 0.5, burrower: 1.5, arc_twin: 1 , zombie_female: 2, wraith: 2, cultist: 2, /* [horde:enemies] */ bone_piper: 1, rain_archer: 1.5 } }
         },
         // 精英房编成保持不变
         eliteSquad: { types: [{ type: 'shieldbearer', count: 2 }, { type: 'warlock', count: 2 }, { type: 'soldier', count: 1 }] },

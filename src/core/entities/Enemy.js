@@ -29,6 +29,11 @@ export class Enemy {
         
         // Flash effect
         this.hitFlashTimer = 0;
+
+        // [horde:enemies] 骨笛加速光环：附近敌人限时提速（timer 由 BonePiper 每帧刷新，
+        // mult 为固定覆写值→多 piper 不叠乘；timer 归零后自然消退，getEffectiveSpeed 消费）
+        this.speedAuraTimer = 0;
+        this.speedAuraMult = 1;
         
         // HP Bar Timer (Show for 2 seconds after hit)
         this.hpBarTimer = 0;
@@ -76,13 +81,17 @@ export class Enemy {
 
         if (this.hitFlashTimer > 0) this.hitFlashTimer--;
         if (this.hpBarTimer > 0) this.hpBarTimer--;
+        if (this.speedAuraTimer > 0) this.speedAuraTimer--; // [horde:enemies] 骨笛光环续期递减
         this.animationTimer++;
     }
 
     getEffectiveSpeed() {
         if (this.frozenTimer > 0) return 0;
-        if (this.slowTimer > 0) return this.speed * Math.max(0, 1 - (this.slowAmount || 0));
-        return this.speed;
+        let s = this.speed;
+        if (this.slowTimer > 0) s *= Math.max(0, 1 - (this.slowAmount || 0));
+        // [horde:enemies] 骨笛加速光环（固定倍率、限时；减速时仍按乘算，保持二者可叠加的直觉）
+        if (this.speedAuraTimer > 0) s *= (this.speedAuraMult || 1);
+        return s;
     }
 
     takeDamage(amount, knockback) {

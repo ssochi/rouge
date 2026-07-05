@@ -28,6 +28,10 @@ import { LootGoblin } from '../entities/LootGoblin.js';
 import { Burrower } from '../entities/Burrower.js';
 import { ArcTwin } from '../entities/ArcTwin.js';
 import { Revenant } from '../entities/Revenant.js';
+// [horde:enemies] 人潮基调新敌人 ×3（炮灰/唤潮支援/间接弹幕）
+import { Shambler } from '../entities/Shambler.js';
+import { BonePiper } from '../entities/BonePiper.js';
+import { RainArcher } from '../entities/RainArcher.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { setFlankGroupCount } from '../entities/behaviors/FlankingBias.js'; // [tension-batch:ai] 包抄偏置群体计数
 import { DungeonPickup } from '../entities/DungeonPickup.js';
@@ -112,6 +116,8 @@ export class WorldSystem {
         this.slotMachines = [];
         // [tension-batch:power] 遗物三选一祭坛（宝藏房固定 1 座，仅地牢内生成，loadMap 时清空）
         this.relicAltars = [];
+        // [horde:enemies] 延迟 AoE 地面危害（雨幕射手箭雨等）：预警圈 → 落点 AoE，独立于施法者结算
+        this.groundHazards = [];
         // Floor tile system
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -189,6 +195,7 @@ export class WorldSystem {
         this.merchants.length = 0;
         this.slotMachines.length = 0; // [depth-batch:gamble]
         this.relicAltars.length = 0; // [tension-batch:power]
+        this.groundHazards.length = 0; // [horde:enemies] 切图清空延迟 AoE
         if (this.vehicles) this.vehicles.length = 0;
         this.floorMap = null;
         this.floorMapWidth = 0;
@@ -848,6 +855,82 @@ export class WorldSystem {
         this.updateShopItems();
         this.updateSlotMachines(); // [depth-batch:gamble]
         this.updateRelicAltars(); // [tension-batch:power]
+        this.updateGroundHazards(); // [horde:enemies] 延迟 AoE 结算（雨幕射手箭雨）
+    }
+
+    /**
+     * [horde:enemies] 登记一个延迟 AoE 危害（雨幕射手抛射箭雨等）。
+     * 计时说明：timer 从 delay 递减，进入最后 warnFrames 帧显示预警红圈（Renderer 绘制），
+     * 归零时对范围内玩家结算一次伤害 + 落点特效。脱离施法者存在，射手中途死亡仍会落下。
+     * @param {{x:number,y:number,radius:number,delay:number,warnFrames:number,damage:number,knockback?:number,color?:string}} opts
+     */
+    spawnDelayedAoe(opts) {
+        if (!opts) return null;
+        const hazard = {
+            x: opts.x,
+            y: opts.y,
+            radius: opts.radius || 36,
+            timer: Math.max(1, Math.round(opts.delay || 60)),
+            warnFrames: Math.max(1, Math.round(opts.warnFrames || 48)),
+            damage: opts.damage || 0,
+            knockback: Number.isFinite(opts.knockback) ? opts.knockback : 3,
+            color: opts.color || '#ff5040'
+        };
+        this.groundHazards.push(hazard);
+        return hazard;
+    }
+
+    /**
+     * [horde:enemies] 更新全部延迟 AoE：倒计时 → 落点结算（仅伤玩家）→ 移除。
+     * 预警圈仅在最后 warnFrames 帧可见（Renderer 消费 groundHazards 绘制）。
+     */
+    updateGroundHazards() {
+        const list = this.groundHazards;
+        if (list.length === 0) return;
+        for (let i = list.length - 1; i >= 0; i--) {
+            const h = list[i];
+            h.timer--;
+            if (h.timer <= 0) {
+                this._resolveGroundHazard(h);
+                list.splice(i, 1);
+            }
+        }
+    }
+
+    /** 落点结算：范围内玩家受伤 + 落箭/尘土特效。 */
+    _resolveGroundHazard(h) {
+        const p = this.player;
+        if (p && p.state !== 'roll' && p.state !== 'driving') {
+            const dx = p.x - h.x;
+            const dy = p.y - h.y;
+            if (dx * dx + dy * dy < h.radius * h.radius && p.takeDamage) {
+                const a = Math.atan2(dy, dx);
+                p.takeDamage(h.damage, {
+                    x: Math.cos(a) * h.knockback,
+                    y: Math.sin(a) * h.knockback
+                });
+            }
+        }
+        // 落点特效：冲击环 + 溅尘（复用粒子池）
+        const particles = this.combatSystem && this.combatSystem.particles;
+        if (particles) {
+            particles.push({ type: 'shockwave', x: h.x, y: h.y, size: 6, maxSize: h.radius * 1.1, color: h.color, alpha: 0.7, life: 14 });
+            for (let k = 0; k < 6; k++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 1.5 + 0.4;
+                particles.push({
+                    x: h.x, y: h.y,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd - 0.6,
+                    life: 14 + Math.random() * 8,
+                    color: Math.random() > 0.5 ? '#8a7048' : '#b0a89e',
+                    size: Math.random() * 2 + 1,
+                    gravity: 0.14,
+                    friction: 0.95
+                });
+            }
+        }
+        this.soundSystem?.play?.('explosion', { x: h.x, y: h.y, volume: 0.35 });
     }
 
     /**
@@ -1269,6 +1352,10 @@ export class WorldSystem {
         if (type === 'burrower') return new Burrower(x, y);
         if (type === 'arc_twin') return new ArcTwin(x, y);
         if (type === 'revenant') return new Revenant(x, y);
+        // [horde:enemies] 人潮基调新敌人 ×3
+        if (type === 'shambler') return new Shambler(x, y);
+        if (type === 'bone_piper') return new BonePiper(x, y);
+        if (type === 'rain_archer') return new RainArcher(x, y);
         return new Zombie(x, y);
     }
 

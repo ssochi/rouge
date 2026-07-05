@@ -63,6 +63,16 @@ import { LOOT_GOBLIN_ATTACK_FRAMES } from '../assets/characters/enemies/loot_gob
 import { BURROWER_IDLE_FRAMES } from '../assets/characters/enemies/burrower/BurrowerIdle.js';
 import { BURROWER_RUN_FRAMES } from '../assets/characters/enemies/burrower/BurrowerRun.js';
 import { BURROWER_ATTACK_FRAMES } from '../assets/characters/enemies/burrower/BurrowerAttack.js';
+// [horde:enemies] 人潮基调新敌人 ×3 帧
+import { SHAMBLER_IDLE_FRAMES } from '../assets/characters/enemies/shambler/ShamblerIdle.js';
+import { SHAMBLER_RUN_FRAMES } from '../assets/characters/enemies/shambler/ShamblerRun.js';
+import { SHAMBLER_ATTACK_FRAMES } from '../assets/characters/enemies/shambler/ShamblerAttack.js';
+import { BONE_PIPER_IDLE_FRAMES } from '../assets/characters/enemies/bone_piper/BonePiperIdle.js';
+import { BONE_PIPER_RUN_FRAMES } from '../assets/characters/enemies/bone_piper/BonePiperRun.js';
+import { BONE_PIPER_ATTACK_FRAMES } from '../assets/characters/enemies/bone_piper/BonePiperAttack.js';
+import { RAIN_ARCHER_IDLE_FRAMES } from '../assets/characters/enemies/rain_archer/RainArcherIdle.js';
+import { RAIN_ARCHER_RUN_FRAMES } from '../assets/characters/enemies/rain_archer/RainArcherRun.js';
+import { RAIN_ARCHER_ATTACK_FRAMES } from '../assets/characters/enemies/rain_archer/RainArcherAttack.js';
 import { ARC_TWIN_IDLE_FRAMES, ARC_TWIN_IDLE_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinIdle.js';
 import { ARC_TWIN_RUN_FRAMES, ARC_TWIN_RUN_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinRun.js';
 import { ARC_TWIN_ATTACK_FRAMES, ARC_TWIN_ATTACK_FRAMES_PURPLE } from '../assets/characters/enemies/arc_twin/ArcTwinAttack.js';
@@ -531,6 +541,22 @@ export const Assets = {
         idle: BURROWER_IDLE_FRAMES,
         run: BURROWER_RUN_FRAMES,
         attack: BURROWER_ATTACK_FRAMES
+    },
+    // [horde:enemies] 人潮基调新敌人 ×3 帧注册
+    shambler: {
+        idle: SHAMBLER_IDLE_FRAMES,
+        run: SHAMBLER_RUN_FRAMES,
+        attack: SHAMBLER_ATTACK_FRAMES
+    },
+    bonePiper: {
+        idle: BONE_PIPER_IDLE_FRAMES,
+        run: BONE_PIPER_RUN_FRAMES,
+        attack: BONE_PIPER_ATTACK_FRAMES
+    },
+    rainArcher: {
+        idle: RAIN_ARCHER_IDLE_FRAMES,
+        run: RAIN_ARCHER_RUN_FRAMES,
+        attack: RAIN_ARCHER_ATTACK_FRAMES
     },
     arcTwin: {
         blue: { idle: ARC_TWIN_IDLE_FRAMES, run: ARC_TWIN_RUN_FRAMES, attack: ARC_TWIN_ATTACK_FRAMES },
