@@ -595,6 +595,17 @@ export class PlayerSystem {
                 }
             }
         }
+
+        // 滚轮循环切换快捷栏（无需打开背包）
+        if (this.input.wheelDelta !== 0) {
+            const dir = Math.sign(this.input.wheelDelta);
+            this.input.wheelDelta = 0;
+            const current = this.inventorySystem.getSelectedSlotIndex();
+            const next = (current + dir + 9) % 9;
+            if (this.inventorySystem.selectHotbarSlot(next)) {
+                this.updateEquippedItem();
+            }
+        }
     }
 
     updatePlayerAimAndAction() {

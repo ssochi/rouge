@@ -26,6 +26,8 @@ export class InputHandler {
             worldY: 0,
             down: false
         };
+        // 滚轮累积量（Game.update 每帧消费后清零；用于快捷栏滚轮切换）
+        this.wheelDelta = 0;
         this.canvas = canvas;
 
         this._initListeners();
@@ -56,6 +58,12 @@ export class InputHandler {
 
         this.canvas.addEventListener('mousedown', () => this.mouse.down = true);
         this.canvas.addEventListener('mouseup', () => this.mouse.down = false);
+
+        // 滚轮：快捷栏切换（阻止页面滚动）
+        this.canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            this.wheelDelta += Math.sign(e.deltaY);
+        }, { passive: false });
     }
 
     updateWorldMouse(cameraX, cameraY) {
