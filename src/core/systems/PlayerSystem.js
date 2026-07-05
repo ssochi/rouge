@@ -40,20 +40,34 @@ export class PlayerSystem {
         if (keys.e && !this.player.ePressed) {
             this.player.ePressed = true;
             // Interaction Priority: Vehicle > Portal > Shop > Chest > Item > Object(Door)
-            if (!this.tryEnterVehicle()) {
-                if (!this.tryEnterPortal()) {
-                    if (!this.tryBuyShopItem()) {
-                        if (!this.tryOpenChest()) {
-                            if (!this.tryPickupWeapon()) {
-                                this.tryInteractWithObject();
-                            }
-                        }
-                    }
-                }
+            const interacted =
+                this.tryEnterVehicle() ||
+                this.tryEnterPortal() ||
+                this.tryBuyShopItem() ||
+                this.tryOpenChest() ||
+                this.tryPickupWeapon() ||
+                this.tryInteractWithObject();
+            // 无世界交互目标时，E 键回退为「使用当前选中的消耗品」。
+            // 这样移动端「交互」按钮（映射 keys.e）与桌面 E 键都能吃血瓶/道具；
+            // 桌面左键使用消耗品的原路径不受影响。
+            if (!interacted) {
+                this.tryUseSelectedConsumable();
             }
         } else if (!keys.e) {
             this.player.ePressed = false;
         }
+    }
+
+    /**
+     * 使用当前快捷栏选中的消耗品（若为消耗品）。供 E/交互 键在无世界交互目标时回退调用。
+     */
+    tryUseSelectedConsumable() {
+        if (!this.inventorySystem) return false;
+        const item = this.inventorySystem.getSelectedItem();
+        if (item && item.itemId && item.def?.type === 'consumable') {
+            return this.useSelectedConsumable(item);
+        }
+        return false;
     }
     
     tryEnterVehicle() {
