@@ -13,6 +13,8 @@ import { Summoner } from '../entities/Summoner.js';
 import { Shieldbearer } from '../entities/Shieldbearer.js';
 import { Sentry } from '../entities/Sentry.js';
 import { Lobber } from '../entities/Lobber.js';
+import { Wraith } from '../entities/Wraith.js';
+import { Archer } from '../entities/Archer.js';
 import { DroppedItem } from '../entities/DroppedItem.js';
 import { DungeonPickup } from '../entities/DungeonPickup.js';
 import { Chest } from '../entities/Chest.js';
@@ -1122,6 +1124,8 @@ export class WorldSystem {
         if (type === 'shieldbearer') return new Shieldbearer(x, y);
         if (type === 'sentry') return new Sentry(x, y);
         if (type === 'lobber') return new Lobber(x, y);
+        if (type === 'wraith') return new Wraith(x, y);
+        if (type === 'archer') return new Archer(x, y);
         return new Zombie(x, y);
     }
 

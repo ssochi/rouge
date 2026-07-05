@@ -23,6 +23,12 @@ import { SHIELDBEARER_ATTACK_FRAMES } from '../assets/characters/enemies/shieldb
 import { SENTRY_IDLE_FRAMES } from '../assets/characters/enemies/sentry/SentryIdle.js';
 import { SENTRY_ATTACK_FRAMES } from '../assets/characters/enemies/sentry/SentryAttack.js';
 import { LOBBER_IDLE_FRAMES } from '../assets/characters/enemies/lobber/LobberIdle.js';
+import { WRAITH_IDLE_FRAMES } from '../assets/characters/enemies/wraith/WraithIdle.js';
+import { WRAITH_RUN_FRAMES } from '../assets/characters/enemies/wraith/WraithRun.js';
+import { WRAITH_ATTACK_FRAMES } from '../assets/characters/enemies/wraith/WraithAttack.js';
+import { ARCHER_IDLE_FRAMES } from '../assets/characters/enemies/archer/ArcherIdle.js';
+import { ARCHER_RUN_FRAMES } from '../assets/characters/enemies/archer/ArcherRun.js';
+import { ARCHER_ATTACK_FRAMES } from '../assets/characters/enemies/archer/ArcherAttack.js';
 import { LOBBER_RUN_FRAMES } from '../assets/characters/enemies/lobber/LobberRun.js';
 import { LOBBER_ATTACK_FRAMES } from '../assets/characters/enemies/lobber/LobberAttack.js';
 import { RIFLE_SPRITE } from '../assets/weapons/RifleGenerator.js';
@@ -349,6 +355,16 @@ export const Assets = {
         idle: LOBBER_IDLE_FRAMES,
         run: LOBBER_RUN_FRAMES,
         attack: LOBBER_ATTACK_FRAMES
+    },
+    wraith: {
+        idle: WRAITH_IDLE_FRAMES,
+        run: WRAITH_RUN_FRAMES,
+        attack: WRAITH_ATTACK_FRAMES
+    },
+    archer: {
+        idle: ARCHER_IDLE_FRAMES,
+        run: ARCHER_RUN_FRAMES,
+        attack: ARCHER_ATTACK_FRAMES
     },
     zombieFemale: {
         idle: ZOMBIE_FEMALE_IDLE_FRAMES,
