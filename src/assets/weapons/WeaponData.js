@@ -64,7 +64,7 @@ export const WEAPONS = {
         magazineSize: 12,
         maxReserve: 60,
         reloadTime: 1500,
-        infiniteAmmo: true, // 起始手枪无限子弹：地牢内保底输出手段，永不打空
+        infiniteAmmo: true, // 起始手枪备弹无限（保底输出手段）；弹匣 12 发照常消耗、打空需换弹
         rarity: 'common'
     },
     rocket_launcher: {

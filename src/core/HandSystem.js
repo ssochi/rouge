@@ -94,15 +94,12 @@ export class HandSystem {
     canShoot() {
         if (this.currentWeapon && this.currentWeapon.isMelee) return false;
         if (this.isReloading) return false;
-        // 无限子弹武器：忽略弹药数，始终可射（仍受 fireRate 限制）
-        if (this.currentWeapon && this.currentWeapon.infiniteAmmo) return true;
+        // infiniteAmmo = 备弹无限：弹匣照常消耗、打空仍需换弹
         const state = this.getWeaponState();
         return state && state.currentAmmo > 0;
     }
 
     consumeAmmo() {
-        // 无限子弹武器：不消耗弹药
-        if (this.currentWeapon && this.currentWeapon.infiniteAmmo) return;
         const state = this.getWeaponState();
         if (state && state.currentAmmo > 0) {
             state.currentAmmo--;
@@ -112,14 +109,14 @@ export class HandSystem {
 
     startReload() {
         if (this.isReloading) return;
-        
+
         const state = this.getWeaponState();
         if (!state) return;
 
         // Check if full
         if (state.currentAmmo >= state.maxAmmo) return;
-        // Check if has reserve
-        if (state.reserveAmmo <= 0) return;
+        // Check if has reserve（无限备弹武器不受备弹限制）
+        if (state.reserveAmmo <= 0 && !(this.currentWeapon && this.currentWeapon.infiniteAmmo)) return;
 
         this.isReloading = true;
         this.reloadDuration = this.currentWeapon.reloadTime || 1000;
@@ -160,9 +157,14 @@ export class HandSystem {
         const state = this.getWeaponState();
         if (state) {
             const needed = state.maxAmmo - state.currentAmmo;
-            const available = Math.min(needed, state.reserveAmmo);
-            state.currentAmmo += available;
-            state.reserveAmmo -= available;
+            if (this.currentWeapon && this.currentWeapon.infiniteAmmo) {
+                // 无限备弹：弹匣直接补满，不扣备弹
+                state.currentAmmo += needed;
+            } else {
+                const available = Math.min(needed, state.reserveAmmo);
+                state.currentAmmo += available;
+                state.reserveAmmo -= available;
+            }
             this._commitCurrentWeaponState();
         }
     }

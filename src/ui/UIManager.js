@@ -1032,7 +1032,8 @@ export class UIManager {
         if (weapon.isMelee) {
             this.ammoText.innerText = "MELEE";
         } else if (weapon.infiniteAmmo) {
-            this.ammoText.innerText = "∞";
+            // 无限备弹：弹匣照常显示，备弹显示 ∞
+            this.ammoText.innerText = `${weaponState ? weaponState.currentAmmo : '-'} / ∞`;
         } else if (weaponState) {
             this.ammoText.innerText = `${weaponState.currentAmmo} / ${weaponState.reserveAmmo}`;
         } else {
