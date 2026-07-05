@@ -417,10 +417,17 @@ export class PlayerSystem {
 
         let dx = 0;
         let dy = 0;
-        if (keys.w) dy -= 1;
-        if (keys.s) dy += 1;
-        if (keys.a) dx -= 1;
-        if (keys.d) dx += 1;
+        // 移动端：虚拟摇杆向量优先于 WASD（最小侵入的一处方向源替换）。
+        const mv = this.input.moveVector;
+        if (mv && (mv.x !== 0 || mv.y !== 0)) {
+            dx = mv.x;
+            dy = mv.y;
+        } else {
+            if (keys.w) dy -= 1;
+            if (keys.s) dy += 1;
+            if (keys.a) dx -= 1;
+            if (keys.d) dx += 1;
+        }
 
         const isMoving = dx !== 0 || dy !== 0;
 
@@ -614,6 +621,9 @@ export class PlayerSystem {
                 pet = new Pet2B(spawnX, spawnY);
             }
             if (pet && this.pets) {
+                // 注入 worldSystem 引用，供宠物独特技能读取 droppedItems/pickups/enemies。
+                // WorldSystem 为跨楼层稳定单例（数组原地清空复用），引用持续有效。
+                pet.worldSystem = this.worldSystem;
                 this.pets.push(pet);
                 // Summon VFX
                 for (let i = 0; i < 10; i++) {

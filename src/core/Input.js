@@ -26,6 +26,9 @@ export class InputHandler {
             worldY: 0,
             down: false
         };
+        // 移动端虚拟摇杆输出的归一化移动向量 {x, y}；桌面/无触摸时为 null。
+        // PlayerSystem.updatePlayerMovement 优先消费它替代 WASD 键盘方向。
+        this.moveVector = null;
         // 滚轮累积量（Game.update 每帧消费后清零；用于快捷栏滚轮切换）
         this.wheelDelta = 0;
         this.canvas = canvas;

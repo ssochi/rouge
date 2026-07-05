@@ -20,15 +20,19 @@ import { LightSystem } from './lighting/LightSystem.js';
 import { getMapProfile } from './maps/MapProfiles.js';
 import { DungeonRunState } from './dungeon/DungeonRunState.js';
 import { RelicSystem } from './dungeon/RelicSystem.js';
+import { MobileControls, isMobileMode } from '../ui/MobileControls.js';
 
 export class Game {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         
+        // 移动端检测：真实触摸设备或 ?mobile=1。移动模式用更小缩放以扩大视野。
+        this.isMobile = isMobileMode();
+
         // Fullscreen and Scaling
         // Increased from 1.5 to 2.5 (approx 1.5x larger) for better visibility
-        this.scale = 2.5;
+        this.scale = this.isMobile ? 2 : 2.5;
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
@@ -426,6 +430,17 @@ export class Game {
         const cell = this.navGrid.getCell(this.player.x, this.player.y);
         this.flowPlayerCellX = cell.x;
         this.flowPlayerCellY = cell.y;
+
+        // 移动端触摸操作层（双摇杆 + 动作按钮 + 竖屏遮罩 + 触屏 UI 桥）。
+        // 仅移动模式实例化，桌面路径零改动零开销。
+        this.mobileControls = this.isMobile
+            ? new MobileControls({
+                input: this.input,
+                player: this.player,
+                camera: this.camera,
+                canvas: this.canvas
+            })
+            : null;
     }
 
     resize() {
@@ -566,6 +581,8 @@ export class Game {
         const scaledMouseY = this.input.mouse.y / this.scale;
         this.input.mouse.worldX = scaledMouseX + this.camera.x;
         this.input.mouse.worldY = scaledMouseY + this.camera.y;
+        // 移动端：摇杆覆写移动向量/瞄准世界坐标/开火，须在相机换算之后、瞄准消费之前。
+        if (this.mobileControls) this.mobileControls.update(this.player);
         this.profiler.end('Camera');
 
         // --- Hand & Melee ---

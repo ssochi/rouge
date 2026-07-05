@@ -215,8 +215,11 @@
 - 楼层系统：F1 Boss 清除 → 绿色"FLOOR 2"传送门 → `dungeon_f2` → F2 Boss 清除 → 橙色"FLOOR 3"传送门 → `dungeon_f3` → F3 Boss 清除 → 金色"VICTORY"传送门回 Hub（`DungeonManager._onBossCleared` 按 `FINAL_FLOOR` 泛化）。层间推进钩子 `WorldSystem._dungeonFloorFromMapType` 从地图类型解析楼层并更新 `runState.floor`，种子保持不变（每层种子 = seed + floor）。
 - **敌人配置（P4，`src/core/dungeon/FloorConfigs.js` 数据驱动）**：每层定义深度分档敌人池（shallow ≤2/mid ≤4/deep 5+，权重比例分配数量）、精英预算（eliteChance/eliteAffixCount）、精英小队、Boss 编成与数值缩放（hpMult/dmgMult：F1 ×1.0/F2 ×1.3/F3 ×1.6）。缩放在 `DungeonManager._applyFloorScaling` 应用：HP/接触伤害直接乘算，弹幕与武器伤害经 `enemy.damageMult` 乘区（`spawnEnemyBullet`/`_pushWeaponProjectiles` 按 owner 消费）。
 - Boss 楼层顺序：F1 变异巨兽（近战教学）→ F2 机械巨蛇（机动压迫，P4 正式接入）→ F3 机械魔偶（弹幕终战）。
-- **行为组件层（P4，`src/core/entities/behaviors/`）**：`ChaseBehavior`/`KiteBehavior`（距离带三态+带内漂移）/`StrafeBehavior`/`RangedPatternBehavior`（fan/ring/aimed_burst 弹幕库，数据配置驱动 `spawnEnemyBullet`）/`SummonBehavior`（前摇+批量+上限，onSummon 回调）/`TelegraphedChargeBehavior`（预警线→冲锋→硬直）。组件经 ctx 注入实体 update 依赖，新敌人 = 数值 + 组件组合；现有敌人不强制迁移。
+- **行为组件层（P4，`src/core/entities/behaviors/`）**：`ChaseBehavior`/`KiteBehavior`（距离带三态+带内漂移）/`StrafeBehavior`/`RangedPatternBehavior`（fan/ring/aimed_burst/spiral/wave_volley/split_shot/wall 弹幕库，数据配置驱动 `spawnEnemyBullet`）/`SummonBehavior`（前摇+批量+上限，onSummon 回调）/`TelegraphedChargeBehavior`（预警线→冲锋→硬直）。组件经 ctx 注入实体 update 依赖，新敌人 = 数值 + 组件组合；现有敌人不强制迁移。
+  - **弹幕模式扩展（参考挺进地牢）**：`spiral` 螺旋连发（起始朝玩家、逐发角度 +stepRad）、`wave_volley` 波浪齐射（带 wave 字段的蛇形弹）、`split_shot` 分裂大弹（飞行 splitAfter 帧后环形裂弹）、`wall` 弹墙（垂直瞄准方向一字排开平行弹、随机留缺口）。配套 `CombatSystem.spawnEnemyBullet` 新增可选运动字段并透传，`BulletSystem` 在子弹位移处实现：**wave 波浪弹**（`waveAmplitude/waveFrequency/waveAge` + 单位基向量 `waveBaseVX/VY`，沿垂直方向逐帧叠加正弦增量）、**split 分裂弹**（`splitAfter/splitCount/splitDamage/splitSpeed`，计时到点消失并环形迸发继承 owner 的普通敌弹）。两者仅对携带字段的子弹生效，对普通弹零开销；与玩家武器既有 M4/M5 字段以独立字段名隔离。
 - **6 种地牢专属新敌人（P4）**：弹幕法师 Warlock（Kite+环形/扇形弹幕+受击积伤闪现）、自爆蜂 Boomer（高速逼近+引信红闪自爆，可提前引爆殉爆减半，可链爆）、召唤师 Summoner（Kite+周期召唤上限 4，召唤物入房间清除判定）、盾卫 Shieldbearer（慢速推进+正面 ±60° 塔盾减伤 90%，判定基于子弹击退向量夹角）、哨戒炮 Sentry（固定点蓄力→持续弹流→冷却，免疫击退）、投弹手 Lobber（Kite+抛物线榴弹落点红圈预警，越掩体）。美术全部走 Generator→Idle16/Run12/Attack8 管线（Sentry 机械体免 Run）。
+- **3 种弹幕妖新敌人**：焰旋妖 Spinner（HP24/速0.8，悬浮火焰陀螺，Kite150-260 + `spiral` 螺旋扫射弹幕，径向对称无翻转、开火高速旋转，金币5）、怨眼 Weeper（HP18/速0.7，漂浮哭泣巨眼，Kite180-300 + `wave_volley` 幽蓝波浪泪弹，眼睑开合+泪痕+触须帘，金币5）、裂弹僧 Splitter（HP26/速0.85，抱爆裂法典的僧侣，Kite190-300 + `split_shot` 大弹裂成 8 颗小弹，书页翻飞+裂弹球自法典升起，金币6）。均走 Generator→Idle16/Run12/Attack8 管线，接入 `WorldSystem._createEnemyByType`、`Assets`、`EconomyConfig.ENEMY_COIN_VALUES` 与 `FloorConfigs`（F1 deep/roleMap.r 加 spinner；F2 mid/deep 与 F3 各档位加三妖权重 1.5~2，roleMap.r 按层加入）。
+- **枪兵重定位（用户反馈：手枪猎人/随机武器士兵偏强）**：`FloorConfigs` 中 F1 `roleMap.r` 移除 hunter（改由 archer/cultist/spinner 顶位）、hunter 下放至 `roleMap.e` 精英位；F2 `roleMap.r` 移除 hunter、深度池 hunter/soldier 权重减半；F3 深度池 soldier 权重减半；精英房 `eliteSquad` 编成保持不变。`DungeonManager._spawnEncounterWave` 新增每房枪兵限额（`capGunUsers` 工具函数）：同房 hunter+soldier 合计生成 ≤2 只，超额时从同角色池改抽非枪兵类型（`room._gunUserCount` 跨波累计）。
 - **内容扩充（三 agent 并行批次）**：新敌人 +5（狱火犬=预警线冲锋、链枷狱卒=360° 横扫重装、瘟疫鼠=游走+死亡中毒、炼狱僧侣=慢速大幽焰三连、石像鬼=雕像伪装伏击怪含 dormant 帧）；遗物 +8 至 26 个（血牙冠冕暴击回血/巨人腰带击退+8/荆棘胸甲受击反刺/金羊羔毛金币+25%/冷血怀表波刷新减速/深渊之眼满血敌+50%/迅捷箭袋弹速+30%/白骨护符击杀掉币，新增挂载点 onCritHit/onWaveSpawned/coinValueMult/thornBurst）；遭遇战模板 +8 至 27 个（锅炉房/酒窖/淋浴间/军犬舍/雕像长廊/军官休息室/断桥深渊/处刑场）。
 - **精英词缀系统（P4，`src/core/dungeon/EnemyAffixSystem.js`）**：迅捷（移速×1.4）/坚韧（50% maxHp 护盾+破盾前减伤半）/灼热（近身灼烧+死亡爆燃）/裂魂（死亡 8 向弹幕）/再生（脱战 3s 每秒回 2%）。实例级包装 takeDamage/update，零基类侵入。精英房全员保底 1 词缀，普通房按层 eliteChance；视觉 = 体型 1.15×+词缀色光环+头顶词缀名（Renderer）；掉落金币 ×3 + 30% 钥匙。
 - **BossPhaseController（P4，`src/core/entities/bosses/`）**：相位阈值（单向推进+onEnter）+ 招式池（动态权重/条件/优先级分层）+ per-招式冷却。三 Boss 已迁移（招式执行函数与数值不变）。
@@ -302,3 +305,19 @@
   - `MarioApp.js`: 超级马里奥平台跳跃游戏，完整一关（50 列关卡）。8×8 瓦片、水平滚动摄像机、物理引擎（重力/可变跳高/摩擦）、Goomba 敌人（踩杀）、?块出币/砖块破碎、水管/阶梯/旗杆终点、分数/金币/倒计时 HUD。支持 Arrow + WASD 双键位与移动/跳跃并行输入，含跳跃缓冲与离台容错（coyote time）。
 - **持久化**：PixelOS 实例在 `Game` 构造函数中创建一次，窗口位置、便签内容、终端历史在关闭/重开间保持。
 - **游戏集成**：`Game.js` 中 `isComputerOpen` 为 true 时 `update()` early return，ESC 键或点击遮罩外区域关闭 PixelOS。
+
+## 移动端触摸适配 (MobileControls)
+
+- **模块**：`src/ui/MobileControls.js`。仅在移动模式（`isMobileMode()`：真实触摸设备或 URL 参数 `?mobile=1`）由 `Game` 构造函数实例化，桌面路径零改动零开销；样式在构造时注入 `<style>`。
+- **双虚拟摇杆**（DOM overlay，浮动、半透明像素风，多点触控按 `touch.identifier` 追踪）：
+  - 左摇杆（屏幕左下 42vw 区域任意落指浮现）：输出归一化移动向量到 `InputHandler.moveVector`。
+  - 右摇杆（右下 42vw 区域）：方向合成 `mouse.worldX/worldY`（玩家坐标 + 方向×200），拉杆过死区置 `mouse.down=true` 开火；松手保持最近朝向。
+- **注入点**（三处最小侵入）：
+  - `Input.js`：新增 `this.moveVector = null`。
+  - `PlayerSystem.updatePlayerMovement`：移动方向源处，`input.moveVector` 存在时替代 WASD。
+  - `Game.js`：构造尾部实例化 `mobileControls`；`update()` 相机换算之后、`HandSystem` 消费之前调 `mobileControls.update(player)` 覆写移动/瞄准/开火。
+- **动作按钮组**：右下摇杆上方一排圆形按钮，映射 `input.keys` 布尔按下/抬起 —— 翻滚(space)/交互(e)/换弹(r)/背包(b)。
+- **强制横屏**：竖屏全屏遮罩（`@media (orientation: portrait)` + JS `resize/orientationchange` 双保险），遮罩挂 `document.body`（z-index 9999）覆盖 HUD/快捷栏/背包。
+- **触屏→鼠标事件桥**：`document` 上 `touchstart/move/end` 合成 `MouseEvent`，让背包/衣装等纯 DOM UI（`onmousedown/onmousemove`）在触屏可用；跳过 canvas 与摇杆层，`preventDefault` 抑制浏览器 300ms 合成事件避免双触发。
+- **画面适配**：移动模式 `Game.scale` 用 2（桌面 2.5）扩大视野；`html/body { touch-action:none }` + viewport `maximum-scale=1,user-scalable=no` 阻止页面滚动/缩放。
+- **调试**：`tools/screenshot_mobile.mjs`（puppeteer 移动视口 + 触摸仿真截图，横屏会注入按住触摸以显形浮动摇杆）。
