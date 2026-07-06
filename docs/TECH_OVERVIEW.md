@@ -91,9 +91,10 @@
 4. **伪 3D**: 通过简单的 Y 轴排序 (Z-Sorting) 和墙体顶部/前部颜色区分实现 2.5D 视角。
 
 ### 游戏循环
-- 采用标准的 `requestAnimationFrame` 循环。
+- `requestAnimationFrame` 驱动 + **固定步长（60Hz）逻辑**：全部游戏逻辑按"每帧"语义编写（速度=px/帧、计时=帧数），主循环用时间累加器每满 16.67ms 跑一步 `update()`，保证 120Hz/144Hz 高刷屏上游戏速度与 60Hz 一致。
+- 掉帧时单帧最多补 3 步逻辑（多余流逝时间丢弃，游戏变慢而非死亡螺旋）；`steps === 0` 的纯等待帧跳过 update/draw。
 - `update()`: 由 `Game.js` 编排各系统更新（玩家、战斗、世界）。
-- `draw()`: `Renderer.js` 负责渲染逻辑，依赖 `Camera` 进行坐标转换。
+- `draw()`: `Renderer.js` 负责渲染逻辑，依赖 `Camera` 进行坐标转换（仅在跑过逻辑步的帧执行，渲染率上限即 60fps）。
 
 ### 武器与弹道机制
 - 武器配置统一定义在 `src/assets/weapons/WeaponData.js`，通过 `weaponConfigId` 与背包物品绑定。

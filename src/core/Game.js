@@ -857,15 +857,38 @@ export class Game {
         // 画面停在"已画亮场景但未叠暗色"的那一帧 —— 即用户报告的"变亮然后卡死"。
         // 现在：捕获异常 → 取证 + 顶部错误条 → 继续下一帧；连续 10 帧异常才停机。
         const MAX_ERROR_STREAK = 10;
-        const loop = () => {
+
+        // [fps-fix] 固定步长主循环：逻辑锁定 60Hz，渲染跟随屏幕刷新率。
+        // 全部游戏逻辑按"每帧"语义编写（速度=px/帧、计时=帧数），
+        // 之前 update() 每个 rAF tick 跑一次，120Hz 屏幕上逻辑直接双倍速。
+        // 现在按真实流逝时间累加，每满一个步长跑一步逻辑：
+        // 120Hz → 每两个 rAF 一步；60Hz → 每帧一步；掉帧时单帧多步追赶。
+        const LOGIC_STEP = 1000 / 60;
+        // 卡顿/切后台回来最多补 3 步，多余时间直接丢弃（游戏变慢而非死亡螺旋）。
+        const MAX_CATCH_UP = LOGIC_STEP * 3;
+        let lastTime = performance.now();
+        let accumulator = 0;
+
+        const loop = (now = performance.now()) => {
             if (this._loopHalted) return;
 
+            accumulator += now - lastTime;
+            lastTime = now;
+            if (accumulator > MAX_CATCH_UP) accumulator = MAX_CATCH_UP;
+
             let ok = true;
+            let steps = 0;
             try {
-                this.profiler.beginFrame();
-                this.update();
-                this.draw();
-                this.profiler.endFrame();
+                if (accumulator >= LOGIC_STEP) {
+                    this.profiler.beginFrame();
+                    while (accumulator >= LOGIC_STEP) {
+                        accumulator -= LOGIC_STEP;
+                        steps++;
+                        this.update();
+                    }
+                    this.draw();
+                    this.profiler.endFrame();
+                }
             } catch (err) {
                 ok = false;
                 this._loopErrorStreak++;
@@ -888,8 +911,9 @@ export class Game {
                 showErrorBar(`运行异常(已跳过该帧): ${entry.msg}\n${entry.at}`);
             }
 
-            if (ok) {
-                // 成功渲染一帧即重置连击计数：只惩罚"持续"崩溃，容忍偶发抖动。
+            if (ok && steps > 0) {
+                // 成功跑完逻辑帧才重置连击计数：只惩罚"持续"崩溃，容忍偶发抖动。
+                // steps === 0 的纯等待帧不算成功，避免高刷屏上空帧冲掉崩溃连击。
                 this._loopErrorStreak = 0;
             }
 
