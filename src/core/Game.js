@@ -872,8 +872,16 @@ export class Game {
         const loop = (now = performance.now()) => {
             if (this._loopHalted) return;
 
-            accumulator += now - lastTime;
+            let delta = now - lastTime;
             lastTime = now;
+            // [fps-fix] vsync 抖动吸附：rAF 时间戳有 ±1~2ms 抖动，严格累加会让
+            // 60Hz 屏频繁"差一点攒不够一步"→ 整帧跳过（实测显示 FPS 掉到 ~46）。
+            // 实际间隔接近 k 个步长（±2ms）时按理想值计，60Hz 屏恢复逐帧稳定节奏；
+            // 120Hz 屏间隔 ~8.3ms 与任何 k 步长都差得远，不受吸附影响。
+            for (let k = 1; k <= 3; k++) {
+                if (Math.abs(delta - k * LOGIC_STEP) < 2) { delta = k * LOGIC_STEP; break; }
+            }
+            accumulator += delta;
             if (accumulator > MAX_CATCH_UP) accumulator = MAX_CATCH_UP;
 
             let ok = true;
